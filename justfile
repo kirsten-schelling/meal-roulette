@@ -1,0 +1,47 @@
+# Meal Roulette — task runner. Run `just` to list recipes.
+
+set windows-shell := ["cmd.exe", "/c"]
+
+# list all recipes
+default:
+    @just --list
+
+# start local Postgres (detached)
+db:
+    docker compose up -d
+
+# stop local Postgres
+db-down:
+    docker compose down
+
+# run the API  ->  http://localhost:3000
+api:
+    cargo run -p api
+
+# run the web app  ->  http://localhost:5173
+web:
+    cd web && yarn dev
+
+# run pending migrations (needs sqlx-cli + DATABASE_URL in .env)
+migrate:
+    sqlx migrate run --source crates/api/migrations
+
+# create a reversible migration:  just new-migration add_servings
+new-migration name:
+    sqlx migrate add -r {{name}} --source crates/api/migrations
+
+# format Rust + web
+fmt:
+    cargo fmt
+    cd web && yarn format
+
+# lint: fmt check + clippy (fails on warnings, enforces query_as!) + prettier check
+lint:
+    cargo fmt --check
+    cargo clippy --all-targets -- -D warnings
+    cd web && yarn format:check
+
+# type-check everything without producing binaries
+check:
+    cargo check --workspace
+    cd web && yarn check

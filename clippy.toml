@@ -1,0 +1,12 @@
+# Enforce SQLx compile-time-checked, typed queries only.
+# The query_as! MACRO stays allowed; everything else that skips the
+# compile-time check (or returns anonymous rows) is banned.
+
+disallowed-methods = [
+    { path = "sqlx::query",    reason = "use the query_as! macro (compile-time checked)" },
+    { path = "sqlx::query_as", reason = "use the query_as! macro, not the runtime function" },
+]
+
+disallowed-macros = [
+    { path = "sqlx::query", reason = "always map to a named type with query_as!" },
+]

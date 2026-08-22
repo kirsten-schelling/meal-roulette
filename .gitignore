@@ -1,10 +1,16 @@
-# Rust
-/target/
+# Rust build artifacts (root workspace + web/ Dioxus app)
+target/
 
-# Node / SvelteKit
+# Dioxus / dx build artifacts
+.dioxus/
+/web/dist/
+
+# Reference-only frontend spikes — kept locally, NOT committed
+/web2/
+/web3/
+
+# Node (only inside the ignored spikes; kept as a safety net)
 node_modules/
-.svelte-kit/
-/web/build/
 
 # Environment
 .env
