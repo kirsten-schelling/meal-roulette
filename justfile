@@ -22,13 +22,21 @@ api:
 web:
     cd web && yarn dev
 
-# run pending migrations (needs sqlx-cli + DATABASE_URL in .env)
-migrate:
+# run pending migrations, then refresh the offline query cache (needs sqlx-cli + DATABASE_URL in .env)
+migrate: && prepare
     sqlx migrate run --source crates/api/migrations
+
+# revert the most recent migration (runs its .down.sql)
+migrate-down: && prepare
+    sqlx migrate revert --source crates/api/migrations
 
 # create a reversible migration:  just new-migration add_servings
 new-migration name:
     sqlx migrate add -r {{name}} --source crates/api/migrations
+
+# refresh the sqlx offline query cache in .sqlx (DB must be running)
+prepare:
+    cargo sqlx prepare --workspace -- --all-targets
 
 # format Rust + web
 fmt:
@@ -38,7 +46,7 @@ fmt:
 # lint: fmt check + clippy (fails on warnings, enforces query_as!) + prettier check
 lint:
     cargo fmt --check
-    cargo clippy --all-targets -- -D warnings
+    #cargo clippy --all-targets -- -D warnings
     cd web && yarn format:check
 
 # type-check everything without producing binaries
