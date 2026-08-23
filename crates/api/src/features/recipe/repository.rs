@@ -33,20 +33,20 @@ pub async fn create(pool: &PgPool, new_recipe: NewRecipe) -> Result<Recipe, sqlx
     Ok(recipe)
 }
 
-// pub async fn get(pool: &PgPool, id: Uuid) -> Result<Recipe, sqlx::Error> {
-//     let recipe = sqlx::query_as!(
-//         Recipe,
-//         r#"
-//         SELECT id, title, difficulty, time_mins, created_at, updated_at
-//         FROM recipe
-//         WHERE id = $1
-//         "#,
-//         id,
-//     )
-//     .fetch_one(pool)
-//     .await?;
-//     Ok(recipe)
-// }
+pub async fn get(pool: &PgPool, id: Uuid) -> Result<Recipe, sqlx::Error> {
+    let recipe = sqlx::query_as!(
+        Recipe,
+        r#"
+        SELECT id, title, difficulty, time_mins, created_at, updated_at
+        FROM recipe
+        WHERE id = $1
+        "#,
+        id,
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(recipe)
+}
 
 pub async fn update(
     pool: &PgPool,
@@ -56,11 +56,29 @@ pub async fn update(
     let recipe = sqlx::query_as!(
         Recipe,
         r#"
-        UPDATE recipe SET title = $1, difficulty = $2, time_mins = $3 WHERE id = $4 RETURNING id, title, difficulty, time_mins, created_at, updated_at
+        UPDATE recipe
+        SET title = COALESCE($1, title),
+            difficulty = COALESCE($2, difficulty),
+            time_mins = COALESCE($3, time_mins)
+        WHERE id = $4
+        RETURNING id, title, difficulty, time_mins, created_at, updated_at
         "#,
         update_recipe.title,
         update_recipe.difficulty,
         update_recipe.time_mins,
+        id,
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(recipe)
+}
+
+pub async fn delete(pool: &PgPool, id: Uuid) -> Result<Recipe, sqlx::Error> {
+    let recipe = sqlx::query_as!(
+        Recipe,
+        r#"
+        DELETE FROM recipe WHERE id = $1 RETURNING id, title, difficulty, time_mins, created_at, updated_at
+        "#,
         id,
     )
     .fetch_one(pool)

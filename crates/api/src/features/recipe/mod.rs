@@ -13,6 +13,8 @@ pub fn routes() -> Router<AppState> {
         )
         .route(
             "/recipes/{id}",
-            get(handlers::get_recipes).put(handlers::update_recipe),
+            get(handlers::get_recipe)
+                .put(handlers::update_recipe)
+                .delete(handlers::delete_recipe),
         )
 }
