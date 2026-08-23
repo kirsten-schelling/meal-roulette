@@ -1,0 +1,517 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Meal Roulette — primitive component styles ("Warm" theme)
+
+   You (mostly) never edit this file. The Rust components in
+   src/components/primitives/ apply the `mr-*` classes; the look lives here.
+
+   Structure:
+   • Design tokens (--mr-*) hold every color/size. Components only read tokens.
+   • Light tokens live on :root. Dark tokens are applied when the OS is in dark
+     mode OR an ancestor carries [data-theme="dark"] (so a manual toggle works).
+   • The accent (button/link color) is Green by default; [data-accent="purple"]
+     on an ancestor swaps it — that's how the gallery previews the alternative.
+   ───────────────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TOKENS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --mr-font:         system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mr-font-heading: Georgia, "Times New Roman", serif;
+
+  --mr-bg:         #fbf6ef;   /* warm cream page */
+  --mr-surface:    #fffdf9;   /* cards, fields   */
+  --mr-surface-2:  #f4e9d8;   /* hover / muted fill */
+  --mr-border:     #e7d9c4;
+  --mr-text:       #3b2f2a;
+  --mr-text-muted: #8a7a6d;
+
+  --mr-accent:          #557a2b;  /* olive green */
+  --mr-accent-hover:    #46641f;
+  --mr-accent-contrast: #ffffff;
+
+  --mr-danger:          #b83227;  /* tomato red */
+  --mr-danger-hover:    #922418;
+  --mr-danger-contrast: #ffffff;
+
+  --mr-radius:      14px;
+  --mr-radius-sm:   10px;
+  --mr-radius-pill: 9999px;
+  --mr-shadow:      0 2px 8px rgba(120,80,40,.12);
+  --mr-shadow-lg:   0 14px 36px rgba(80,50,20,.20);
+  --mr-focus:       rgba(85,122,43,.35);
+  --mr-accent-shadow: rgba(85,122,43,.38);   /* colored glow under solid buttons */
+  --mr-danger-shadow: rgba(184,50,39,.34);
+
+  --mr-green-bg:   #dce8c9;  --mr-green-fg:   #3f5320;
+  --mr-amber-bg:   #f6e2bc;  --mr-amber-fg:   #7a4d15;
+  --mr-red-bg:     #f5d5c8;  --mr-red-fg:     #7a2f1e;
+  --mr-neutral-bg: #ece0cf;  --mr-neutral-fg: #5c4a3a;
+
+  /* dropdown chevron — drawn via CSS mask so it takes the muted text color
+     and adapts to dark mode automatically */
+  --mr-chevron: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5 L6 8 L9.5 4.5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+}
+
+/* Dark tokens — shared by system-dark and the manual [data-theme="dark"] flag.
+   [data-theme="light"] wins back light even when the OS is dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --mr-bg:         #211b17;
+    --mr-surface:    #2b2420;
+    --mr-surface-2:  #38302a;
+    --mr-border:     #493e35;
+    --mr-text:       #f0e7dc;
+    --mr-text-muted: #b1a294;
+
+    --mr-accent:          #8cbf4f;
+    --mr-accent-hover:    #7bad42;
+    --mr-accent-contrast: #18220d;
+
+    --mr-danger:          #e0685c;
+    --mr-danger-hover:    #d0574b;
+    --mr-danger-contrast: #241010;
+
+    --mr-shadow:    0 2px 8px rgba(0,0,0,.45);
+    --mr-shadow-lg: 0 14px 36px rgba(0,0,0,.55);
+    --mr-focus:     rgba(140,191,79,.40);
+    --mr-accent-shadow: rgba(0,0,0,.5);
+    --mr-danger-shadow: rgba(0,0,0,.5);
+
+    --mr-green-bg:   #2f3d1c;  --mr-green-fg:   #c3e394;
+    --mr-amber-bg:   #3d2f13;  --mr-amber-fg:   #f0c675;
+    --mr-red-bg:     #3d201b;  --mr-red-fg:     #f2ab9f;
+    --mr-neutral-bg: #38302a;  --mr-neutral-fg: #d8cabb;
+  }
+}
+[data-theme="dark"] {
+  --mr-bg:         #211b17;
+  --mr-surface:    #2b2420;
+  --mr-surface-2:  #38302a;
+  --mr-border:     #493e35;
+  --mr-text:       #f0e7dc;
+  --mr-text-muted: #b1a294;
+
+  --mr-accent:          #8cbf4f;
+  --mr-accent-hover:    #7bad42;
+  --mr-accent-contrast: #18220d;
+
+  --mr-danger:          #e0685c;
+  --mr-danger-hover:    #d0574b;
+  --mr-danger-contrast: #241010;
+
+  --mr-shadow:    0 2px 8px rgba(0,0,0,.45);
+  --mr-shadow-lg: 0 14px 36px rgba(0,0,0,.55);
+  --mr-focus:     rgba(140,191,79,.40);
+  --mr-accent-shadow: rgba(0,0,0,.5);
+  --mr-danger-shadow: rgba(0,0,0,.5);
+
+  --mr-green-bg:   #2f3d1c;  --mr-green-fg:   #c3e394;
+  --mr-amber-bg:   #3d2f13;  --mr-amber-fg:   #f0c675;
+  --mr-red-bg:     #3d201b;  --mr-red-fg:     #f2ab9f;
+  --mr-neutral-bg: #38302a;  --mr-neutral-fg: #d8cabb;
+}
+
+/* Manual light override — re-asserts the light tokens so [data-theme="light"]
+   forces light even when the OS is in dark mode. */
+[data-theme="light"] {
+  --mr-bg:         #fbf6ef;
+  --mr-surface:    #fffdf9;
+  --mr-surface-2:  #f4e9d8;
+  --mr-border:     #e7d9c4;
+  --mr-text:       #3b2f2a;
+  --mr-text-muted: #8a7a6d;
+
+  --mr-accent:          #557a2b;
+  --mr-accent-hover:    #46641f;
+  --mr-accent-contrast: #ffffff;
+
+  --mr-danger:          #b83227;
+  --mr-danger-hover:    #922418;
+  --mr-danger-contrast: #ffffff;
+
+  --mr-shadow:    0 2px 8px rgba(120,80,40,.12);
+  --mr-shadow-lg: 0 14px 36px rgba(80,50,20,.20);
+  --mr-focus:     rgba(85,122,43,.35);
+  --mr-accent-shadow: rgba(85,122,43,.38);
+  --mr-danger-shadow: rgba(184,50,39,.34);
+
+  --mr-green-bg:   #dce8c9;  --mr-green-fg:   #3f5320;
+  --mr-amber-bg:   #f6e2bc;  --mr-amber-fg:   #7a4d15;
+  --mr-red-bg:     #f5d5c8;  --mr-red-fg:     #7a2f1e;
+  --mr-neutral-bg: #ece0cf;  --mr-neutral-fg: #5c4a3a;
+}
+
+/* Accent = Purple (alternative). One definition, tuned to read on both the
+   cream and the dark surfaces. */
+[data-accent="purple"] {
+  --mr-accent:          #935889;
+  --mr-accent-hover:    #7c4874;
+  --mr-accent-contrast: #ffffff;
+  --mr-focus:           rgba(147,88,137,.35);
+  --mr-accent-shadow:   rgba(147,88,137,.36);
+}
+
+/* A "scope" establishes base font/color/background for its subtree. */
+.mr-scope {
+  font-family: var(--mr-font);
+  color: var(--mr-text);
+  background: var(--mr-bg);
+}
+.mr-scope h1, .mr-scope h2, .mr-scope h3 { font-family: var(--mr-font-heading); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-h1 { font-family: var(--mr-font-heading); font-size: 1.7rem;  font-weight: 700; line-height: 1.2; margin: 0; color: var(--mr-text); }
+.mr-h2 { font-family: var(--mr-font-heading); font-size: 1.3rem;  font-weight: 700; line-height: 1.25; margin: 0; color: var(--mr-text); }
+.mr-h3 { font-family: var(--mr-font-heading); font-size: 1.08rem; font-weight: 700; line-height: 1.3; margin: 0; color: var(--mr-text); }
+.mr-text { font-size: .95rem; line-height: 1.55; margin: 0; color: var(--mr-text); }
+.mr-text--muted { color: var(--mr-text-muted); }
+.mr-text--sm { font-size: .82rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BUTTON
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+  font: inherit; font-weight: 600; line-height: 1; white-space: nowrap;
+  cursor: pointer; border: 1px solid transparent;
+  border-radius: var(--mr-radius-sm); padding: .6rem 1rem;
+  transition: background .15s, border-color .15s, box-shadow .15s, transform .12s, opacity .15s;
+}
+.mr-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+.mr-btn:disabled { opacity: .55; cursor: not-allowed; }
+.mr-btn:active:not(:disabled) { transform: translateY(1px); }
+
+/* solid — colored elevation + a faint top sheen (gradient + inset highlight),
+   lifts on hover, presses in (inner shadow) on click.
+   Note: hover changes background-COLOR only, so the gradient sheen survives. */
+.mr-btn--solid {
+  background-color: var(--mr-accent);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 55%);
+  color: var(--mr-accent-contrast);
+  box-shadow: 0 2px 6px -1px var(--mr-accent-shadow), 0 1px 2px rgba(0,0,0,.10),
+              inset 0 1px 0 rgba(255,255,255,.24);
+}
+.mr-btn--solid:hover:not(:disabled) {
+  background-color: var(--mr-accent-hover); transform: translateY(-1px);
+  box-shadow: 0 6px 16px -3px var(--mr-accent-shadow), 0 2px 5px rgba(0,0,0,.12),
+              inset 0 1px 0 rgba(255,255,255,.24);
+}
+.mr-btn--solid:active:not(:disabled) {
+  box-shadow: 0 1px 2px rgba(0,0,0,.14), inset 0 2px 4px rgba(0,0,0,.18);
+}
+
+.mr-btn--danger {
+  background-color: var(--mr-danger);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 55%);
+  color: var(--mr-danger-contrast);
+  box-shadow: 0 2px 6px -1px var(--mr-danger-shadow), 0 1px 2px rgba(0,0,0,.10),
+              inset 0 1px 0 rgba(255,255,255,.24);
+}
+.mr-btn--danger:hover:not(:disabled) {
+  background-color: var(--mr-danger-hover); transform: translateY(-1px);
+  box-shadow: 0 6px 16px -3px var(--mr-danger-shadow), 0 2px 5px rgba(0,0,0,.12),
+              inset 0 1px 0 rgba(255,255,255,.24);
+}
+.mr-btn--danger:active:not(:disabled) {
+  box-shadow: 0 1px 2px rgba(0,0,0,.14), inset 0 2px 4px rgba(0,0,0,.18);
+}
+
+/* outline — quieter, but still lifts a hair so it feels tactile */
+.mr-btn--outline {
+  background: var(--mr-surface); color: var(--mr-accent); border-color: var(--mr-border);
+  box-shadow: var(--mr-shadow);
+}
+.mr-btn--outline:hover:not(:disabled) {
+  background: var(--mr-surface-2); transform: translateY(-1px);
+  box-shadow: 0 5px 14px -3px rgba(60,40,20,.18);
+}
+
+/* ghost — the flat one, on purpose (menus, tertiary actions) */
+.mr-btn--ghost { background: transparent; color: var(--mr-text); }
+.mr-btn--ghost:hover:not(:disabled) { background: var(--mr-surface-2); }
+
+.mr-btn--sm { padding: .4rem .7rem;  font-size: .85rem; }
+.mr-btn--lg { padding: .8rem 1.3rem; font-size: 1.05rem; }
+.mr-btn--full { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FIELDS — Input & Select. Softened: full radius + a gentle shadow so they
+   "float" off the surface rather than reading as hard boxes.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-field { display: flex; flex-direction: column; gap: .35rem; }
+.mr-label { font-size: .85rem; font-weight: 600; color: var(--mr-text); }
+
+.mr-input {
+  font: inherit; color: var(--mr-text); background: var(--mr-surface);
+  border: 1px solid var(--mr-border); border-radius: var(--mr-radius);
+  padding: .6rem .8rem; width: 100%; box-shadow: var(--mr-shadow);
+  transition: border-color .15s, box-shadow .15s;
+}
+.mr-input::placeholder { color: var(--mr-text-muted); }
+.mr-input:focus {
+  outline: none; border-color: var(--mr-accent);
+  box-shadow: var(--mr-shadow), 0 0 0 3px var(--mr-focus);
+}
+.mr-field--error .mr-input { border-color: var(--mr-danger); }
+.mr-field__error { font-size: .8rem; color: var(--mr-danger); }
+
+/* Custom select — a styled trigger + our own popup, so the open list matches
+   the rest of the primitives (a native <select>'s dropdown can't be styled). */
+.mr-sel { position: relative; }
+.mr-sel__trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  width: 100%; font: inherit; text-align: left; cursor: pointer;
+  color: var(--mr-text); background: var(--mr-surface);
+  border: 1px solid var(--mr-border); border-radius: var(--mr-radius);
+  padding: .6rem .8rem; box-shadow: var(--mr-shadow);
+  transition: border-color .15s, box-shadow .15s;
+}
+.mr-sel__trigger:hover { border-color: var(--mr-text-muted); }
+.mr-sel__trigger:focus-visible {
+  outline: none; border-color: var(--mr-accent);
+  box-shadow: var(--mr-shadow), 0 0 0 3px var(--mr-focus);
+}
+.mr-sel__trigger--placeholder { color: var(--mr-text-muted); }
+.mr-sel__chevron {
+  flex: none; width: .72rem; height: .72rem; background-color: var(--mr-text-muted);
+  -webkit-mask: var(--mr-chevron) center / contain no-repeat;
+          mask: var(--mr-chevron) center / contain no-repeat;
+  transition: transform .15s;
+}
+.mr-sel__chevron--open { transform: rotate(180deg); }
+.mr-sel__backdrop { position: fixed; inset: 0; z-index: 40; }
+.mr-sel__popup {
+  position: absolute; z-index: 41; top: calc(100% + .4rem); left: 0; right: 0;
+  background: var(--mr-surface); border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius); box-shadow: var(--mr-shadow-lg);
+  padding: .35rem; max-height: 15rem; overflow: hidden;
+  display: flex; flex-direction: column;
+  animation: mr-pop .12s ease-out;
+}
+@keyframes mr-pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* sticky search box; the option list below it scrolls */
+.mr-sel__search { flex: none; margin-bottom: .35rem; }
+.mr-sel__search .mr-input { box-shadow: none; padding: .45rem .6rem; }
+.mr-sel__list { overflow-y: auto; min-height: 0; }
+.mr-sel__empty { padding: .55rem .6rem; color: var(--mr-text-muted); font-size: .88rem; }
+@media (prefers-reduced-motion: reduce) { .mr-sel__popup { animation: none; } }
+
+/* Searchable field-as-search: the trigger field itself becomes the focused
+   search box on click. The popup below holds only the (filtered) option list. */
+.mr-selb { position: relative; }
+.mr-selb__field { padding-right: 2.3rem; cursor: pointer; }
+.mr-selb__field--placeholder { color: var(--mr-text-muted); }
+.mr-selb__chev {
+  position: absolute; right: .9rem; top: calc(50% - .36rem);
+  width: .72rem; height: .72rem; pointer-events: none;   /* clicks fall through to the field */
+  background-color: var(--mr-text-muted);
+  -webkit-mask: var(--mr-chevron) center / contain no-repeat;
+          mask: var(--mr-chevron) center / contain no-repeat;
+  transition: transform .15s;
+}
+.mr-selb--open .mr-selb__chev { transform: rotate(180deg); z-index: 43; }
+/* while open, lift the field above the click-away backdrop so it stays usable */
+.mr-selb--open .mr-selb__field { position: relative; z-index: 42; }
+.mr-selb__backdrop { position: fixed; inset: 0; z-index: 40; }
+.mr-selb__popup {
+  position: absolute; z-index: 43; top: calc(100% + .4rem); left: 0; right: 0;
+  background: var(--mr-surface); border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius); box-shadow: var(--mr-shadow-lg);
+  padding: .35rem; max-height: 15rem; overflow: hidden;
+  display: flex; flex-direction: column; animation: mr-pop .12s ease-out;
+}
+@media (prefers-reduced-motion: reduce) { .mr-selb__popup { animation: none; } }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SCROLLBAR — low-profile, applied across the app; also a .mr-scroll utility.
+   Color derives from the muted-text token via color-mix, so it adapts to
+   light/dark automatically without extra variables.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-scope, .mr-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--mr-text-muted) 42%, transparent) transparent;
+}
+.mr-scope ::-webkit-scrollbar, .mr-scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+.mr-scope ::-webkit-scrollbar-track, .mr-scroll::-webkit-scrollbar-track { background: transparent; }
+.mr-scope ::-webkit-scrollbar-thumb, .mr-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--mr-text-muted) 42%, transparent);
+  border-radius: 9999px; border: 2px solid transparent; background-clip: padding-box;
+}
+.mr-scope ::-webkit-scrollbar-thumb:hover, .mr-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--mr-text-muted) 62%, transparent); background-clip: padding-box;
+}
+.mr-sel__opt {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  padding: .5rem .6rem; border-radius: var(--mr-radius-sm); cursor: pointer;
+  font-size: .92rem; color: var(--mr-text);
+}
+.mr-sel__opt:hover { background: var(--mr-surface-2); }
+.mr-sel__opt--active { color: var(--mr-accent); font-weight: 600; background: color-mix(in srgb, var(--mr-accent) 16%, transparent); }
+.mr-sel__opt--active:hover { background: color-mix(in srgb, var(--mr-accent) 24%, transparent); }
+.mr-sel__opt--active::after { content: "\2713"; font-size: .85rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHECKBOX & SWITCH
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-check { display: inline-flex; align-items: center; gap: .55rem; cursor: pointer; font-size: .92rem; color: var(--mr-text); }
+.mr-check input { width: 1.1rem; height: 1.1rem; accent-color: var(--mr-accent); cursor: pointer; }
+
+.mr-switch { display: inline-flex; align-items: center; gap: .6rem; cursor: pointer; font-size: .92rem; color: var(--mr-text); }
+.mr-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.mr-switch__track {
+  position: relative; width: 2.5rem; height: 1.4rem; flex: none;
+  background: var(--mr-surface-2); border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius-pill); transition: background .15s, border-color .15s;
+}
+.mr-switch__thumb {
+  position: absolute; top: 2px; left: 2px; width: 1.05rem; height: 1.05rem;
+  background: #fff; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,.25);
+  transition: transform .15s;
+}
+.mr-switch input:checked + .mr-switch__track { background: var(--mr-accent); border-color: var(--mr-accent); }
+.mr-switch input:checked + .mr-switch__track .mr-switch__thumb { transform: translateX(1.1rem); }
+.mr-switch input:focus-visible + .mr-switch__track { box-shadow: 0 0 0 3px var(--mr-focus); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BADGE
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-badge {
+  display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .78rem; font-weight: 600; line-height: 1;
+  padding: .28rem .6rem; border-radius: var(--mr-radius-pill); white-space: nowrap;
+}
+.mr-badge--green   { background: var(--mr-green-bg);   color: var(--mr-green-fg); }
+.mr-badge--amber   { background: var(--mr-amber-bg);   color: var(--mr-amber-fg); }
+.mr-badge--red     { background: var(--mr-red-bg);     color: var(--mr-red-fg); }
+.mr-badge--neutral { background: var(--mr-neutral-bg); color: var(--mr-neutral-fg); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ALERT — same tone tokens as Badge, block-level with an optional title.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-alert { padding: .8rem 1rem; border-radius: var(--mr-radius-sm); font-size: .9rem; line-height: 1.45; }
+.mr-alert--green   { background: var(--mr-green-bg);   color: var(--mr-green-fg); }
+.mr-alert--amber   { background: var(--mr-amber-bg);   color: var(--mr-amber-fg); }
+.mr-alert--red     { background: var(--mr-red-bg);     color: var(--mr-red-fg); }
+.mr-alert--neutral { background: var(--mr-neutral-bg); color: var(--mr-neutral-fg); }
+.mr-alert__title { font-weight: 700; margin: 0 0 .15rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CARD
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-card {
+  background: var(--mr-surface); border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius); box-shadow: var(--mr-shadow);
+}
+.mr-card__header {
+  padding: .9rem 1.15rem; border-bottom: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius) var(--mr-radius) 0 0;
+  font-weight: 700; color: var(--mr-text);
+}
+.mr-card__body { padding: 1.15rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TABLE
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-table-wrap { width: 100%; overflow-x: auto; }
+.mr-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.mr-table thead th {
+  text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--mr-text-muted); padding: .55rem .75rem; border-bottom: 1px solid var(--mr-border);
+}
+.mr-table tbody td { padding: .6rem .75rem; border-bottom: 1px solid var(--mr-border); color: var(--mr-text); }
+.mr-table tbody tr:last-child td { border-bottom: none; }
+.mr-table tbody tr:hover { background: var(--mr-surface-2); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TABS
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-tabs { display: flex; gap: .25rem; border-bottom: 1px solid var(--mr-border); }
+.mr-tab {
+  background: none; border: none; font: inherit; font-weight: 600; cursor: pointer;
+  padding: .6rem .9rem; margin-bottom: -1px; color: var(--mr-text-muted);
+  border-bottom: 2px solid transparent; transition: color .15s, border-color .15s;
+}
+.mr-tab:hover:not(.mr-tab--active) { color: var(--mr-text); }
+.mr-tab--active { color: var(--mr-accent); border-bottom-color: var(--mr-accent); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SEPARATOR
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-sep { border: none; height: 1px; background: var(--mr-border); margin: 0; }
+.mr-sep--v { width: 1px; height: auto; align-self: stretch; }
+.mr-sep-label {
+  display: flex; align-items: center; gap: .75rem;
+  color: var(--mr-text-muted); font-size: .78rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.mr-sep-label::before, .mr-sep-label::after { content: ""; flex: 1; height: 1px; background: var(--mr-border); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SPINNER & SKELETON (loading)
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-spinner {
+  display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor;
+  border-right-color: transparent; border-radius: 50%; animation: mr-spin .6s linear infinite;
+}
+.mr-spinner--solo { color: var(--mr-accent); }
+.mr-spinner--sm { width: 1rem;   height: 1rem;   border-width: 2px; }
+.mr-spinner--md { width: 1.5rem; height: 1.5rem; border-width: 2px; }
+.mr-spinner--lg { width: 2.2rem; height: 2.2rem; border-width: 3px; }
+@keyframes mr-spin { to { transform: rotate(360deg); } }
+
+.mr-skeleton {
+  position: relative; overflow: hidden;
+  background: var(--mr-surface-2); border-radius: var(--mr-radius-sm);
+}
+.mr-skeleton::after {
+  content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.28), transparent);
+  animation: mr-shimmer 1.4s infinite;
+}
+@keyframes mr-shimmer { to { transform: translateX(100%); } }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MODAL
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-modal-overlay {
+  position: fixed; inset: 0; z-index: 50; padding: 1rem;
+  background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center;
+}
+.mr-modal {
+  width: 100%; max-width: 30rem; background: var(--mr-surface); color: var(--mr-text);
+  border: 1px solid var(--mr-border); border-radius: var(--mr-radius);
+  box-shadow: var(--mr-shadow-lg); overflow: hidden;
+}
+.mr-modal__header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.15rem; border-bottom: 1px solid var(--mr-border);
+  font-weight: 700; font-family: var(--mr-font-heading);
+}
+.mr-modal__body { padding: 1.15rem; }
+.mr-modal__close {
+  background: none; border: none; cursor: pointer; line-height: 1;
+  font-size: 1.4rem; color: var(--mr-text-muted); padding: 0 .25rem;
+}
+.mr-modal__close:hover { color: var(--mr-text); }
+
+/* Layout helper */
+.mr-stack { display: flex; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   GALLERY PAGE (temporary — the warm component gallery)
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-gallery { min-height: 100vh; padding: 2rem 1.25rem 4rem; }
+.mr-gallery__inner { max-width: 860px; margin: 0 auto; }
+.mr-gallery__bar {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  flex-wrap: wrap; margin-bottom: 1.75rem;
+}
+.mr-section { margin-top: 1.5rem; }
+.mr-section > .mr-h3 { margin-bottom: .7rem; }
