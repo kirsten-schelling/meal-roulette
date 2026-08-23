@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        with new_ingredient as (\n            INSERT INTO ingredient (name, purchase_size, unit_id) VALUES ($1, $2, $3) RETURNING id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT new_ingredient.id, new_ingredient.name, new_ingredient.purchase_size, unit.name as unit, new_ingredient.unit_id, new_ingredient.created_at, new_ingredient.updated_at\n        FROM new_ingredient\n        JOIN unit ON new_ingredient.unit_id = unit.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "purchase_size",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "purchase_size"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "unit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "unit",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "unit_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "unit_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b1c4b426fe8c92e6104521f59690c64af69d8640c03f6d70736280333e4f63d6"
+}
