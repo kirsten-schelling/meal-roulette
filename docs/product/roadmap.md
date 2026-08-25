@@ -197,9 +197,9 @@ The individual features get much more powerful when they close into loops:
   already exposes usable data.
 
 ### 5 · Surfaces
-- **Mobile app** — **[Fiddly]** M. Capacitor wrap of the SvelteKit app. Unlocks the camera
-  (OCR / barcode), share-sheet recipe import, push notifications, and an offline shopping
-  list for in-store with bad signal.
+- **Mobile app** — **[Fiddly]** M. Native Dioxus mobile target (same codebase as web/desktop).
+  Unlocks the camera (OCR / barcode), share-sheet recipe import, push notifications, and an
+  offline shopping list for in-store with bad signal.
 - **Kitchen screen** — **[Fiddly / Hardware]** L. Show day + planned meal; display the
   recipe while cooking; add recently-made recipes.
   - **Display:** e-ink is lovely for a *passive, always-on "this week"* panel (low power)
