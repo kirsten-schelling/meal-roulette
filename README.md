@@ -8,7 +8,7 @@ embedded). The full feature vision lives in [docs/product/roadmap.md](docs/produ
 
 ## Stack
 
-- **Frontend** — SvelteKit + TypeScript (`web/`), managed with yarn
+- **Frontend** — Dioxus 0.7 (Rust, fullstack — `#[server]` BFF) (`web/`)
 - **Backend** — Rust (Axum + SQLx), a Cargo workspace: `crates/api` + a shared `crates/domain`
 - **Database** — Postgres (via Docker locally)
 
@@ -17,7 +17,7 @@ embedded). The full feature vision lives in [docs/product/roadmap.md](docs/produ
 ```
 crates/api/          Axum HTTP server
 crates/domain/       shared types (server <-> future device)
-web/                 SvelteKit app
+web/                 Dioxus app (fullstack, #[server] BFF)
 docs/                architecture, product, decisions, guides
 docker-compose.yml   local Postgres
 ```
@@ -25,8 +25,7 @@ docker-compose.yml   local Postgres
 ## Prerequisites
 
 - [Rust](https://rustup.rs) (stable)
-- Node 24 — pinned in `.node-version` (e.g. via [fnm](https://github.com/Schniz/fnm))
-- [yarn](https://classic.yarnpkg.com/)
+- [dioxus-cli](https://dioxuslabs.com/) (`dx`) — `cargo install dioxus-cli`
 - [Docker](https://www.docker.com/)
 
 ## Run locally
@@ -44,8 +43,8 @@ cargo run -p api
 ```
 
 ```bash
-# 3. Web  ->  http://localhost:5173
-cd web && yarn dev
+# 3. Web  ->  http://localhost:8080
+cd web && dx serve
 ```
 
 > Early scaffold: the API doesn't connect to Postgres yet — wiring that up is the next slice.

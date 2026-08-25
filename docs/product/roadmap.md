@@ -12,8 +12,8 @@ Roll a week of dinners from recipes in Postgres, weighted so **weeknight meals a
 quick/easy** and **weekend meals can run longer/ambitious**, then generate a **shopping
 list** for the week.
 
-Already scaffolded: SvelteKit + yarn frontend · Rust/Axum + SQLx backend (Cargo workspace
-with a shared `domain` crate) · Postgres. Stretch surface: ESP32 kitchen screen.
+Already scaffolded: Dioxus (Rust) fullstack frontend · Rust/Axum + SQLx backend (Cargo
+workspace with a shared `domain` crate) · Postgres. Stretch surface: ESP32 kitchen screen.
 
 Core sub-features:
 - Recipe attributes: difficulty, time-to-make, servings/yield, **main protein**, cuisine,
