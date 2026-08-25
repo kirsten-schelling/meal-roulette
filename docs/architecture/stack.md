@@ -1,6 +1,6 @@
 # Meal Roulette — Stack & Engineering Notes
 
-> Companion to [ROADMAP.md](ROADMAP.md) (which covers *features*). This captures the
+> Companion to [the roadmap](../product/roadmap.md) (which covers *features*). This captures the
 > **tech-stack decisions, the frontend exploration, the data/auth architecture, and the
 > "for fun" C/C++ side-projects** — so nothing from the planning discussions gets lost.
 

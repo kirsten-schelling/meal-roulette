@@ -2,13 +2,19 @@
 
 Personal project: randomizes a week of meals from Postgres recipes and builds a shopping
 list. Learning-oriented — Rust backend as an on-ramp toward embedded. Feature vision in
-[docs/ROADMAP.md](docs/ROADMAP.md).
+[docs/product/roadmap.md](docs/product/roadmap.md).
 
 ## Stack
 - Frontend: Dioxus 0.7 (Rust, fullstack — `#[server]` BFF) — `web/`
 - Backend: Rust (Axum + SQLx) — Cargo workspace: `crates/api`, `crates/domain`
 - Database: Postgres (Docker locally)
 - `web2/` (SvelteKit) and `web3/` (Next) — gitignored reference spikes from the UI comparison; not part of the build.
+
+## Web app
+`web/` follows a required module structure — features, the `#[server]` BFF surface, and the
+split between generic and feature-scoped components/hooks. Read
+[docs/architecture/web.md](docs/architecture/web.md) before adding or changing code under
+`web/`.
 
 ## Local dev
 - DB:  `docker compose up -d`

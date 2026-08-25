@@ -4,7 +4,7 @@ Randomizes a week of meals from a Postgres library of recipes and builds a shopp
 from the result. Weeknight picks lean quick-and-easy; weekends can run more ambitious.
 
 Personal project — also a deliberate excuse to learn a Rust backend (on the path toward
-embedded). The full feature vision lives in [docs/ROADMAP.md](docs/ROADMAP.md).
+embedded). The full feature vision lives in [docs/product/roadmap.md](docs/product/roadmap.md).
 
 ## Stack
 
@@ -18,7 +18,7 @@ embedded). The full feature vision lives in [docs/ROADMAP.md](docs/ROADMAP.md).
 crates/api/          Axum HTTP server
 crates/domain/       shared types (server <-> future device)
 web/                 SvelteKit app
-docs/ROADMAP.md      feature roadmap
+docs/                architecture, product, decisions, guides
 docker-compose.yml   local Postgres
 ```
 
