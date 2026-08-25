@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, meal_plan_id, recipe_id, scheduled_date, is_pinned, target_difficulty, created_at, updated_at\n        FROM planned_meal\n        WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "meal_plan_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "meal_plan_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "recipe_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "recipe_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "scheduled_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "scheduled_date"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "is_pinned",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "is_pinned"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "target_difficulty",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "target_difficulty"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "53d8fd8a0d8df2d94ea890d489171f3f8eb93c6d9408b900bb85032f083b57ea"
+}
