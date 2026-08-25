@@ -20,19 +20,19 @@ api:
 
 # run the web app  ->  http://localhost:5173
 web:
-    cd web && yarn dev
+    cd web && dx serve
 
 # run pending migrations, then refresh the offline query cache (needs sqlx-cli + DATABASE_URL in .env)
 migrate: && prepare
-    sqlx migrate run --source crates/api/migrations
+    sqlx migrate run --source api/migrations
 
 # revert the most recent migration (runs its .down.sql)
 migrate-down: && prepare
-    sqlx migrate revert --source crates/api/migrations
+    sqlx migrate revert --source api/migrations
 
 # create a reversible migration:  just new-migration add_servings
 new-migration name:
-    sqlx migrate add -r {{name}} --source crates/api/migrations
+    sqlx migrate add -r {{name}} --source api/migrations
 
 # refresh the sqlx offline query cache in .sqlx (DB must be running)
 prepare:
