@@ -1,6 +1,6 @@
 use crate::components::difficulty_badge::DifficultyBadge;
-use crate::models::Recipe;
 use dioxus::prelude::*;
+use domain::recipe::Recipe;
 
 #[component]
 pub fn RecipeTable(recipes: Vec<Recipe>) -> Element {

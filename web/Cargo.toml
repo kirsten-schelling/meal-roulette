@@ -4,17 +4,25 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-dioxus = { version = "0.7", features = ["fullstack"] }
+dioxus = { version = "0.7", features = ["fullstack", "router"] }
 serde = { version = "1", features = ["derive"] }
+dotenvy = "0.15"
+domain = { path = "../domain" }
+uuid = { version = "1", features = ["v7", "serde"] }
 
 # server-only deps (used inside #[server] bodies, gated by the `server` feature)
 reqwest = { version = "0.12", features = ["json"], optional = true }
 serde_json = { version = "1", optional = true }
 
+# In the browser (WebAssembly) build, `uuid` — pulled in transitively via the
+# `domain` crate — needs a JS-backed source of randomness or it refuses to
+# compile. This target-only dep turns on that backend for the wasm build; the
+# native server build is unaffected. Cargo unifies features, so the copy of
+# `uuid` that `domain` uses picks up `js` here too.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1", features = ["js"] }
+
 [features]
 default = ["web"]
 web = ["dioxus/web"]
 server = ["dioxus/server", "dep:reqwest", "dep:serde_json"]
-
-# Standalone — opt out of the parent Cargo workspace at the repo root.
-[workspace]

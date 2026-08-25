@@ -1,13 +1,20 @@
 use dioxus::prelude::*;
 
 mod components;
+mod features;
+mod hooks;
 mod models;
+mod pages;
+mod router;
 mod server;
 mod showcase;
 
-use showcase::Showcase;
+use router::Route;
 
 fn main() {
+    #[cfg(feature = "server")]
+    let _ = dotenvy::dotenv();
+
     dioxus::launch(App);
 }
 
@@ -15,6 +22,6 @@ fn main() {
 fn App() -> Element {
     rsx! {
         document::Stylesheet { href: asset!("/assets/primitives.css") }
-        Showcase {}
+        Router::<Route> {}
     }
 }

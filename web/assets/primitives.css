@@ -55,6 +55,8 @@ body { margin: 0; }
   /* dropdown chevron — drawn via CSS mask so it takes the muted text color
      and adapts to dark mode automatically */
   --mr-chevron: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5 L6 8 L9.5 4.5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  /* search magnifier — same mask trick as the chevron */
+  --mr-search: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='7' cy='7' r='4.5' fill='none' stroke='black' stroke-width='1.6'/><path d='M10.5 10.5 L14 14' stroke='black' stroke-width='1.6' stroke-linecap='round'/></svg>");
 }
 
 /* Dark tokens — shared by system-dark and the manual [data-theme="dark"] flag.
@@ -515,3 +517,239 @@ body { margin: 0; }
 }
 .mr-section { margin-top: 1.5rem; }
 .mr-section > .mr-h3 { margin-bottom: .7rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   APP SHELL — the real pages' frame. The Layout component renders .mr-shell
+   (a CSS grid): header across the top, sidebar down the left, routed page
+   content in .mr-main.
+
+     ┌─────────────────────────────┐
+     │            header           │
+     ├─────────┬───────────────────┤
+     │ sidebar │       main         │
+     └─────────┴───────────────────┘
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "header  header"
+    "sidebar main";
+}
+
+/* ── header ─────────────────────────────────────────────────────────────── */
+.mr-header {
+  grid-area: header;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .7rem 1.25rem;
+  background: var(--mr-surface);
+  border-bottom: 1px solid var(--mr-border);
+}
+.mr-brand {
+  display: inline-flex; align-items: center; gap: .55rem;
+  text-decoration: none; color: var(--mr-text);
+  font-family: var(--mr-font-heading); font-weight: 700; font-size: 1.15rem;
+}
+.mr-brand__mark { font-size: 1.3rem; line-height: 1; }
+.mr-header__actions { display: flex; align-items: center; gap: 1rem; }
+
+/* ── sidebar ────────────────────────────────────────────────────────────── */
+.mr-sidebar {
+  grid-area: sidebar;
+  background: var(--mr-surface);
+  border-right: 1px solid var(--mr-border);
+  padding: 1rem .75rem;
+}
+.mr-nav { display: flex; flex-direction: column; gap: .2rem; }
+.mr-nav__link {
+  display: flex; align-items: center; gap: .7rem;
+  padding: .6rem .75rem; border-radius: var(--mr-radius-sm);
+  text-decoration: none; color: var(--mr-text);
+  font-weight: 600; font-size: .95rem;
+  transition: background .15s, color .15s;
+}
+.mr-nav__link:hover { background: var(--mr-surface-2); }
+.mr-nav__link--active {
+  background: color-mix(in srgb, var(--mr-accent) 16%, transparent);
+  color: var(--mr-accent);
+}
+.mr-nav__icon { flex: none; width: 1.4rem; text-align: center; font-size: 1.1rem; line-height: 1; }
+.mr-nav__label { line-height: 1; }
+
+/* ── main content column ────────────────────────────────────────────────── */
+.mr-main { grid-area: main; min-width: 0; overflow-y: auto; }
+.mr-main__inner { max-width: 920px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+/* ── page scaffold (heading block + empty state) ────────────────────────── */
+.mr-page__head { margin-bottom: 1.5rem; display: flex; flex-direction: column; gap: .35rem; }
+.mr-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: .5rem;
+  padding: 3.5rem 1.5rem;
+  background: var(--mr-surface); border: 1px dashed var(--mr-border);
+  border-radius: var(--mr-radius);
+}
+.mr-empty__icon { font-size: 2.5rem; line-height: 1; }
+
+/* ── home hero (welcome + roulette wheel placeholder) ───────────────────── */
+.mr-hero {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1rem;
+  padding: 2rem 1rem;
+}
+.mr-hero__sub { max-width: 34rem; }
+.mr-hero__stage { position: relative; margin-bottom: .5rem; }
+.mr-hero__pointer {
+  position: absolute; top: -6px; left: 50%; transform: translateX(-50%); z-index: 2;
+  width: 0; height: 0;
+  border-left: 10px solid transparent; border-right: 10px solid transparent;
+  border-top: 16px solid var(--mr-accent);
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.2));
+}
+.mr-wheel {
+  width: 190px; height: 190px; border-radius: 50%;
+  border: 6px solid var(--mr-surface); box-shadow: var(--mr-shadow-lg);
+  display: grid; place-items: center;
+  background: conic-gradient(
+    var(--mr-green-bg)     0deg  60deg,
+    var(--mr-amber-bg)    60deg 120deg,
+    var(--mr-red-bg)     120deg 180deg,
+    var(--mr-neutral-bg) 180deg 240deg,
+    var(--mr-green-bg)   240deg 300deg,
+    var(--mr-amber-bg)   300deg 360deg
+  );
+}
+.mr-wheel--spin { animation: mr-wheel-spin .7s linear infinite; }
+@keyframes mr-wheel-spin { to { transform: rotate(360deg); } }
+.mr-wheel__hub {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--mr-surface); border: 1px solid var(--mr-border); box-shadow: var(--mr-shadow);
+}
+@media (prefers-reduced-motion: reduce) { .mr-wheel--spin { animation: none; } }
+
+/* ── responsive: collapse the sidebar to a top strip on narrow screens ──── */
+@media (max-width: 720px) {
+  .mr-shell {
+    grid-template-columns: 1fr;
+    grid-template-areas: "header" "sidebar" "main";
+  }
+  .mr-sidebar { border-right: none; border-bottom: 1px solid var(--mr-border); padding: .6rem .75rem; }
+  .mr-nav { flex-direction: row; flex-wrap: wrap; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE HEADER (title block + a right-aligned action, e.g. "Add recipe")
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-pagehead {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+  flex-wrap: wrap; margin-bottom: 1.5rem;
+}
+.mr-pagehead__titles { display: flex; flex-direction: column; gap: .35rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PAGE FILTERS — spacing wrapper around the combined search + filter bar
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-page__filters { margin-bottom: 1.1rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CHIP — pill-shaped filter tag. Toggle mode is a <button>; removable mode
+   is a <span> with a trailing × button.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font: inherit; font-size: .82rem; font-weight: 600; line-height: 1;
+  padding: .4rem .7rem; border-radius: var(--mr-radius-pill); cursor: pointer;
+  color: var(--mr-text); background: var(--mr-surface);
+  border: 1px solid var(--mr-border);
+  transition: background .15s, border-color .15s, color .15s;
+}
+.mr-chip:hover { background: var(--mr-surface-2); }
+.mr-chip--active {
+  color: var(--mr-accent);
+  background: color-mix(in srgb, var(--mr-accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--mr-accent) 45%, transparent);
+}
+.mr-chip--active:hover { background: color-mix(in srgb, var(--mr-accent) 22%, transparent); }
+.mr-chip__x {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: none; cursor: pointer; padding: 0; margin-left: .05rem;
+  font-size: 1.05rem; line-height: 1; color: currentColor; opacity: .65;
+}
+.mr-chip__x:hover { opacity: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   FILTER SEARCH — one bar that holds free text + filter chips. A leading
+   magnifier, applied chips, the value field, and a trailing "+" that opens a
+   menu of filter types. Styled like an mr-input, and lights up on focus.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-fsearch {
+  position: relative;
+  display: flex; align-items: center; flex-wrap: wrap; gap: .4rem;
+  padding: .3rem .4rem .3rem .7rem;
+  background: var(--mr-surface); border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius); box-shadow: var(--mr-shadow);
+  transition: border-color .15s, box-shadow .15s;
+}
+.mr-fsearch:focus-within { border-color: var(--mr-accent); box-shadow: var(--mr-shadow), 0 0 0 3px var(--mr-focus); }
+.mr-fsearch__icon {
+  flex: none; width: 1rem; height: 1rem; background-color: var(--mr-text-muted);
+  -webkit-mask: var(--mr-search) center / contain no-repeat;
+          mask: var(--mr-search) center / contain no-repeat;
+}
+/* the chips sitting in the bar aren't clickable as a whole — only their × is */
+.mr-fsearch .mr-chip { cursor: default; font-size: .8rem; padding: .3rem .55rem; }
+/* the facet you're mid-typing, e.g. "Difficulty:" */
+.mr-fsearch__pending {
+  display: inline-flex; align-items: center; white-space: nowrap;
+  font-size: .8rem; font-weight: 700; color: var(--mr-accent);
+  background: color-mix(in srgb, var(--mr-accent) 14%, transparent);
+  border-radius: var(--mr-radius-sm); padding: .28rem .5rem;
+}
+.mr-fsearch__input {
+  flex: 1 1 8rem; min-width: 6rem;
+  border: none; background: none; outline: none; font: inherit;
+  color: var(--mr-text); padding: .35rem .15rem;
+}
+.mr-fsearch__input::placeholder { color: var(--mr-text-muted); }
+.mr-fsearch__add {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.9rem; height: 1.9rem;
+  border: 1px solid var(--mr-border); border-radius: var(--mr-radius-pill);
+  background: var(--mr-surface); color: var(--mr-accent); cursor: pointer;
+  font-size: 1.2rem; line-height: 1;
+  transition: background .15s, border-color .15s;
+}
+.mr-fsearch__add:hover {
+  background: color-mix(in srgb, var(--mr-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--mr-accent) 45%, transparent);
+}
+.mr-fsearch__add:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+.mr-fsearch__menu {
+  position: absolute; z-index: 41; top: calc(100% + .4rem); right: 0; min-width: 12rem;
+  background: var(--mr-surface); border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius); box-shadow: var(--mr-shadow-lg);
+  padding: .35rem; animation: mr-pop .12s ease-out;
+}
+.mr-fsearch__menu-head {
+  padding: .35rem .6rem .45rem; font-size: .7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--mr-text-muted);
+}
+@media (prefers-reduced-motion: reduce) { .mr-fsearch__menu { animation: none; } }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TABLE PANEL — a surface wrapping DataTable, plus its loading/empty states
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-tablepanel {
+  background: var(--mr-surface); border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius); box-shadow: var(--mr-shadow); overflow: hidden;
+}
+.mr-tablestate { display: flex; align-items: center; justify-content: center; padding: 3rem 1rem; }
+.mr-table td.mr-table__empty {
+  text-align: center; color: var(--mr-text-muted); padding: 2.5rem .75rem;
+}
+.mr-cell-strong { font-weight: 600; color: var(--mr-text); }
+
+/* alignment helpers for DataTable columns (specific enough to beat the base
+   `.mr-table thead th { text-align:left }` rule) */
+.mr-table th.mr-td--end,    .mr-table td.mr-td--end    { text-align: right; }
+.mr-table th.mr-td--center, .mr-table td.mr-td--center { text-align: center; }
