@@ -38,7 +38,7 @@ pub fn Home() -> Element {
                 onclick: move |_| spinning.toggle(),
                 "{label}"
             }
-            Text { small: true, muted: true, "Layout preview — the spin isn't wired to anything yet." }
+            Text { small: true, muted: true, "Layout preview. The spin isn't wired to anything yet." }
         }
     }
 }

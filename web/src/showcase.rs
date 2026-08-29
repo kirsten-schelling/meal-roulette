@@ -39,7 +39,7 @@ pub fn Showcase() -> Element {
                 // ── toolbar ────────────────────────────────────────────────
                 div { class: "mr-gallery__bar",
                     div {
-                        Heading { level: 1, "Warm — component gallery" }
+                        Heading { level: 1, "Warm: component gallery" }
                         Text { muted: true, "The locked-in vibe. Flip dark mode." }
                     }
                     Switch { checked: dark(), onchange: move |v| dark.set(v), label: "Dark mode".to_string() }
@@ -164,7 +164,7 @@ pub fn Showcase() -> Element {
                             Alert { tone: Tone::Green, title: "Recipe added".to_string(),
                                 "“Pad Thai” is now in your library."
                             }
-                            Alert { tone: Tone::Amber, "Heads up — 3 ingredients are missing from your pantry." }
+                            Alert { tone: Tone::Amber, "Heads up: 3 ingredients are missing from your pantry." }
                             Toast {
                                 tone: Tone::Green,
                                 title: "Recipe added".to_string(),
@@ -172,7 +172,7 @@ pub fn Showcase() -> Element {
                                 "“Pad Thai” is now in your library."
                             }
                             Toast { tone: Tone::Red, title: "Couldn't save".to_string(),
-                                "The API said no — try again."
+                                "The API said no. Try again."
                             }
                             HStack { gap: 0.3, align: Align::Center,
                                 IconButton { label: "Edit".to_string(), onclick: move |_| {}, "✎" }
@@ -251,7 +251,7 @@ pub fn Showcase() -> Element {
                         VStack { gap: 0.7,
                             Heading { level: 2, "A serif heading" }
                             Text { "Body text sits in the sans-serif face for easy reading." }
-                            Text { muted: true, small: true, "Muted small text — captions, hints, metadata." }
+                            Text { muted: true, small: true, "Muted small text: captions, hints, metadata." }
                             Separator { label: "then".to_string() }
                             Button {
                                 variant: ButtonVariant::Solid,

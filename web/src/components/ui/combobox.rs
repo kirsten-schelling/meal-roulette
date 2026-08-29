@@ -71,7 +71,10 @@ impl Picker {
 /// on an unknown name (or the "Create …" row) records a pending create —
 /// flagged with a "New" tag in the field so the choice is visible.
 /// `on_create` optionally observes creates, for callers that reveal follow-up
-/// fields when one happens.
+/// fields when one happens. `can_create: false` turns the field into a strict
+/// picker: unknown names offer no "Create" row and Enter on one does nothing.
+/// `on_manage` pins a quiet "manage this list" row to the bottom of the popup
+/// — a portal to wherever the catalog is maintained.
 #[component]
 pub fn Combobox(
     label: String,
@@ -79,6 +82,9 @@ pub fn Combobox(
     options: Vec<ComboOption>,
     mut picker: Signal<Picker>,
     on_create: Option<EventHandler<String>>,
+    #[props(default = true)] can_create: bool,
+    manage_label: Option<String>,
+    on_manage: Option<EventHandler<()>>,
 ) -> Element {
     let mut open = use_signal(|| false);
 
@@ -94,7 +100,7 @@ pub fn Combobox(
         .iter()
         .find(|o| o.label.eq_ignore_ascii_case(&trimmed))
         .cloned();
-    let show_create = !trimmed.is_empty() && exact.is_none();
+    let show_create = can_create && !trimmed.is_empty() && exact.is_none();
     let is_new = picker.read().is_new();
 
     let combo_cls = match (open(), is_new) {
@@ -130,6 +136,9 @@ pub fn Combobox(
                             match &kd_exact {
                                 Some(o) => picker.write().pick(o.clone()),
                                 None => {
+                                    if !can_create {
+                                        return;
+                                    }
                                     picker.write().create(kd_trimmed.clone());
                                     if let Some(cb) = &on_create {
                                         cb.call(kd_trimmed.clone());
@@ -181,6 +190,24 @@ pub fn Combobox(
                                         open.set(false);
                                     },
                                     "＋ Create “{trimmed}”"
+                                }
+                            }
+                        }
+                        if let Some(manage) = on_manage {
+                            {
+                                let label = manage_label
+                                    .clone()
+                                    .unwrap_or_else(|| "Manage…".to_string());
+                                rsx! {
+                                    button {
+                                        r#type: "button",
+                                        class: "mr-combo__manage",
+                                        onclick: move |_| {
+                                            open.set(false);
+                                            manage.call(());
+                                        },
+                                        "{label}"
+                                    }
                                 }
                             }
                         }

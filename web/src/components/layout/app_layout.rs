@@ -37,9 +37,9 @@ fn nav_entries() -> Vec<NavEntry> {
             to: Route::Recipes {},
         },
         NavEntry {
-            icon: "🥕",
-            label: "Ingredients",
-            to: Route::Ingredients {},
+            icon: "🧺",
+            label: "Library",
+            to: Route::Library {},
         },
         NavEntry {
             icon: "🛒",

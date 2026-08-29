@@ -575,6 +575,9 @@ body { margin: 0; }
   padding-top: .9rem; margin-top: 1rem; border-top: 1px solid var(--mr-border);
 }
 
+/* Generic stacked form body for a small dialog. */
+.mr-dialog-form { display: flex; flex-direction: column; gap: 1rem; }
+
 /* ═══════════════════════════════════════════════════════════════════════
    ADD-RECIPE DIALOG — a two-step form inside the Modal. Each step is short
    enough to size to its content, so the dialog itself doesn't scroll and its
@@ -629,6 +632,19 @@ body { margin: 0; }
   color: var(--mr-accent); font-weight: 600;
   border-top: 1px solid var(--mr-border); margin-top: .15rem;
 }
+/* Pinned below the (scrolling) option list: the quiet doorway to wherever the
+   list is maintained. A flex sibling of the list, so it never scrolls away. */
+.mr-combo__manage {
+  flex: none; display: flex; align-items: center; gap: .4rem;
+  width: 100%; text-align: left; font: inherit; font-size: .85rem; font-weight: 600;
+  padding: .5rem .6rem; margin-top: .15rem;
+  border: none; border-top: 1px solid var(--mr-border);
+  border-radius: 0 0 var(--mr-radius-sm) var(--mr-radius-sm);
+  background: none; cursor: pointer; color: var(--mr-text-muted);
+  transition: background .15s, color .15s;
+}
+.mr-combo__manage:hover { background: var(--mr-surface-2); color: var(--mr-text); }
+.mr-combo__manage:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
 
 /* Chosen ingredient lines. Caps its height and scrolls on its own so a long
    list never stretches the dialog. */
@@ -825,6 +841,7 @@ body { margin: 0; }
   flex-wrap: wrap; margin-bottom: 1.5rem;
 }
 .mr-pagehead__titles { display: flex; flex-direction: column; gap: .35rem; }
+.mr-pagehead__actions { display: flex; align-items: center; gap: .6rem; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    PAGE FILTERS — spacing wrapper around the combined search + filter bar
@@ -944,6 +961,76 @@ body { margin: 0; }
 /* row of quiet per-row actions (edit/remove) */
 .mr-rowactions { display: inline-flex; align-items: center; gap: .1rem; }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   LIBRARY PAGE — the ingredients table with the lookup rail beside it.
+   The rail drops under the table once the main column gets tight.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-library {
+  display: grid; grid-template-columns: minmax(0, 1fr) 15rem;
+  gap: 1.1rem; align-items: start;
+}
+@media (max-width: 860px) { .mr-library { grid-template-columns: 1fr; } }
+.mr-library__main { min-width: 0; }
+.mr-library__rail { display: flex; flex-direction: column; gap: 1rem; }
+
+/* A rail card for one tiny lookup list: title + count + a manage doorway,
+   with the values as chips below. */
+.mr-lookupcard__head {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .7rem .9rem; border-bottom: 1px solid var(--mr-border);
+}
+.mr-lookupcard__title { flex: 1 1 auto; min-width: 0; font-weight: 700; }
+.mr-lookupcard__manage {
+  flex: none; border: none; background: none; cursor: pointer;
+  font: inherit; font-size: .8rem; font-weight: 600; color: var(--mr-accent);
+  padding: .25rem .45rem; border-radius: var(--mr-radius-sm);
+  transition: background .15s;
+}
+.mr-lookupcard__manage:hover { background: color-mix(in srgb, var(--mr-accent) 12%, transparent); }
+.mr-lookupcard__manage:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+.mr-lookupcard__body { padding: .8rem .9rem; }
+.mr-lookupcard__chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.mr-lookupcard__state { display: flex; justify-content: center; padding: .8rem 0; color: var(--mr-accent); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MANAGE-LISTS DIALOG — tabbed rename/delete rows for the tiny lookups
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-manage { display: flex; flex-direction: column; gap: .9rem; }
+/* Fixed-height body: switching tabs must never resize the dialog. Whatever a
+   tab shows (spinner, empty note, rows) fills this box; the row list scrolls. */
+.mr-manage__content { height: 17rem; display: flex; flex-direction: column; gap: .7rem; }
+.mr-manage__add { flex: none; display: flex; align-items: center; gap: .5rem; }
+.mr-manage__add .mr-input { flex: 1 1 auto; min-width: 0; }
+.mr-manage__add .mr-btn { flex: none; }
+.mr-manage__state {
+  flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
+  color: var(--mr-accent);
+}
+.mr-managelist {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.mr-managelist__row {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .45rem .3rem; border-bottom: 1px solid var(--mr-border);
+}
+.mr-managelist__row:last-child { border-bottom: none; }
+.mr-managelist__name {
+  flex: 1 1 auto; min-width: 0; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mr-managelist__hint {
+  flex: none; max-width: 9rem; color: var(--mr-text-muted); font-size: .82rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mr-managelist__count {
+  flex: none; color: var(--mr-text-muted); font-size: .82rem;
+  font-variant-numeric: tabular-nums;
+}
+/* Inline rename: the row swaps to a compact input + save/cancel. */
+.mr-managelist__row--editing { padding: .35rem .3rem; }
+.mr-managelist__row--editing .mr-input { padding: .4rem .6rem; box-shadow: none; }
+
 /* Floating selection toolbar (count + bulk actions). Fixed, so ticking rows
    never shifts the page; sits below the toast stack (z 60). */
 .mr-bulkbar {
@@ -963,3 +1050,27 @@ body { margin: 0; }
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
 @media (prefers-reduced-motion: reduce) { .mr-bulkbar { animation: none; } }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HOVER GLOW — button-like controls get a whisper of extra brightness under
+   the cursor, layered on top of their own hover styles. Longhands here so the
+   earlier per-element `transition:` shorthands gain `filter` without being
+   restated. Leaf controls only: `filter` makes an element the containing
+   block for `position: fixed` descendants, so it must never sit on anything
+   that wraps a popup or backdrop.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-btn, .mr-iconbtn, .mr-chip, .mr-tab, .mr-nav__link, .mr-add-link,
+.mr-combo__manage, .mr-lookupcard__manage, .mr-fsearch__add, .mr-sel__opt,
+.mr-ing-line__edit {
+  transition-property: background, background-color, border-color, color,
+    box-shadow, transform, opacity, filter;
+  transition-duration: .15s;
+}
+.mr-btn:hover:not(:disabled), .mr-iconbtn:hover, .mr-chip:hover, .mr-tab:hover,
+.mr-nav__link:hover, .mr-add-link:hover, .mr-combo__manage:hover,
+.mr-lookupcard__manage:hover, .mr-fsearch__add:hover, .mr-sel__opt:hover,
+.mr-ing-line__edit:hover {
+  filter: brightness(1.05);
+}
+/* Chips parked in the search bar aren't clickable as a whole — no glow. */
+.mr-fsearch .mr-chip:hover { filter: none; }

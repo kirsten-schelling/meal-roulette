@@ -70,7 +70,7 @@ pub fn Recipes() -> Element {
                 div { class: "mr-pagehead__titles",
                     Heading { level: 1, "Recipes" }
                     Text { muted: true,
-                        "Your recipe library — everything the roulette can pick from."
+                        "Your recipe library: everything the roulette can pick from."
                     }
                 }
                 Button {
@@ -132,7 +132,7 @@ pub fn Recipes() -> Element {
                         DataTable::<Recipe> {
                             columns: columns.clone(),
                             rows: list,
-                            empty: "No recipes yet — add your first one.".to_string(),
+                            empty: "No recipes yet. Add your first one.".to_string(),
                             selectable: true,
                             on_select: move |v: Vec<usize>| selected_rows.set(v),
                         }

@@ -7,8 +7,9 @@
 use dioxus::prelude::*;
 
 use crate::components::layout::AppLayout;
+use crate::features::library::page::Library;
 use crate::features::recipe::page::Recipes;
-use crate::pages::{CookingLog, Home, Ingredients, PlannedMeals, ShoppingList};
+use crate::pages::{CookingLog, Home, PlannedMeals, ShoppingList};
 use crate::showcase::Showcase;
 
 #[derive(Routable, Clone, PartialEq)]
@@ -23,8 +24,8 @@ pub enum Route {
     Home {},
     #[route("/recipes")]
     Recipes {},
-    #[route("/ingredients")]
-    Ingredients {},
+    #[route("/library")]
+    Library {},
     #[route("/shopping-list")]
     ShoppingList {},
     #[route("/cooking-log")]

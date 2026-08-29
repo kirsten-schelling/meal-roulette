@@ -17,7 +17,7 @@ pub fn PageStub(title: String, subtitle: String) -> Element {
                 div { class: "mr-empty__icon", aria_hidden: "true", "🍽️" }
                 Heading { level: 3, "Nothing here yet" }
                 Text { muted: true,
-                    "This screen is layout-only for now — the real UI arrives when it's wired to the backend."
+                    "This screen is layout-only for now. The real UI arrives when it's wired to the backend."
                 }
             }
         }

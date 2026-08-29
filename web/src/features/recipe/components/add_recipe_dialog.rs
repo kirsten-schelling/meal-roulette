@@ -4,6 +4,7 @@ use crate::components::ui::{
 };
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
+use crate::features::library::components::{ManageListsDialog, ManageTab};
 use crate::features::protein::hooks::use_protein::use_get_proteins;
 use crate::features::recipe::components::ingredient_composer::IngredientComposer;
 use crate::features::recipe::components::ingredient_line::{IngredientLine, RecipeLine};
@@ -52,12 +53,16 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
 
     // Lookup catalogs come from the API; each field's Picker tracks the typed
     // text plus the resolved choice (existing id, or a name to create at submit).
-    let cuisines = use_get_cuisines();
+    let mut cuisines = use_get_cuisines();
     let cuisine = use_signal(Picker::default);
-    let proteins = use_get_proteins();
+    let mut proteins = use_get_proteins();
     let protein = use_signal(Picker::default);
-    let units = use_get_units();
+    let mut units = use_get_units();
     let ingredients = use_get_ingredients();
+
+    // The manage-lists dialog stacks over this one so an in-progress recipe
+    // survives a quick rename detour. `None` = closed.
+    let mut managing = use_signal(|| None as Option<ManageTab>);
 
     let mut lines = use_signal(Vec::<RecipeLine>::new);
     // Hands out unique ids for the in-memory recipe lines (not persisted yet).
@@ -122,12 +127,16 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                         placeholder: "Search, or type a new one and press Enter…".to_string(),
                                         options: protein_options.clone(),
                                         picker: protein,
+                                        manage_label: "Manage proteins…".to_string(),
+                                        on_manage: move |_| managing.set(Some(ManageTab::Proteins)),
                                     }
                                     Combobox {
                                         label: "Cuisine".to_string(),
                                         placeholder: "Search, or type a new one and press Enter…".to_string(),
                                         options: cuisine_options.clone(),
                                         picker: cuisine,
+                                        manage_label: "Manage cuisines…".to_string(),
+                                        on_manage: move |_| managing.set(Some(ManageTab::Cuisines)),
                                     }
                                     Rating {
                                         label: "Difficulty".to_string(),
@@ -225,6 +234,7 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                 IngredientComposer {
                                     ingredient_options: ingredient_options.clone(),
                                     unit_options: unit_options.clone(),
+                                    on_manage_units: move |_| managing.set(Some(ManageTab::Units)),
                                     on_add: move |mut line: RecipeLine| {
                                         let id = next_id();
                                         next_id.set(id + 1);
@@ -238,7 +248,7 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                 Heading { level: 3, "In this recipe ({line_count})" }
 
                                 if lines_now.is_empty() {
-                                    p { class: "mr-empty-note", "Nothing added yet — use the search above." }
+                                    p { class: "mr-empty-note", "Nothing added yet. Use the search above." }
                                 } else {
                                     div { class: "mr-ing-list mr-scroll",
                                         for line in lines_now.iter() {
@@ -275,6 +285,20 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                         },
                     }
                 }
+            }
+        }
+
+        if let Some(tab) = managing() {
+            ManageListsDialog {
+                initial_tab: tab,
+                on_close: move |_| {
+                    managing.set(None);
+                    // Renames may have landed while it was open — refresh the
+                    // catalogs feeding the comboboxes.
+                    cuisines.restart();
+                    proteins.restart();
+                    units.restart();
+                },
             }
         }
     }

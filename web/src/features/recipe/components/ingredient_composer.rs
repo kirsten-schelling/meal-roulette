@@ -13,6 +13,7 @@ pub fn IngredientComposer(
     ingredient_options: Vec<ComboOption>,
     unit_options: Vec<ComboOption>,
     on_add: EventHandler<RecipeLine>,
+    on_manage_units: Option<EventHandler<()>>,
 ) -> Element {
     let mut ingredient = use_signal(Picker::default);
     let mut unit = use_signal(Picker::default);
@@ -58,7 +59,7 @@ pub fn IngredientComposer(
 
             if creating {
                 Text { muted: true, small: true,
-                    "New ingredient — give it a unit and pack size."
+                    "New ingredient: give it a unit and pack size."
                 }
                 div { class: "mr-form-grid",
                     Combobox {
@@ -66,6 +67,8 @@ pub fn IngredientComposer(
                         placeholder: "Search, or type + Enter…".to_string(),
                         options: unit_options.clone(),
                         picker: unit,
+                        manage_label: "Manage units…".to_string(),
+                        on_manage: on_manage_units,
                     }
                     Input {
                         label: "Purchase size".to_string(),
