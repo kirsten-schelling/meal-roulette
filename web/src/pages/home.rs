@@ -9,7 +9,11 @@ use dioxus::prelude::*;
 pub fn Home() -> Element {
     // Placeholder interaction: flips the wheel's spin animation on/off.
     let mut spinning = use_signal(|| false);
-    let wheel_cls = if spinning() { "mr-wheel mr-wheel--spin" } else { "mr-wheel" };
+    let wheel_cls = if spinning() {
+        "mr-wheel mr-wheel--spin"
+    } else {
+        "mr-wheel"
+    };
     let label = if spinning() { "Stop" } else { "Spin the wheel" };
 
     rsx! {

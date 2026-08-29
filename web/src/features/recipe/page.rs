@@ -1,15 +1,20 @@
 use crate::components::difficulty_badge::DifficultyBadge;
 use crate::components::ui::{
-    Alert, Button, ButtonVariant, CellAlign, Column, DataTable, FilterField, Heading, SearchBar,
-    Spinner, Text, Tone,
+    Alert, Badge, Button, ButtonVariant, CellAlign, Column, DataTable, FilterField, Heading,
+    IconButton, SearchBar, Size, Spinner, Text, Tone,
 };
+use crate::features::recipe::components::AddRecipeDialog;
 use crate::features::recipe::hooks::use_recipe::use_get_recipes;
 use dioxus::prelude::*;
 use domain::recipe::Recipe;
 
 #[component]
 pub fn Recipes() -> Element {
-    let recipes: Resource<Result<Vec<Recipe>, ServerFnError>> = use_get_recipes();
+    let mut recipes: Resource<Result<Vec<Recipe>, ServerFnError>> = use_get_recipes();
+    let mut adding = use_signal(|| false);
+    // Row indexes ticked in the table. Display-only for now — the bulk Delete
+    // button isn't wired to anything yet.
+    let mut selected_rows = use_signal(Vec::<usize>::new);
 
     // The table's shape: each column says how to render its own cell from a
     // `&Recipe`. Nothing recipe-specific lives inside `DataTable` itself.
@@ -24,12 +29,43 @@ pub fn Recipes() -> Element {
                 DifficultyBadge { difficulty: r.difficulty }
             }
         }),
+        Column::new("Healthiness", |r: &Recipe| match r.healthiness {
+            Some(h) => {
+                let tone = match h {
+                    1 | 2 => Tone::Red,
+                    3 => Tone::Amber,
+                    _ => Tone::Green,
+                };
+                rsx! {
+                    Badge { tone, "{h}/5" }
+                }
+            }
+            None => rsx! {
+                span { class: "mr-text--muted", "—" }
+            },
+        }),
         Column::new("Time", |r: &Recipe| rsx! { "{r.time_mins} min" }).align(CellAlign::End),
+        Column::new("Servings", |r: &Recipe| rsx! { "{r.servings}" }).align(CellAlign::End),
+        // Per-row actions — display-only until editing/deleting is wired up.
+        Column::new("", |_r: &Recipe| {
+            rsx! {
+                div { class: "mr-rowactions",
+                    IconButton { label: "Edit recipe".to_string(), onclick: move |_| {}, "✎" }
+                    IconButton {
+                        label: "Delete recipe".to_string(),
+                        danger: true,
+                        onclick: move |_| {},
+                        "\u{00d7}"
+                    }
+                }
+            }
+        })
+        .align(CellAlign::End),
     ];
 
     rsx! {
         div { class: "mr-page",
-            // ── Header: titles on the left, the (not-yet-wired) add button right.
+            // ── Header: titles on the left, the add button on the right.
             div { class: "mr-pagehead",
                 div { class: "mr-pagehead__titles",
                     Heading { level: 1, "Recipes" }
@@ -39,10 +75,18 @@ pub fn Recipes() -> Element {
                 }
                 Button {
                     variant: ButtonVariant::Solid,
-                    onclick: move |_| {
-                        // TODO: open the add-recipe flow.
-                    },
+                    onclick: move |_| adding.set(true),
                     "＋ Add recipe"
+                }
+            }
+
+            if adding() {
+                AddRecipeDialog {
+                    on_close: move |_| adding.set(false),
+                    on_saved: move |_| {
+                        recipes.restart();
+                        adding.set(false);
+                    },
                 }
             }
 
@@ -64,6 +108,13 @@ pub fn Recipes() -> Element {
                 }
             }
 
+            if !selected_rows().is_empty() {
+                div { class: "mr-bulkbar",
+                    Text { small: true, "{selected_rows().len()} selected" }
+                    Button { variant: ButtonVariant::Danger, size: Size::Sm, "Delete selected" }
+                }
+            }
+
             // ── The table, driven by the resource's three states.
             match recipes() {
                 None => rsx! {
@@ -82,6 +133,8 @@ pub fn Recipes() -> Element {
                             columns: columns.clone(),
                             rows: list,
                             empty: "No recipes yet — add your first one.".to_string(),
+                            selectable: true,
+                            on_select: move |v: Vec<usize>| selected_rows.set(v),
                         }
                     }
                 },
