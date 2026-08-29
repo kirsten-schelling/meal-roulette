@@ -131,6 +131,11 @@ The individual features get much more powerful when they close into loops:
     carry their own health rating and can fall back to manual price where no scrape exists.
   - **Scope:** genuinely a **big project** / its own track — sequence it after the core loop
     and the manual-cost foundation, alongside the §4 pricing research.
+- _(suggested)_ **Library housekeeping card** — **[Own]** S. Home shows a small card only when
+  the library needs attention — unused or near-duplicate cuisines / proteins / units,
+  ingredients with missing data — and clicking a finding jumps into the fix (the Library
+  page's manage dialog). Invisible when everything is clean: the app points at problems
+  instead of offering admin lists to patrol.
 - _(suggested, high value)_ **Recipe import from URL** — **[Own]** M. Most recipe sites
   embed `schema.org/Recipe` as JSON-LD; parse title / ingredients / steps / time / yield
   straight out of the page. This kills the single biggest friction of any recipe app —
@@ -298,6 +303,12 @@ built for personal use, so it leads with what the author values most.
   author's own use first, so the roadmap is prioritised by what the author values most, with
   breakfast / lunch and the broader add-ons sequenced after. Rolling other meals is an
   **option to add later**.
+- **Lookup management: Library page + manage dialog, not per-entity pages.** Ingredients get
+  the full page (they grow into the base ingredient library, §2); cuisines / proteins / units
+  are thin name lists managed in a tabbed dialog, reached from the Library page and from
+  "Manage …" portals in the recipe form's comboboxes. Creation stays inline at the point of
+  use (type + Enter in a recipe field); cleanup work surfaces through the housekeeping card
+  (§2) rather than admin browsing.
 
 ## Still open (deferred)
 
