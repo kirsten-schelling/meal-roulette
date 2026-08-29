@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// A row from `protein` — lookup vocabulary for a recipe's main protein.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Protein {
     pub id: Uuid,
     /// Owning household. `None` = a global/preset value shared by everyone.
@@ -13,7 +13,7 @@ pub struct Protein {
 }
 
 /// Incoming body for `POST /proteins`.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NewProtein {
     pub household_id: Option<Uuid>,
     pub name: String,
@@ -23,4 +23,10 @@ pub struct NewProtein {
 #[derive(Debug, Deserialize)]
 pub struct UpdateProtein {
     pub name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]
+pub enum ProteinEntry {
+    Existing(Uuid),
+    New(String),
 }

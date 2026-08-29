@@ -31,7 +31,10 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<Protein, sqlx::Error> {
     Ok(protein)
 }
 
-pub async fn create(pool: &PgPool, new_protein: NewProtein) -> Result<Protein, sqlx::Error> {
+pub async fn create<'e, E>(executor: E, new_protein: NewProtein) -> Result<Protein, sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
     let protein = sqlx::query_as!(
         Protein,
         r#"
@@ -42,7 +45,7 @@ pub async fn create(pool: &PgPool, new_protein: NewProtein) -> Result<Protein, s
         new_protein.household_id,
         new_protein.name,
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
     Ok(protein)
 }

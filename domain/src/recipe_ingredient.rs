@@ -2,9 +2,11 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::ingredient::IngredientEntry;
+
 /// A recipe-ingredient line. Reads are enriched with the ingredient's name and
 /// unit (joined) so a recipe's ingredient list is usable on its own.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]
 pub struct RecipeIngredient {
     pub id: Uuid,
     pub created_at: time::OffsetDateTime,
@@ -19,9 +21,24 @@ pub struct RecipeIngredient {
 }
 
 /// Incoming body for `POST /recipes/{id}/ingredients` (recipe_id comes from the path).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct NewRecipeIngredient {
     pub ingredient_id: Uuid,
+    pub qty: Decimal,
+    pub note: Option<String>,
+    #[serde(default)]
+    pub is_optional: bool,
+}
+
+/// A brand-new ingredient created inline while building a recipe. Its unit is
+/// either an existing `unit_id` or a `new_unit` name to be created first; the
+/// qty/note/is_optional describe the recipe line once the ingredient exists.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+pub struct NewRecipeIngredientDraft {
+    pub name: String,
+    pub purchase_size: i32,
+    pub unit_id: Option<Uuid>,
+    pub new_unit: Option<String>,
     pub qty: Decimal,
     pub note: Option<String>,
     #[serde(default)]
@@ -34,4 +51,12 @@ pub struct UpdateRecipeIngredient {
     pub qty: Option<Decimal>,
     pub note: Option<String>,
     pub is_optional: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]
+pub struct RecipeIngredientEntry {
+    pub ingredient: IngredientEntry,
+    pub qty: Decimal,
+    pub note: Option<String>,
+    pub is_optional: bool,
 }

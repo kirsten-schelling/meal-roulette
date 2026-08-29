@@ -65,11 +65,14 @@ pub async fn get(
     Ok(item)
 }
 
-pub async fn create(
-    pool: &PgPool,
+pub async fn create<'e, E>(
+    executor: E,
     recipe_id: Uuid,
     new: NewRecipeIngredient,
-) -> Result<RecipeIngredient, sqlx::Error> {
+) -> Result<RecipeIngredient, sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
     let item = sqlx::query_as!(
         RecipeIngredient,
         r#"
@@ -99,7 +102,7 @@ pub async fn create(
         new.note,
         new.is_optional,
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
     Ok(item)
 }

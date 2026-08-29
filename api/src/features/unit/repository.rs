@@ -31,7 +31,10 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<Unit, sqlx::Error> {
     Ok(unit)
 }
 
-pub async fn create(pool: &PgPool, new_unit: NewUnit) -> Result<Unit, sqlx::Error> {
+pub async fn create<'e, E>(executor: E, new_unit: NewUnit) -> Result<Unit, sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
     let unit = sqlx::query_as!(
         Unit,
         r#"
@@ -43,7 +46,7 @@ pub async fn create(pool: &PgPool, new_unit: NewUnit) -> Result<Unit, sqlx::Erro
         new_unit.name,
         new_unit.description,
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
     Ok(unit)
 }

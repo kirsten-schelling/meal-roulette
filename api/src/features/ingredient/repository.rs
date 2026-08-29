@@ -33,7 +33,13 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<Ingredient, sqlx::Error> {
     Ok(ingredient)
 }
 
-pub async fn create(pool: &PgPool, ingredient: NewIngredient) -> Result<Ingredient, sqlx::Error> {
+pub async fn create<'e, E>(
+    executor: E,
+    ingredient: NewIngredient,
+) -> Result<Ingredient, sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
     let ingredient = sqlx::query_as!(
         Ingredient,
         r#"
@@ -49,7 +55,7 @@ pub async fn create(pool: &PgPool, ingredient: NewIngredient) -> Result<Ingredie
         ingredient.purchase_size,
         ingredient.unit_id,
         )
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await?;
     Ok(ingredient)
 }

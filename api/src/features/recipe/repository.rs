@@ -1,5 +1,5 @@
 // use super::model::{NewRecipe, Recipe, UpdateRecipe};
-use domain::recipe::{NewRecipe, Recipe, UpdateRecipe};
+use domain::recipe::{InsertRecipe, Recipe, UpdateRecipe};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -18,7 +18,10 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Recipe>, sqlx::Error> {
     Ok(recipes)
 }
 
-pub async fn create(pool: &PgPool, new_recipe: NewRecipe) -> Result<Recipe, sqlx::Error> {
+pub async fn create<'e, E>(executor: E, insert: InsertRecipe) -> Result<Recipe, sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
     let recipe = sqlx::query_as!(
         Recipe,
         r#"
@@ -29,16 +32,16 @@ pub async fn create(pool: &PgPool, new_recipe: NewRecipe) -> Result<Recipe, sqlx
         RETURNING id, household_id, title, difficulty, time_mins, servings,
                   healthiness, main_protein_id, cuisine_id, created_at, updated_at
         "#,
-        new_recipe.household_id,
-        new_recipe.title,
-        new_recipe.difficulty,
-        new_recipe.time_mins,
-        new_recipe.servings,
-        new_recipe.healthiness,
-        new_recipe.main_protein_id,
-        new_recipe.cuisine_id,
+        insert.household_id,
+        insert.title,
+        insert.difficulty,
+        insert.time_mins,
+        insert.servings,
+        insert.healthiness,
+        insert.main_protein_id,
+        insert.cuisine_id,
     )
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
     Ok(recipe)
 }
