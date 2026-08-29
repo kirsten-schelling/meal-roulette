@@ -4,11 +4,7 @@ use dioxus::prelude::*;
 /// tab fires `on_select` with its index. The parent decides what content to show
 /// for the selected tab.
 #[component]
-pub fn Tabs(
-    labels: Vec<String>,
-    selected: usize,
-    on_select: EventHandler<usize>,
-) -> Element {
+pub fn Tabs(labels: Vec<String>, selected: usize, on_select: EventHandler<usize>) -> Element {
     rsx! {
         div { class: "mr-tabs", role: "tablist",
             for (i, label) in labels.iter().enumerate() {

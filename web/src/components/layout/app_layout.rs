@@ -31,10 +31,30 @@ pub fn AppLayout() -> Element {
 /// config or be filtered per user/household.
 fn nav_entries() -> Vec<NavEntry> {
     vec![
-        NavEntry { icon: "📖", label: "Recipes", to: Route::Recipes {} },
-        NavEntry { icon: "🥕", label: "Ingredients", to: Route::Ingredients {} },
-        NavEntry { icon: "🛒", label: "Shopping List", to: Route::ShoppingList {} },
-        NavEntry { icon: "📓", label: "Cooking Log", to: Route::CookingLog {} },
-        NavEntry { icon: "📅", label: "Planned Meals", to: Route::PlannedMeals {} },
+        NavEntry {
+            icon: "📖",
+            label: "Recipes",
+            to: Route::Recipes {},
+        },
+        NavEntry {
+            icon: "🥕",
+            label: "Ingredients",
+            to: Route::Ingredients {},
+        },
+        NavEntry {
+            icon: "🛒",
+            label: "Shopping List",
+            to: Route::ShoppingList {},
+        },
+        NavEntry {
+            icon: "📓",
+            label: "Cooking Log",
+            to: Route::CookingLog {},
+        },
+        NavEntry {
+            icon: "📅",
+            label: "Planned Meals",
+            to: Route::PlannedMeals {},
+        },
     ]
 }

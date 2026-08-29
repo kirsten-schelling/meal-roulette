@@ -2,14 +2,12 @@
    Meal Roulette — primitive component styles ("Warm" theme)
 
    You (mostly) never edit this file. The Rust components in
-   src/components/primitives/ apply the `mr-*` classes; the look lives here.
+   src/components/ui/ apply the `mr-*` classes; the look lives here.
 
    Structure:
    • Design tokens (--mr-*) hold every color/size. Components only read tokens.
    • Light tokens live on :root. Dark tokens are applied when the OS is in dark
      mode OR an ancestor carries [data-theme="dark"] (so a manual toggle works).
-   • The accent (button/link color) is Green by default; [data-accent="purple"]
-     on an ancestor swaps it — that's how the gallery previews the alternative.
    ───────────────────────────────────────────────────────────────────────── */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -38,14 +36,17 @@ body { margin: 0; }
   --mr-danger-hover:    #922418;
   --mr-danger-contrast: #ffffff;
 
+  --mr-warn: #d9861d;  /* orange-amber solid — the mid-point of good/bad scales */
+  --mr-good: #2f9e44;  /* clear green for the good end — a true green, so it
+                          can't be confused with the red next to it (the olive
+                          accent sits too close to tomato) */
+
   --mr-radius:      14px;
   --mr-radius-sm:   10px;
   --mr-radius-pill: 9999px;
   --mr-shadow:      0 2px 8px rgba(120,80,40,.12);
   --mr-shadow-lg:   0 14px 36px rgba(80,50,20,.20);
   --mr-focus:       rgba(85,122,43,.35);
-  --mr-accent-shadow: rgba(85,122,43,.38);   /* colored glow under solid buttons */
-  --mr-danger-shadow: rgba(184,50,39,.34);
 
   --mr-green-bg:   #dce8c9;  --mr-green-fg:   #3f5320;
   --mr-amber-bg:   #f6e2bc;  --mr-amber-fg:   #7a4d15;
@@ -78,11 +79,12 @@ body { margin: 0; }
     --mr-danger-hover:    #d0574b;
     --mr-danger-contrast: #241010;
 
+    --mr-warn: #e39b33;
+    --mr-good: #55c168;
+
     --mr-shadow:    0 2px 8px rgba(0,0,0,.45);
     --mr-shadow-lg: 0 14px 36px rgba(0,0,0,.55);
     --mr-focus:     rgba(140,191,79,.40);
-    --mr-accent-shadow: rgba(0,0,0,.5);
-    --mr-danger-shadow: rgba(0,0,0,.5);
 
     --mr-green-bg:   #2f3d1c;  --mr-green-fg:   #c3e394;
     --mr-amber-bg:   #3d2f13;  --mr-amber-fg:   #f0c675;
@@ -106,11 +108,12 @@ body { margin: 0; }
   --mr-danger-hover:    #d0574b;
   --mr-danger-contrast: #241010;
 
+  --mr-warn: #e39b33;
+  --mr-good: #55c168;
+
   --mr-shadow:    0 2px 8px rgba(0,0,0,.45);
   --mr-shadow-lg: 0 14px 36px rgba(0,0,0,.55);
   --mr-focus:     rgba(140,191,79,.40);
-  --mr-accent-shadow: rgba(0,0,0,.5);
-  --mr-danger-shadow: rgba(0,0,0,.5);
 
   --mr-green-bg:   #2f3d1c;  --mr-green-fg:   #c3e394;
   --mr-amber-bg:   #3d2f13;  --mr-amber-fg:   #f0c675;
@@ -136,26 +139,17 @@ body { margin: 0; }
   --mr-danger-hover:    #922418;
   --mr-danger-contrast: #ffffff;
 
+  --mr-warn: #d9861d;
+  --mr-good: #2f9e44;
+
   --mr-shadow:    0 2px 8px rgba(120,80,40,.12);
   --mr-shadow-lg: 0 14px 36px rgba(80,50,20,.20);
   --mr-focus:     rgba(85,122,43,.35);
-  --mr-accent-shadow: rgba(85,122,43,.38);
-  --mr-danger-shadow: rgba(184,50,39,.34);
 
   --mr-green-bg:   #dce8c9;  --mr-green-fg:   #3f5320;
   --mr-amber-bg:   #f6e2bc;  --mr-amber-fg:   #7a4d15;
   --mr-red-bg:     #f5d5c8;  --mr-red-fg:     #7a2f1e;
   --mr-neutral-bg: #ece0cf;  --mr-neutral-fg: #5c4a3a;
-}
-
-/* Accent = Purple (alternative). One definition, tuned to read on both the
-   cream and the dark surfaces. */
-[data-accent="purple"] {
-  --mr-accent:          #935889;
-  --mr-accent-hover:    #7c4874;
-  --mr-accent-contrast: #ffffff;
-  --mr-focus:           rgba(147,88,137,.35);
-  --mr-accent-shadow:   rgba(147,88,137,.36);
 }
 
 /* A "scope" establishes base font/color/background for its subtree. */
@@ -190,49 +184,29 @@ body { margin: 0; }
 .mr-btn:disabled { opacity: .55; cursor: not-allowed; }
 .mr-btn:active:not(:disabled) { transform: translateY(1px); }
 
-/* solid — colored elevation + a faint top sheen (gradient + inset highlight),
-   lifts on hover, presses in (inner shadow) on click.
-   Note: hover changes background-COLOR only, so the gradient sheen survives. */
+/* solid — flat accent fill, hairline shadow. Hover darkens the fill; the shared
+   :active rule nudges it down a pixel. */
 .mr-btn--solid {
-  background-color: var(--mr-accent);
-  background-image: linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 55%);
+  background: var(--mr-accent);
   color: var(--mr-accent-contrast);
-  box-shadow: 0 2px 6px -1px var(--mr-accent-shadow), 0 1px 2px rgba(0,0,0,.10),
-              inset 0 1px 0 rgba(255,255,255,.24);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
 }
-.mr-btn--solid:hover:not(:disabled) {
-  background-color: var(--mr-accent-hover); transform: translateY(-1px);
-  box-shadow: 0 6px 16px -3px var(--mr-accent-shadow), 0 2px 5px rgba(0,0,0,.12),
-              inset 0 1px 0 rgba(255,255,255,.24);
-}
-.mr-btn--solid:active:not(:disabled) {
-  box-shadow: 0 1px 2px rgba(0,0,0,.14), inset 0 2px 4px rgba(0,0,0,.18);
-}
+.mr-btn--solid:hover:not(:disabled) { background: var(--mr-accent-hover); }
 
 .mr-btn--danger {
-  background-color: var(--mr-danger);
-  background-image: linear-gradient(180deg, rgba(255,255,255,.15), rgba(255,255,255,0) 55%);
+  background: var(--mr-danger);
   color: var(--mr-danger-contrast);
-  box-shadow: 0 2px 6px -1px var(--mr-danger-shadow), 0 1px 2px rgba(0,0,0,.10),
-              inset 0 1px 0 rgba(255,255,255,.24);
+  box-shadow: 0 1px 2px rgba(0,0,0,.08);
 }
-.mr-btn--danger:hover:not(:disabled) {
-  background-color: var(--mr-danger-hover); transform: translateY(-1px);
-  box-shadow: 0 6px 16px -3px var(--mr-danger-shadow), 0 2px 5px rgba(0,0,0,.12),
-              inset 0 1px 0 rgba(255,255,255,.24);
-}
-.mr-btn--danger:active:not(:disabled) {
-  box-shadow: 0 1px 2px rgba(0,0,0,.14), inset 0 2px 4px rgba(0,0,0,.18);
-}
+.mr-btn--danger:hover:not(:disabled) { background: var(--mr-danger-hover); }
 
-/* outline — quieter, but still lifts a hair so it feels tactile */
+/* outline — quiet secondary: surface + border, tints on hover */
 .mr-btn--outline {
   background: var(--mr-surface); color: var(--mr-accent); border-color: var(--mr-border);
-  box-shadow: var(--mr-shadow);
 }
 .mr-btn--outline:hover:not(:disabled) {
-  background: var(--mr-surface-2); transform: translateY(-1px);
-  box-shadow: 0 5px 14px -3px rgba(60,40,20,.18);
+  background: var(--mr-surface-2);
+  border-color: color-mix(in srgb, var(--mr-text-muted) 40%, var(--mr-border));
 }
 
 /* ghost — the flat one, on purpose (menus, tertiary actions) */
@@ -242,6 +216,21 @@ body { margin: 0; }
 .mr-btn--sm { padding: .4rem .7rem;  font-size: .85rem; }
 .mr-btn--lg { padding: .8rem 1.3rem; font-size: 1.05rem; }
 .mr-btn--full { width: 100%; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ICON BUTTON — a bare square button holding one glyph (×, ＋, ✎)
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-iconbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.9rem; height: 1.9rem; flex: none; padding: 0;
+  border: none; background: none; cursor: pointer;
+  color: var(--mr-text-muted); font-size: 1.15rem; line-height: 1;
+  border-radius: var(--mr-radius-sm);
+  transition: background .15s, color .15s;
+}
+.mr-iconbtn:hover { color: var(--mr-text); background: var(--mr-surface-2); }
+.mr-iconbtn--danger:hover { color: var(--mr-danger); }
+.mr-iconbtn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
 
 /* ═══════════════════════════════════════════════════════════════════════
    FIELDS — Input & Select. Softened: full radius + a gentle shadow so they
@@ -263,6 +252,9 @@ body { margin: 0; }
 }
 .mr-field--error .mr-input { border-color: var(--mr-danger); }
 .mr-field__error { font-size: .8rem; color: var(--mr-danger); }
+
+/* Textarea variant of the input — grows by dragging, but only vertically. */
+.mr-textarea { resize: vertical; min-height: 5.5rem; line-height: 1.5; }
 
 /* Custom select — a styled trigger + our own popup, so the open list matches
    the rest of the primitives (a native <select>'s dropdown can't be styled). */
@@ -382,6 +374,43 @@ body { margin: 0; }
 .mr-switch input:focus-visible + .mr-switch__track { box-shadow: 0 0 0 3px var(--mr-focus); }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   RATING — 1–5 dot input. The DOM renders dots high→low and the row is
+   direction-reversed, so `:hover ~` can preview-fill the dots *before* the
+   cursor (CSS sibling selectors only reach later siblings).
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-rating {
+  display: inline-flex; flex-direction: row-reverse; justify-content: flex-end;
+  gap: .35rem; padding: .3rem 0;
+}
+.mr-rating__dot {
+  width: 1.15rem; height: 1.15rem; padding: 0; flex: none; cursor: pointer;
+  border: 2px solid var(--mr-border); border-radius: 50%;
+  background: transparent;
+  transition: background .12s, border-color .12s, transform .12s;
+}
+/* Each dot colors itself through --mr-dot; without a scale class it falls
+   back to the accent. */
+.mr-rating__dot--on {
+  background: var(--mr-dot, var(--mr-accent));
+  border-color: var(--mr-dot, var(--mr-accent));
+}
+.mr-rating__dot:hover { transform: scale(1.15); }
+.mr-rating__dot:hover, .mr-rating__dot:hover ~ .mr-rating__dot {
+  border-color: var(--mr-dot, var(--mr-accent));
+  background: color-mix(in srgb, var(--mr-dot, var(--mr-accent)) 45%, transparent);
+}
+.mr-rating__dot:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+
+/* The bad→good ramp: red, burnt orange, orange-amber, lime, green. Every dot
+   gets its own step so neighbours stay clearly apart; the in-between steps are
+   mixed from the endpoint tokens and follow them into dark mode. */
+.mr-rating__dot--r { --mr-dot: var(--mr-danger); }
+.mr-rating__dot--o { --mr-dot: color-mix(in srgb, var(--mr-danger) 45%, var(--mr-warn)); }
+.mr-rating__dot--a { --mr-dot: var(--mr-warn); }
+.mr-rating__dot--l { --mr-dot: color-mix(in srgb, var(--mr-good) 55%, var(--mr-warn)); }
+.mr-rating__dot--g { --mr-dot: var(--mr-good); }
+
+/* ═══════════════════════════════════════════════════════════════════════
    BADGE
    ═══════════════════════════════════════════════════════════════════════ */
 .mr-badge {
@@ -403,6 +432,44 @@ body { margin: 0; }
 .mr-alert--red     { background: var(--mr-red-bg);     color: var(--mr-red-fg); }
 .mr-alert--neutral { background: var(--mr-neutral-bg); color: var(--mr-neutral-fg); }
 .mr-alert__title { font-weight: 700; margin: 0 0 .15rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TOAST — floating notification card. This is only the look: position
+   toasts with .mr-toast-stack and drive show/dismiss from the app.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-toast-stack {
+  position: fixed; right: 1rem; bottom: 1rem; z-index: 60;
+  display: flex; flex-direction: column; align-items: flex-end; gap: .6rem;
+}
+.mr-toast {
+  display: flex; align-items: flex-start; gap: .5rem;
+  width: 20rem; max-width: calc(100vw - 2rem);
+  background: var(--mr-surface); color: var(--mr-text);
+  border: 1px solid var(--mr-border); border-left-width: 4px;
+  border-radius: var(--mr-radius-sm); box-shadow: var(--mr-shadow-lg);
+  padding: .7rem .8rem .7rem .95rem;
+  animation: mr-toast-in .18s ease-out;
+}
+/* Toned toasts wash the whole card, not just the edge, so green/red read at a
+   glance. Neutral stays on the plain surface. */
+.mr-toast--green {
+  border-left-color: var(--mr-green-fg);
+  background: color-mix(in srgb, var(--mr-green-bg) 50%, var(--mr-surface));
+}
+.mr-toast--amber {
+  border-left-color: var(--mr-amber-fg);
+  background: color-mix(in srgb, var(--mr-amber-bg) 50%, var(--mr-surface));
+}
+.mr-toast--red {
+  border-left-color: var(--mr-red-fg);
+  background: color-mix(in srgb, var(--mr-red-bg) 50%, var(--mr-surface));
+}
+.mr-toast--neutral { border-left-color: var(--mr-text-muted); }
+.mr-toast__body { flex: 1 1 auto; min-width: 0; }
+.mr-toast__title { margin: 0 0 .1rem; font-weight: 700; font-size: .9rem; }
+.mr-toast__msg { font-size: .88rem; line-height: 1.45; }
+@keyframes mr-toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mr-toast { animation: none; } }
 
 /* ═══════════════════════════════════════════════════════════════════════
    CARD
@@ -491,17 +558,130 @@ body { margin: 0; }
   border: 1px solid var(--mr-border); border-radius: var(--mr-radius);
   box-shadow: var(--mr-shadow-lg); overflow: hidden;
 }
+.mr-modal--wide { max-width: 40rem; }
+/* Let descendant popups (dropdowns, comboboxes) spill out of the dialog box
+   instead of being clipped by its rounded overflow. */
+.mr-modal--overflow { overflow: visible; }
 .mr-modal__header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 1rem 1.15rem; border-bottom: 1px solid var(--mr-border);
   font-weight: 700; font-family: var(--mr-font-heading);
 }
 .mr-modal__body { padding: 1.15rem; }
-.mr-modal__close {
-  background: none; border: none; cursor: pointer; line-height: 1;
-  font-size: 1.4rem; color: var(--mr-text-muted); padding: 0 .25rem;
+
+/* Pinned action row at the bottom of a dialog body (Cancel / Confirm). */
+.mr-dialog-foot {
+  flex: none; display: flex; justify-content: flex-end; gap: .6rem;
+  padding-top: .9rem; margin-top: 1rem; border-top: 1px solid var(--mr-border);
 }
-.mr-modal__close:hover { color: var(--mr-text); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ADD-RECIPE DIALOG — a two-step form inside the Modal. Each step is short
+   enough to size to its content, so the dialog itself doesn't scroll and its
+   dropdowns (which escape the box via `mr-modal--overflow`) stay fully visible.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-recipe-dialog { display: flex; flex-direction: column; gap: 1rem; }
+.mr-recipe-dialog__content { display: flex; flex-direction: column; gap: 1rem; }
+
+/* Always-available link at the bottom of the recipe form, into the ingredients. */
+.mr-add-link {
+  display: flex; align-items: center; justify-content: center; gap: .4rem;
+  width: 100%; padding: .7rem; font: inherit; font-weight: 600; cursor: pointer;
+  color: var(--mr-accent); background: var(--mr-surface);
+  border: 1px dashed color-mix(in srgb, var(--mr-accent) 45%, var(--mr-border));
+  border-radius: var(--mr-radius); transition: background .15s, border-color .15s;
+}
+.mr-add-link:hover { background: color-mix(in srgb, var(--mr-accent) 8%, transparent); }
+.mr-add-link:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+
+/* Two-up field layout; collapses to one column on narrow viewports. */
+.mr-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .9rem; }
+@media (max-width: 520px) { .mr-form-grid { grid-template-columns: 1fr; } }
+
+/* The ingredient composer sits in a tinted, bordered well. */
+.mr-subpanel {
+  display: flex; flex-direction: column; gap: .7rem;
+  border: 1px solid var(--mr-border); border-radius: var(--mr-radius);
+  background: var(--mr-surface-2); padding: .85rem;
+}
+/* A control that fills the row, next to a compact button aligned to its input. */
+.mr-inline-add { display: flex; align-items: flex-end; gap: .5rem; }
+.mr-inline-add > .mr-field,
+.mr-inline-add > .mr-sel { flex: 1 1 auto; min-width: 0; }
+.mr-inline-add--split { justify-content: space-between; align-items: center; }
+.mr-qty { flex: none; width: 7.5rem; }
+
+/* Type-to-search-or-create combobox (reuses the select popup styling). */
+.mr-combo { position: relative; }
+.mr-combo--open > .mr-input { position: relative; z-index: 42; }
+/* Pending-create flag pinned inside the field, so "you're making a new one"
+   stays visible after the popup closes. */
+.mr-combo--flagged > .mr-input { padding-right: 3.4rem; }
+.mr-combo__flag {
+  position: absolute; right: .7rem; top: 50%; transform: translateY(-50%);
+  z-index: 43; pointer-events: none;
+  font-size: .66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  padding: .24rem .5rem; border-radius: var(--mr-radius-pill);
+  background: var(--mr-green-bg); color: var(--mr-green-fg);
+}
+.mr-combo__unit { color: var(--mr-text-muted); font-size: .82rem; }
+.mr-combo__create {
+  color: var(--mr-accent); font-weight: 600;
+  border-top: 1px solid var(--mr-border); margin-top: .15rem;
+}
+
+/* Chosen ingredient lines. Caps its height and scrolls on its own so a long
+   list never stretches the dialog. */
+.mr-ing-list {
+  display: flex; flex-direction: column; gap: .5rem;
+  max-height: 13rem; overflow-y: auto;
+}
+.mr-ing-line {
+  display: flex; align-items: center; justify-content: space-between; gap: .6rem;
+  padding: .55rem .7rem; border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius-sm); background: var(--mr-surface);
+}
+.mr-ing-line__main { display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+.mr-ing-line__head { display: flex; align-items: center; gap: .4rem; min-width: 0; flex-wrap: wrap; }
+.mr-ing-line__name { font-weight: 600; color: var(--mr-text); }
+.mr-ing-line__meta {
+  font-size: .82rem; color: var(--mr-text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mr-ing-line__actions { flex: none; display: flex; align-items: center; gap: .15rem; }
+.mr-ing-line__edit {
+  border: none; background: none; cursor: pointer; color: var(--mr-text-muted);
+  font: inherit; font-size: .82rem; font-weight: 600;
+  padding: .2rem .45rem; border-radius: var(--mr-radius-sm);
+}
+.mr-ing-line__edit:hover { color: var(--mr-accent); background: var(--mr-surface-2); }
+
+/* A line switched into inline-edit mode grows into a small stacked form. */
+.mr-ing-line--editing {
+  flex-direction: column; align-items: stretch; gap: .6rem;
+  background: var(--mr-surface-2);
+}
+.mr-ing-line__edit-actions { display: flex; align-items: center; gap: .4rem; }
+
+.mr-empty-note { color: var(--mr-text-muted); font-size: .9rem; margin: 0; }
+
+/* Compact read-only ingredient summary on the recipe home view. */
+.mr-ings-summary { display: flex; flex-direction: column; gap: .35rem; }
+.mr-ings-summary__list {
+  display: flex; flex-direction: column; gap: .2rem;
+  max-height: 8.5rem; overflow-y: auto;
+  padding: .55rem .7rem; border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius-sm); background: var(--mr-surface);
+}
+.mr-ings-summary__row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .6rem;
+  font-size: .85rem;
+}
+.mr-ings-summary__name {
+  color: var(--mr-text); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mr-ings-summary__amt { flex: none; color: var(--mr-text-muted); font-variant-numeric: tabular-nums; }
 
 /* Layout helper */
 .mr-stack { display: flex; }
@@ -753,3 +933,33 @@ body { margin: 0; }
    `.mr-table thead th { text-align:left }` rule) */
 .mr-table th.mr-td--end,    .mr-table td.mr-td--end    { text-align: right; }
 .mr-table th.mr-td--center, .mr-table td.mr-td--center { text-align: center; }
+
+/* selection checkbox column */
+.mr-table th.mr-td--check, .mr-table td.mr-td--check { width: 2.1rem; padding-right: .1rem; }
+.mr-table__check {
+  width: 1.05rem; height: 1.05rem; display: block;
+  accent-color: var(--mr-accent); cursor: pointer;
+}
+
+/* row of quiet per-row actions (edit/remove) */
+.mr-rowactions { display: inline-flex; align-items: center; gap: .1rem; }
+
+/* Floating selection toolbar (count + bulk actions). Fixed, so ticking rows
+   never shifts the page; sits below the toast stack (z 60). */
+.mr-bulkbar {
+  position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%);
+  z-index: 55;
+  display: flex; align-items: center; gap: .9rem;
+  padding: .45rem .55rem .45rem 1.1rem;
+  background: var(--mr-surface);
+  border: 1px solid var(--mr-border);
+  border-radius: var(--mr-radius-pill);
+  box-shadow: var(--mr-shadow-lg);
+  white-space: nowrap;
+  animation: mr-bulkbar-in .18s ease-out;
+}
+@keyframes mr-bulkbar-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .mr-bulkbar { animation: none; } }

@@ -19,7 +19,11 @@ pub fn Chip(
     #[props(optional)]
     onremove: Option<EventHandler<()>>,
 ) -> Element {
-    let cls = if active { "mr-chip mr-chip--active" } else { "mr-chip" };
+    let cls = if active {
+        "mr-chip mr-chip--active"
+    } else {
+        "mr-chip"
+    };
 
     if let Some(remove) = onremove {
         // Removable pill: static label + a × button.

@@ -1,6 +1,6 @@
-//! Temporary component gallery for the locked-in "Warm" theme. Toggle dark mode
-//! and preview the accent (green vs purple). Delete once we rebuild the real
-//! pages on these primitives.
+//! Temporary component gallery for the locked-in "Warm" theme. Toggle dark
+//! mode to check both palettes. Delete once we rebuild the real pages on
+//! these primitives.
 
 use crate::components::ui::*;
 use dioxus::prelude::*;
@@ -8,7 +8,6 @@ use dioxus::prelude::*;
 #[component]
 pub fn Showcase() -> Element {
     let mut dark = use_signal(|| false);
-    let mut accent = use_signal(|| "green".to_string());
     let mut tab = use_signal(|| 0usize);
     let mut modal_open = use_signal(|| false);
 
@@ -18,19 +17,11 @@ pub fn Showcase() -> Element {
     let mut cuisine = use_signal(|| "thai".to_string());
     let mut vegetarian = use_signal(|| true);
     let mut notify = use_signal(|| false);
+    let mut healthiness = use_signal(|| Some(3i16));
+    let mut notes = use_signal(String::new);
+    let protein_pick = use_signal(Picker::default);
 
     let theme = if dark() { "dark" } else { "light" };
-    let acc = accent();
-    let green_variant = if acc == "green" {
-        ButtonVariant::Solid
-    } else {
-        ButtonVariant::Outline
-    };
-    let purple_variant = if acc == "purple" {
-        ButtonVariant::Solid
-    } else {
-        ButtonVariant::Outline
-    };
 
     let tab_body = match tab() {
         0 => "Monday: Pad Thai · Tuesday: Tacos · Wednesday: Ramen.",
@@ -42,7 +33,6 @@ pub fn Showcase() -> Element {
         div {
             class: "mr-scope mr-gallery",
             "data-theme": "{theme}",
-            "data-accent": "{acc}",
 
             div { class: "mr-gallery__inner",
 
@@ -50,25 +40,9 @@ pub fn Showcase() -> Element {
                 div { class: "mr-gallery__bar",
                     div {
                         Heading { level: 1, "Warm — component gallery" }
-                        Text { muted: true, "The locked-in vibe. Flip dark mode and try the accent." }
+                        Text { muted: true, "The locked-in vibe. Flip dark mode." }
                     }
-                    HStack { gap: 1.25, align: Align::Center,
-                        HStack { gap: 0.4, align: Align::Center,
-                            Button {
-                                variant: green_variant,
-                                size: Size::Sm,
-                                onclick: move |_| accent.set("green".to_string()),
-                                "Green"
-                            }
-                            Button {
-                                variant: purple_variant,
-                                size: Size::Sm,
-                                onclick: move |_| accent.set("purple".to_string()),
-                                "Purple"
-                            }
-                        }
-                        Switch { checked: dark(), onchange: move |v| dark.set(v), label: "Dark mode".to_string() }
-                    }
+                    Switch { checked: dark(), onchange: move |v| dark.set(v), label: "Dark mode".to_string() }
                 }
 
                 // ── buttons ────────────────────────────────────────────────
@@ -136,6 +110,31 @@ pub fn Showcase() -> Element {
                                     SelectOption::new("brazilian", "Brazilian"),
                                 ],
                             }
+                            Combobox {
+                                label: "Protein (search or create)".to_string(),
+                                placeholder: "Search, or type a new one and press Enter…".to_string(),
+                                options: vec![
+                                    ComboOption::new("1", "Chicken"),
+                                    ComboOption::new("2", "Beef"),
+                                    ComboOption::new("3", "Tofu"),
+                                    ComboOption::new("4", "Fish"),
+                                    ComboOption::new("5", "Beans"),
+                                ],
+                                picker: protein_pick,
+                            }
+                            Rating {
+                                label: "Healthiness (click the current dot to clear)".to_string(),
+                                value: healthiness(),
+                                scale: RatingScale::HighIsGood,
+                                onchange: move |n: i16| healthiness.set(Some(n)),
+                                on_clear: move |_| healthiness.set(None),
+                            }
+                            Textarea {
+                                label: "Notes".to_string(),
+                                value: notes(),
+                                oninput: move |e: FormEvent| notes.set(e.value()),
+                                placeholder: "Anything worth remembering about this recipe…".to_string(),
+                            }
                             HStack { gap: 1.5, align: Align::Center,
                                 Checkbox {
                                     checked: vegetarian(),
@@ -166,6 +165,26 @@ pub fn Showcase() -> Element {
                                 "“Pad Thai” is now in your library."
                             }
                             Alert { tone: Tone::Amber, "Heads up — 3 ingredients are missing from your pantry." }
+                            Toast {
+                                tone: Tone::Green,
+                                title: "Recipe added".to_string(),
+                                on_dismiss: move |_| {},
+                                "“Pad Thai” is now in your library."
+                            }
+                            Toast { tone: Tone::Red, title: "Couldn't save".to_string(),
+                                "The API said no — try again."
+                            }
+                            HStack { gap: 0.3, align: Align::Center,
+                                IconButton { label: "Edit".to_string(), onclick: move |_| {}, "✎" }
+                                IconButton { label: "Add".to_string(), onclick: move |_| {}, "＋" }
+                                IconButton {
+                                    label: "Remove".to_string(),
+                                    danger: true,
+                                    onclick: move |_| {},
+                                    "\u{00d7}"
+                                }
+                                Text { muted: true, small: true, "icon buttons" }
+                            }
                             HStack { gap: 1.0, align: Align::Center,
                                 Spinner { size: Size::Sm }
                                 Spinner { size: Size::Md }
@@ -244,24 +263,14 @@ pub fn Showcase() -> Element {
                 }
             }
 
-            Modal {
-                open: modal_open(),
-                on_close: move |_| modal_open.set(false),
-                title: "Delete recipe?".to_string(),
-                VStack { gap: 1.0,
+            if modal_open() {
+                ConfirmDialog {
+                    title: "Delete recipe?".to_string(),
+                    confirm_label: "Delete".to_string(),
+                    danger: true,
+                    on_confirm: move |_| modal_open.set(false),
+                    on_cancel: move |_| modal_open.set(false),
                     Text { "This removes “Pad Thai” from your library. You can't undo this." }
-                    HStack { gap: 0.6, align: Align::Center,
-                        Button {
-                            variant: ButtonVariant::Ghost,
-                            onclick: move |_| modal_open.set(false),
-                            "Cancel"
-                        }
-                        Button {
-                            variant: ButtonVariant::Danger,
-                            onclick: move |_| modal_open.set(false),
-                            "Delete"
-                        }
-                    }
                 }
             }
         }

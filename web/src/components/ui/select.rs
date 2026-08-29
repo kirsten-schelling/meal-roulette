@@ -1,3 +1,4 @@
+use crate::components::ui::Field;
 use dioxus::prelude::*;
 use std::rc::Rc;
 
@@ -39,7 +40,10 @@ pub fn Select(
     // handle to the search field so we can focus it the instant the menu opens
     let mut field_el = use_signal(|| None as Option<Rc<MountedData>>);
 
-    let current_label = options.iter().find(|o| o.value == value).map(|o| o.label.clone());
+    let current_label = options
+        .iter()
+        .find(|o| o.value == value)
+        .map(|o| o.label.clone());
     let is_placeholder = current_label.is_none();
     let selected_text = current_label
         .clone()
@@ -55,11 +59,7 @@ pub fn Select(
         .collect();
 
     rsx! {
-        div { class: "mr-field",
-            if let Some(l) = label.clone() {
-                label { class: "mr-label", "{l}" }
-            }
-
+        Field { label: label.clone(),
             if searchable {
                 // ── field-as-search: the bar itself is the search input ──────
                 {

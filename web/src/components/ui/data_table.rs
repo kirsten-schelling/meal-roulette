@@ -1,4 +1,5 @@
 use dioxus::prelude::*;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 /// Horizontal alignment for a column's cells (header + body).
@@ -79,6 +80,10 @@ impl<T> PartialEq for Column<T> {
 /// A generic data table. Give it a set of [`Column`]s and a `Vec` of rows of any
 /// type `T`; each column's closure renders its own cell. The table itself knows
 /// nothing about the row type — swap in `Ingredient`, `PlannedMeal`, … unchanged.
+///
+/// `selectable` adds a leading checkbox column (with select-all in the header).
+/// Selection is by row index and lives inside the table; `on_select` reports
+/// the sorted index set after every change.
 #[component]
 pub fn DataTable<T: Clone + PartialEq + 'static>(
     columns: Vec<Column<T>>,
@@ -86,13 +91,46 @@ pub fn DataTable<T: Clone + PartialEq + 'static>(
     /// Shown in place of the body when there are no rows.
     #[props(default = "Nothing to show yet.".to_string())]
     empty: String,
+    #[props(default)] selectable: bool,
+    on_select: Option<EventHandler<Vec<usize>>>,
 ) -> Element {
-    let col_count = columns.len();
+    let mut selected = use_signal(HashSet::<usize>::new);
+
+    let row_count = rows.len();
+    let col_count = columns.len() + usize::from(selectable);
+    let all_selected = selectable && row_count > 0 && selected.read().len() == row_count;
+
+    let notify = move || {
+        if let Some(cb) = &on_select {
+            let mut v: Vec<usize> = selected.read().iter().copied().collect();
+            v.sort_unstable();
+            cb.call(v);
+        }
+    };
+
     rsx! {
         div { class: "mr-table-wrap",
             table { class: "mr-table",
                 thead {
                     tr {
+                        if selectable {
+                            th { class: "mr-td--check",
+                                input {
+                                    class: "mr-table__check",
+                                    r#type: "checkbox",
+                                    checked: all_selected,
+                                    aria_label: "Select all rows",
+                                    onchange: move |_| {
+                                        if selected.read().len() == row_count {
+                                            selected.write().clear();
+                                        } else {
+                                            *selected.write() = (0..row_count).collect();
+                                        }
+                                        notify();
+                                    },
+                                }
+                            }
+                        }
                         for col in columns.iter() {
                             th { class: col.align.cls(), "{col.header}" }
                         }
@@ -106,6 +144,25 @@ pub fn DataTable<T: Clone + PartialEq + 'static>(
                     } else {
                         for (i, row) in rows.iter().enumerate() {
                             tr { key: "{i}",
+                                if selectable {
+                                    td { class: "mr-td--check",
+                                        input {
+                                            class: "mr-table__check",
+                                            r#type: "checkbox",
+                                            checked: selected.read().contains(&i),
+                                            aria_label: "Select row",
+                                            onchange: move |_| {
+                                                {
+                                                    let mut s = selected.write();
+                                                    if !s.remove(&i) {
+                                                        s.insert(i);
+                                                    }
+                                                }
+                                                notify();
+                                            },
+                                        }
+                                    }
+                                }
                                 for col in columns.iter() {
                                     td { class: col.align.cls(), {(col.cell)(row)} }
                                 }
