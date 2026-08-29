@@ -12,8 +12,9 @@ Roll a week of dinners from recipes in Postgres, weighted so **weeknight meals a
 quick/easy** and **weekend meals can run longer/ambitious**, then generate a **shopping
 list** for the week.
 
-Already scaffolded: Dioxus (Rust) fullstack frontend · Rust/Axum + SQLx backend (Cargo
-workspace with a shared `domain` crate) · Postgres. Stretch surface: ESP32 kitchen screen.
+Already scaffolded: Dioxus (Rust) fullstack frontend · Rust/Axum + SQLx backend with CRUD
+over the MVP tables (Cargo workspace with a shared `domain` crate) · Postgres, fully
+migrated. Stretch surface: ESP32 kitchen screen.
 
 Core sub-features:
 - Recipe attributes: difficulty, time-to-make, servings/yield, **main protein**, cuisine,
@@ -71,7 +72,7 @@ The individual features get much more powerful when they close into loops:
 - _(suggested)_ **Dietary & preference constraints** — **[Own]** M. Veg / allergy /
   "no fish for partner" / cuisine rotation, all fed into the solver.
 - _(suggested)_ **Ratings & feedback** — **[Own]** M. Rate after cooking; weight future
-  rolls toward liked, away from disliked; recency via `last_cooked`.
+  rolls toward liked, away from disliked; recency derives from `cook_log`.
 - **Min/max cook interval** — **[Own]** M. Per-recipe **minimum gap** ("don't repeat within
   N weeks") and **maximum gap** ("cook at least every M weeks"), on top of the recency
   weighting. Default to friendly presets (e.g. *rarely / sometimes / often*), with an
@@ -220,9 +221,8 @@ The individual features get much more powerful when they close into loops:
 - **Household with multiple members** — **[Own]** M. One household, several members. The
   **main cook** does most of the planning; other members can **suggest recipes** (into a
   shared pool the cook can pull into the roll or pin) and **veto** recipes or specific
-  planned meals (excludes them / triggers a re-roll of that slot). Requires users + auth and
-  a `household_id` on the core tables. **Bake this into the schema early** — even if you run
-  solo at first, retrofitting ownership onto existing data is painful.
+  planned meals (excludes them / triggers a re-roll of that slot). Requires users + auth;
+  `household_id` is already on the core tables, so ownership isn't a retrofit.
 - **Per-day cook assignment** — **[Own]** M. Assign who's cooking on which days ("Tuesday
   is Sam's night"); the roll respects it.
 - **Per-user recipe affinity** — **[Own]** M. Track which recipes each member *likes to
@@ -265,10 +265,10 @@ The individual features get much more powerful when they close into loops:
 Front-loads value; each step is a clean learning milestone. Ordering is **author-first** —
 built for personal use, so it leads with what the author values most.
 
-0. **Core roller + shopping list** *(in progress)* — includes difficulty-by-day (+ override)
+0. **Core roller + shopping list** — includes difficulty-by-day (+ override)
    and sleep-ingredients on the shopping list
-1. **Household + auth foundations** — users + `household_id` ownership in the schema, so the
-   collaboration features aren't a painful retrofit later
+1. **Household + auth foundations** — users + auth on top of the `household_id` ownership
+   already in the schema
 2. **Recipe import from URL** — removes the data-entry wall so the app is actually usable
 3. **Leftovers + dietary constraints** — makes the roll genuinely useful
 4. **Pantry + staples predictor + "use it up"** — the inventory loop (with manual override); starts saving real effort

@@ -9,14 +9,14 @@ embedded). The full feature vision lives in [docs/product/roadmap.md](docs/produ
 ## Stack
 
 - **Frontend** — Dioxus 0.7 (Rust, fullstack — `#[server]` BFF) (`web/`)
-- **Backend** — Rust (Axum + SQLx), a Cargo workspace: `crates/api` + a shared `crates/domain`
+- **Backend** — Rust (Axum + SQLx); one Cargo workspace: `api`, `domain`, `web`
 - **Database** — Postgres (via Docker locally)
 
 ## Layout
 
 ```
-crates/api/          Axum HTTP server
-crates/domain/       shared types (server <-> future device)
+api/                 Axum HTTP server + SQL migrations
+domain/              shared wire types (api <-> web <-> future device)
 web/                 Dioxus app (fullstack, #[server] BFF)
 docs/                architecture, product, decisions, guides
 docker-compose.yml   local Postgres
@@ -47,4 +47,5 @@ cargo run -p api
 cd web && dx serve
 ```
 
-> Early scaffold: the API doesn't connect to Postgres yet — wiring that up is the next slice.
+Environment variables, migrations, and the `just` task recipes are covered in
+[docs/guides/local-dev.md](docs/guides/local-dev.md).

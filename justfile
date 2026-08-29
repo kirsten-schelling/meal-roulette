@@ -18,7 +18,7 @@ db-down:
 api:
     cargo run -p api
 
-# run the web app  ->  http://localhost:5173
+# run the web app  ->  http://localhost:8080
 web:
     cd web && dx serve
 

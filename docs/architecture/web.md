@@ -22,13 +22,16 @@ the server build alone, gated with `#[cfg(feature = "server")]`.
 web/src/
 ├── main.rs                     # entry point, launch, root App component
 ├── router.rs                   # Route enum: URL <-> page component
-├── models.rs                   # shared wire types (interim; to be sourced from the api crate)
+├── models.rs                   # small view helpers (wire types come from the domain crate)
+├── showcase.rs                 # temporary /showcase component gallery
 │
 ├── components/                 # GENERIC, cross-feature UI only
 │   ├── ui/                     #   primitives (button, card, input, ...)
 │   ├── layout/                 #   app shell (header, sidebar, app_layout)
 │   └── stub.rs                 #   shared placeholders
 │
+├── pages/                      # shell route stubs not yet wired to a feature
+│                               #   (their fate: docs/decisions/pending.md)
 ├── hooks/                      # GENERIC, cross-feature client hooks (reserved)
 │
 ├── server/                     # SERVER-SIDE boundary

@@ -17,11 +17,14 @@
 ### Backend
 
 - **Rust** — Axum 0.8 + SQLx 0.9 (features: `postgres`, `macros`, `migrate`, `uuid`, `time`, `runtime-tokio`, `tls-rustls`).
-- Cargo **workspace**: `crates/api` (HTTP server) + `crates/domain` (types shared server ↔ future device) + _(planned)_ `crates/solver` (the meal roller written in **C**, called via FFI — see C/C++ projects).
-- Feature-oriented modules: `features/<x>/{ mod.rs = routes, handlers, service, repo, model }`.
+- One root Cargo **workspace**: `api` (HTTP server) + `domain` (wire types shared api ↔ web ↔
+  future device) + `web` (the Dioxus app) + _(planned)_ a solver crate (the meal roller written
+  in **C**, called via FFI — see C/C++ projects).
+- Feature-oriented modules: `features/<x>/{ mod.rs = routes, handlers.rs, repository.rs }`;
+  request/response types live in the `domain` crate.
 - **UUIDv7** primary keys (`DEFAULT uuidv7()`, needs Postgres 18), plus `created_at` / `updated_at` with a shared `set_updated_at` trigger.
-- **SQL migrations** via `sqlx-cli` (`crates/api/migrations`, reversible with `-r`). Migrations are the schema source of truth — never edit one that's been applied; add a new one.
-- **Only** `query_as!` **allowed**, enforced by `clippy.toml` (`disallowed-methods` + `disallowed-macros`) → no unchecked or anonymous queries.
+- **SQL migrations** via `sqlx-cli` (`api/migrations`, reversible with `-r`). Migrations are the schema source of truth — never edit one that's been applied; add a new one.
+- **Only** `query_as!` **allowed** — `clippy.toml` (`disallowed-methods` + `disallowed-macros`) bans the unchecked and anonymous forms.
 
 ### Database
 
@@ -50,7 +53,7 @@
 ### Tooling installed on this machine
 
 - Rust (rustup, MSVC toolchain), Node 24 via **fnm** (pinned in `.node-version`), **yarn**, Docker, **just**, **sqlx-cli**, **dioxus-cli** (`dx`).
-- `just` recipes: `db`, `migrate`, `new-migration <name>`, `api`, `web`, `fmt`, `lint`, `check`.
+- Task recipes live in the `justfile` — run `just` to list them.
 
 ---
 
@@ -58,19 +61,19 @@
 
 Same recipes page (table + add form) built several ways to decide by _taste_:
 
-| Where                                 | Stack                          | Verdict / notes                                                                                                                                     |
-| ------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `web/` → `/shadcn`                    | SvelteKit + shadcn-svelte      | Neutral, composable, you own the components. Plain out of the box.                                                                                  |
-| `web/` → `/daisy`                     | SvelteKit + DaisyUI            | Opinionated, themed, **nice out of the box**; one `data-theme` swaps the whole look.                                                                |
-| `web2/` → `/chakra`                   | Next 16 + Chakra v3            | Built. Renders, but has an SSR hydration warning to fix. The work-familiar stack.                                                                   |
-| `web2/` → `/mantine`, `/antd`, `/mui` | Next 16 + Mantine / AntD / MUI | **Planned, not built** — each needs its own Next-16 SSR wiring; paused as low-value grind.                                                          |
-| `web3/`                               | **Dioxus 0.7** (Rust → WASM)   | **Current lean.** React-like, one codebase → web/desktop/mobile, `#[server]` BFF. No OOB components (used Pico.css + hand-built `DifficultyBadge`). |
+| Stack                          | Verdict / notes                                                                                                                                     |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SvelteKit + shadcn-svelte      | Neutral, composable, you own the components. Plain out of the box.                                                                                  |
+| SvelteKit + DaisyUI            | Opinionated, themed, **nice out of the box**; one `data-theme` swaps the whole look.                                                                |
+| Next 16 + Chakra v3            | Built. Renders, but has an SSR hydration warning to fix. The work-familiar stack.                                                                   |
+| Next 16 + Mantine / AntD / MUI | **Planned, not built** — each needs its own Next-16 SSR wiring; paused as low-value grind.                                                          |
+| **Dioxus 0.7** (Rust → WASM)   | **Chosen.** React-like, one codebase → web/desktop/mobile, `#[server]` BFF. No OOB components (used Pico.css + hand-built `DifficultyBadge`). |
 
-**Status: DECIDED → Dioxus** (fullstack, `#[server]` BFF), now the main app in **`web/`**. Trade-off accepted: **no ready-made component library → build your own** (which is wanted anyway). _(The `Where` paths in the table above are pre-decision; the folders were rotated afterwards — final layout below.)_
+**Status: DECIDED → Dioxus** (fullstack, `#[server]` BFF), now the main app in **`web/`**. Trade-off accepted: **no ready-made component library → build your own** (which is wanted anyway).
 
 **Final layout:** `web/` = **Dioxus** (the app, committed) · `web2/` = SvelteKit · `web3/` = Next/React. `web2/` and `web3/` are kept as **gitignored reference spikes** (not built or committed) — delete anytime.
 
-`web/` module structure: `main.rs` (launch + `App` composition) · `models.rs` (types) · `server.rs` (`#[server]` fns) · `components/` (`difficulty_badge`, `recipe_table`, `add_recipe_form`). Run with `dx serve` → localhost:8080.
+`web/` module structure: see [web.md](web.md) (normative). Run with `dx serve` → localhost:8080.
 
 ### Leptos vs Dioxus (if the frontend goes all-Rust)
 
@@ -91,9 +94,9 @@ Goal: get real C/C++ reps (embedded hiring still expects them), done _coherently
 2. **Kitchen-screen firmware in C++ / ESP-IDF** — _the résumé-credible embedded C++._
    Write portable display/render logic that compiles for the ESP32 **and** a host-side simulator (fake framebuffer → terminal) so it can be TDD'd without hardware. Real hardware + partner's electronics input; a fair way off (see below).
 3. **Meal-roulette solver in C — server-side, in the API** _(decided direction)._
-   Write the roller/constraint-solver in **portable C** in a dedicated `crates/solver` crate, called from `crates/api`'s `/roll` endpoint via FFI. Recipes come from Postgres, cross the boundary as plain arrays, chosen indices come back. **Lives in the API backend (`:3000`), NOT the Dioxus web/BFF server.**
+   Write the roller/constraint-solver in **portable C** in a dedicated solver crate, called from the API's `/roll` endpoint via FFI. Recipes come from Postgres, cross the boundary as plain arrays, chosen indices come back. **Lives in the API backend (`:3000`), NOT the Dioxus web/BFF server.**
    ```
-   crates/solver/
+   solver/
      build.rs               # compiles csrc/solver.c via the `cc` crate
      csrc/{solver.c, solver.h}
      src/lib.rs             # unsafe extern "C" bindings + safe roll() wrapper + tests
@@ -117,5 +120,6 @@ Goal: get real C/C++ reps (embedded hiring still expects them), done _coherently
 
 - OIDC client library (`openid-client` / Auth.js / Better Auth).
 - When to start the **BFF + auth** layer.
+- The full queue lives in [../decisions/pending.md](../decisions/pending.md).
 
 _(Resolved: frontend = **Dioxus fullstack** (`#[server]` BFF); meal-roller = **C in the API** via FFI, not client-side WASM.)_

@@ -3,7 +3,7 @@
 > The database design for the MVP core loop: roll a week of dinners, generate a shopping
 > list, and keep a history of what was cooked. Companion to [the roadmap](../product/roadmap.md)
 > (features) and [the stack notes](stack.md) (tech). Migrations under
-> `crates/api/migrations` are the schema source of truth; this document is the map and the
+> `api/migrations` are the schema source of truth; this document is the map and the
 > reasoning behind it.
 
 ## Scope

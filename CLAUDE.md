@@ -6,7 +6,8 @@ list. Learning-oriented — Rust backend as an on-ramp toward embedded. Feature 
 
 ## Stack
 - Frontend: Dioxus 0.7 (Rust, fullstack — `#[server]` BFF) — `web/`
-- Backend: Rust (Axum + SQLx) — Cargo workspace: `crates/api`, `crates/domain`
+- Backend: Rust (Axum + SQLx) — `api/`, with shared wire types in `domain/`. One root Cargo
+  workspace: `api`, `domain`, `web`.
 - Database: Postgres (Docker locally)
 - `web2/` (SvelteKit) and `web3/` (Next) — gitignored reference spikes from the UI comparison; not part of the build.
 
@@ -22,6 +23,14 @@ split between generic and feature-scoped components/hooks. Read
 - Web: `cd web && dx serve`   -> http://localhost:8080
 
 ## Conventions
+- **Teaching mode (learning project):** For API / web-server / non-UI logic, default to *hints*
+  toward the fix, not finished code — until I explicitly ask for the answer or to implement. A
+  question means no change by default; only edit when I say "implement". Exception: components and
+  styling/UI — just build those.
+- **Comments:** default to no comment. Add one only when something is genuinely hard to
+  understand from the code itself, or when the reason for something is not clear from the
+  code — explain **why**, not **what**. Comments must never be responses to a prompt or
+  replies to review feedback.
 - **Git attribution:** never add AI / Claude / Anthropic attribution to commit messages, PR
   titles or bodies, or branch names. No `Co-Authored-By: Claude ...`, no "Generated with
   Claude Code". Keep commit messages plain and descriptive.
