@@ -26,6 +26,18 @@ enum Panel {
     Ingredients,
 }
 
+#[derive(PartialEq)]
+struct NewRecipeForm {
+    title: String,
+    difficulty: i16,
+    time_mins: String,
+    servings: String,
+    healthiness: Option<i16>,
+    cuisine: Picker,
+    protein: Picker,
+    lines: Vec<RecipeLine>,
+}
+
 /// Flattens a lookup fetch into combobox rows — empty while loading or on error.
 fn options_from<T>(
     fetched: &Option<Result<Vec<T>, ServerFnError>>,
@@ -46,8 +58,7 @@ fn validate_form(
     if title.trim().is_empty()
         || number_field_error(&time_mins(), "Time").is_some()
         || number_field_error(&servings(), "Servings").is_some()
-        || difficulty < 1
-        || difficulty > 5
+        || !(1..=5).contains(&difficulty)
     {
         return false;
     }
@@ -251,14 +262,16 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                     disabled: saving || !validate_form(title(), difficulty(), time_mins, servings),
                                     onclick: move |_| {
                                         add_recipe.submit(build_new_recipe(
-                                            title(),
-                                            difficulty(),
-                                            time_mins(),
-                                            servings(),
-                                            healthiness(),
-                                            cuisine(),
-                                            protein(),
-                                            lines(),
+                                            NewRecipeForm {
+                                                title: title(),
+                                                difficulty: difficulty(),
+                                                time_mins: time_mins(),
+                                                servings: servings(),
+                                                healthiness: healthiness(),
+                                                cuisine: cuisine(),
+                                                protein: protein(),
+                                                lines: lines(),
+                                            },
                                         ));
                                     },
                                     if saving {
@@ -348,17 +361,9 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
 
 // Text inputs are parsed to their real types here, at the edge, so the wire
 // type carries Decimal/i16 the rest of the way.
-fn build_new_recipe(
-    title: String,
-    difficulty: i16,
-    time_mins: String,
-    servings: String,
-    healthiness: Option<i16>,
-    cuisine: Picker,
-    protein: Picker,
-    lines: Vec<RecipeLine>,
-) -> NewRecipe {
-    let ingredients: Vec<RecipeIngredientEntry> = lines
+fn build_new_recipe(form: NewRecipeForm) -> NewRecipe {
+    let ingredients: Vec<RecipeIngredientEntry> = form
+        .lines
         .iter()
         .map(|l| RecipeIngredientEntry {
             ingredient: if l.is_new {
@@ -386,11 +391,11 @@ fn build_new_recipe(
         })
         .collect();
 
-    let cuisine = match (cuisine.picked, cuisine.new_name) {
+    let cuisine = match (form.cuisine.picked, form.cuisine.new_name) {
         (Some(opt), _) => CuisineEntry::Existing(opt.id.parse().unwrap()),
         (None, name) => CuisineEntry::New(name.unwrap_or_default()),
     };
-    let protein = match (protein.picked, protein.new_name) {
+    let protein = match (form.protein.picked, form.protein.new_name) {
         (Some(opt), _) => ProteinEntry::Existing(opt.id.parse().unwrap()),
         (None, name) => ProteinEntry::New(name.unwrap_or_default()),
     };
@@ -400,10 +405,10 @@ fn build_new_recipe(
         protein,
         cuisine,
         ingredients,
-        title,
-        difficulty,
-        time_mins: time_mins.parse().unwrap(),
-        servings: servings.parse().unwrap(),
-        healthiness,
+        title: form.title,
+        difficulty: form.difficulty,
+        time_mins: form.time_mins.parse().unwrap(),
+        servings: form.servings.parse().unwrap(),
+        healthiness: form.healthiness,
     }
 }
