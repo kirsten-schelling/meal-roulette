@@ -14,6 +14,7 @@ pub fn Input(
     /// When set, shows the message in the danger color and flags the field.
     #[props(optional)]
     error: Option<String>,
+    #[props(optional)] onblur: Option<EventHandler<FocusEvent>>,
 ) -> Element {
     rsx! {
         Field { label, error,
@@ -23,6 +24,7 @@ pub fn Input(
                 value: "{value}",
                 placeholder: placeholder.clone().unwrap_or_default(),
                 oninput: move |e| oninput.call(e),
+                onblur: move |e| {if let Some(b) = onblur {b.call(e)}},
             }
         }
     }

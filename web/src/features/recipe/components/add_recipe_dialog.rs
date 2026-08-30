@@ -37,6 +37,32 @@ fn options_from<T>(
     }
 }
 
+fn validate_form(
+    title: String,
+    difficulty: i16,
+    time_mins: Signal<String, UnsyncStorage>,
+    servings: Signal<String, UnsyncStorage>,
+) -> bool {
+    if title.trim().is_empty()
+        || number_field_error(&time_mins(), "Time").is_some()
+        || number_field_error(&servings(), "Servings").is_some()
+        || difficulty < 1
+        || difficulty > 5
+    {
+        return false;
+    }
+    true
+}
+
+fn number_field_error(value: &str, name: &str) -> Option<String> {
+    if value.is_empty() {
+        return Some(format!("{} is required", name));
+    } else if value.parse::<i16>().is_err() {
+        return Some(format!("{} is invalid", name));
+    }
+    None
+}
+
 /// The "Add recipe" dialog. Recipe details are home; a persistent link opens the
 /// ingredient composer. Mount it only while open (`if show() { AddRecipeDialog {
 /// .. } }`) so each open starts clean; `on_close` fires on the ×, the backdrop, or
@@ -60,6 +86,8 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
     let mut units = use_get_units();
     let ingredients = use_get_ingredients();
 
+    let mut time_mins_error = use_signal(|| None as Option<String>);
+    let mut servings_error = use_signal(|| None as Option<String>);
     // The manage-lists dialog stacks over this one so an in-progress recipe
     // survives a quick rename detour. `None` = closed.
     let mut managing = use_signal(|| None as Option<ManageTab>);
@@ -155,14 +183,28 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                         label: "Time (mins)".to_string(),
                                         kind: "number".to_string(),
                                         value: time_mins(),
-                                        oninput: move |e: FormEvent| time_mins.set(e.value()),
+                                        oninput: move |e: FormEvent| {
+                                            time_mins.set(e.value());
+                                            time_mins_error.set(number_field_error(&time_mins(), "Time"));
+                                        },
                                         placeholder: "e.g. 25".to_string(),
+                                        error: time_mins_error(),
+                                        onblur: move |_| {
+                                            time_mins_error.set(number_field_error(&time_mins(), "Time"));
+                                        },
                                     }
                                     Input {
                                         label: "Servings".to_string(),
                                         kind: "number".to_string(),
                                         value: servings(),
-                                        oninput: move |e: FormEvent| servings.set(e.value()),
+                                        oninput: move |e: FormEvent| {
+                                            servings.set(e.value());
+                                            servings_error.set(number_field_error(&servings(), "Servings"));
+                                        },
+                                        error: servings_error(),
+                                        onblur: move |_| {
+                                            servings_error.set(number_field_error(&servings(), "Servings"));
+                                        },
                                     }
                                 }
 
@@ -206,7 +248,7 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                 }
                                 Button {
                                     variant: ButtonVariant::Solid,
-                                    disabled: saving || title().trim().is_empty(),
+                                    disabled: saving || !validate_form(title(), difficulty(), time_mins, servings),
                                     onclick: move |_| {
                                         add_recipe.submit(build_new_recipe(
                                             title(),
