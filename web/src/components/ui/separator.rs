@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 pub enum Orientation {
     #[default]
     Horizontal,
+    #[expect(dead_code)]
     Vertical,
 }
 

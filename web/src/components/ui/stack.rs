@@ -11,8 +11,10 @@ pub enum Dir {
 pub enum Align {
     #[default]
     Stretch,
+    #[expect(dead_code)]
     Start,
     Center,
+    #[expect(dead_code)]
     End,
 }
 

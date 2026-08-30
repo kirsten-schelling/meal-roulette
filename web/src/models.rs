@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 pub fn difficulty_label(d: i32) -> &'static str {
     match d {
         1 => "Very easy",

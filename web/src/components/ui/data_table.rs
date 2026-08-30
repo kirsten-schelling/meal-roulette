@@ -7,6 +7,7 @@ use std::rc::Rc;
 pub enum CellAlign {
     #[default]
     Start,
+    #[expect(dead_code)]
     Center,
     End,
 }

@@ -38,18 +38,15 @@ new-migration name:
 prepare:
     cargo sqlx prepare --workspace -- --all-targets
 
-# format Rust + web
+# format Rust
 fmt:
     cargo fmt
-    cd web && yarn format
 
-# lint: fmt check + clippy (fails on warnings, enforces query_as!) + prettier check
+# lint: fmt check + clippy (fails on warnings, enforces query_as!)
 lint:
     cargo fmt --check
-    #cargo clippy --all-targets -- -D warnings
-    cd web && yarn format:check
+    cargo clippy --all-targets -- -D warnings
 
 # type-check everything without producing binaries
 check:
     cargo check --workspace
-    cd web && yarn check

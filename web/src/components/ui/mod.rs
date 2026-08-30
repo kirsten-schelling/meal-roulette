@@ -45,10 +45,14 @@ pub use modal::Modal;
 pub use rating::{Rating, RatingScale};
 pub use search_bar::{FilterField, SearchBar};
 pub use select::{Select, SelectOption};
-pub use separator::{Orientation, Separator};
+#[expect(unused_imports)]
+pub use separator::Orientation;
+pub use separator::Separator;
 pub use skeleton::Skeleton;
 pub use spinner::Spinner;
-pub use stack::{Align, Dir, HStack, Stack, VStack};
+pub use stack::{Align, HStack, VStack};
+#[expect(unused_imports)]
+pub use stack::{Dir, Stack};
 pub use switch::Switch;
 pub use table::Table;
 pub use tabs::Tabs;

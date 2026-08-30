@@ -3,6 +3,7 @@ pub enum AppError {
     Db(sqlx::Error),
     NotFound(String),
     Conflict(String),
+    #[expect(dead_code)]
     BadRequest(String),
 }
 impl From<sqlx::Error> for AppError {
