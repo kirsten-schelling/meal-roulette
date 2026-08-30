@@ -113,6 +113,10 @@ The individual features get much more powerful when they close into loops:
   rating from the recipe's **ingredients** rather than a manual per-meal score — ideally
   without making the user rate every ingredient by hand — via the **base ingredient library**
   (below).
+- **Dishes rating** — **[Own]** S. How much washing-up a recipe creates (one-pot →
+  every-pan-you-own), as a simple per-recipe scale. A roll setting ("keep the dishes down")
+  biases or caps high-cleanup meals — per plan or per day, in the same spirit as
+  difficulty-by-day.
 - **Flavour profile** - **[Own]** S. A flavour profile per ingredient (eg Sugar = Sweet, 
   Tomato = Acidic) to classify flavour profiles of recipes. Can be used for future recipe 
   recommendations, based on a user's favourite or commonly cooked dishes.
@@ -233,6 +237,11 @@ The individual features get much more powerful when they close into loops:
 - **Per-user recipe affinity** — **[Own]** M. Track which recipes each member *likes to
   make* / is comfortable cooking. When a slot is assigned to a member, the roller prefers
   from that member's recipes.
+- **Public recipes & recommended periods** — **[Own]** L. *Future.* Let users make recipes
+  **publicly available** beyond their household. On top of that pool, the app recommends a
+  **full week (or any chosen period) in one shot** from the household's settings, goals and
+  history — drawing on both the own library and public recipes, so a plan arrives ready to
+  accept or tweak instead of being assembled by hand. The endgame of the **preference loop**.
 
 > These, plus difficulty-by-day, leftovers, dietary constraints, ratings and vetoes, all
 > become weighted **inputs to the roller** — which is where the interesting Rust logic lives.
