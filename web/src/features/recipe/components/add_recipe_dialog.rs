@@ -12,11 +12,9 @@ use crate::features::recipe::hooks::use_recipe::use_add_recipe;
 use crate::features::unit::hooks::use_unit::use_get_units;
 use dioxus::prelude::*;
 use domain::cuisine::CuisineEntry;
-use domain::ingredient::IngredientEntry;
 use domain::protein::ProteinEntry;
 use domain::recipe::NewRecipe;
 use domain::recipe_ingredient::RecipeIngredientEntry;
-use domain::unit::UnitEntry;
 
 // Recipe details are home; "Add ingredients" opens the composer. Creating an
 // ingredient happens inline in the composer, so there's no extra panel.
@@ -120,18 +118,12 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
     });
     let saving = (add_recipe.loading)();
 
-    let cuisine_options = options_from(&cuisines(), |c| {
-        ComboOption::new(c.id.to_string(), c.name.clone())
-    });
-    let protein_options = options_from(&proteins(), |p| {
-        ComboOption::new(p.id.to_string(), p.name.clone())
-    });
+    let cuisine_options = options_from(&cuisines(), |c| ComboOption::new(c.id, c.name.clone()));
+    let protein_options = options_from(&proteins(), |p| ComboOption::new(p.id, p.name.clone()));
     let ingredient_options = options_from(&ingredients(), |i| {
-        ComboOption::new(i.id.to_string(), i.name.clone()).with_hint(i.unit.clone())
+        ComboOption::new(i.id, i.name.clone()).with_hint(i.unit.clone())
     });
-    let unit_options = options_from(&units(), |u| {
-        ComboOption::new(u.id.to_string(), u.name.clone())
-    });
+    let unit_options = options_from(&units(), |u| ComboOption::new(u.id, u.name.clone()));
 
     let lines_now = lines();
     let line_count = lines_now.len();
@@ -366,21 +358,7 @@ fn build_new_recipe(form: NewRecipeForm) -> NewRecipe {
         .lines
         .iter()
         .map(|l| RecipeIngredientEntry {
-            ingredient: if l.is_new {
-                let unit = match &l.unit_id {
-                    Some(id) => UnitEntry::Existing(id.parse().unwrap()),
-                    None => UnitEntry::New(l.new_unit.clone().unwrap_or_default()),
-                };
-                IngredientEntry::New {
-                    name: l.name.clone(),
-                    purchase_size: l.purchase_size.parse().unwrap_or_default(),
-                    unit,
-                }
-            } else {
-                IngredientEntry::Existing(
-                    l.ingredient_id.clone().unwrap_or_default().parse().unwrap(),
-                )
-            },
+            ingredient: l.ingredient.clone(),
             qty: l.qty.parse().unwrap_or_default(),
             note: if l.note.is_empty() {
                 None
@@ -392,11 +370,11 @@ fn build_new_recipe(form: NewRecipeForm) -> NewRecipe {
         .collect();
 
     let cuisine = match (form.cuisine.picked, form.cuisine.new_name) {
-        (Some(opt), _) => CuisineEntry::Existing(opt.id.parse().unwrap()),
+        (Some(opt), _) => CuisineEntry::Existing(opt.id),
         (None, name) => CuisineEntry::New(name.unwrap_or_default()),
     };
     let protein = match (form.protein.picked, form.protein.new_name) {
-        (Some(opt), _) => ProteinEntry::Existing(opt.id.parse().unwrap()),
+        (Some(opt), _) => ProteinEntry::Existing(opt.id),
         (None, name) => ProteinEntry::New(name.unwrap_or_default()),
     };
 

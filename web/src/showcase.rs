@@ -4,6 +4,7 @@
 
 use crate::components::ui::*;
 use dioxus::prelude::*;
+use uuid::Uuid;
 
 #[component]
 pub fn Showcase() -> Element {
@@ -114,11 +115,11 @@ pub fn Showcase() -> Element {
                                 label: "Protein (search or create)".to_string(),
                                 placeholder: "Search, or type a new one and press Enter…".to_string(),
                                 options: vec![
-                                    ComboOption::new("1", "Chicken"),
-                                    ComboOption::new("2", "Beef"),
-                                    ComboOption::new("3", "Tofu"),
-                                    ComboOption::new("4", "Fish"),
-                                    ComboOption::new("5", "Beans"),
+                                    ComboOption::new(Uuid::from_u128(1), "Chicken"),
+                                    ComboOption::new(Uuid::from_u128(2), "Beef"),
+                                    ComboOption::new(Uuid::from_u128(3), "Tofu"),
+                                    ComboOption::new(Uuid::from_u128(4), "Fish"),
+                                    ComboOption::new(Uuid::from_u128(5), "Beans"),
                                 ],
                                 picker: protein_pick,
                             }

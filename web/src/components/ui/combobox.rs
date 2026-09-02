@@ -1,17 +1,18 @@
 use crate::components::ui::Field;
 use dioxus::prelude::*;
+use uuid::Uuid;
 
 /// One row offered by a `Combobox`. `hint` is optional right-aligned muted
 /// text (e.g. an ingredient's unit).
 #[derive(Clone, PartialEq, Default)]
 pub struct ComboOption {
-    pub id: String,
+    pub id: Uuid,
     pub label: String,
     pub hint: String,
 }
 
 impl ComboOption {
-    pub fn new(id: impl Into<String>, label: impl Into<String>) -> Self {
+    pub fn new(id: impl Into<Uuid>, label: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             label: label.into(),

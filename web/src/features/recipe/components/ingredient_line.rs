@@ -2,6 +2,7 @@ use crate::components::ui::{
     Badge, Button, ButtonVariant, Checkbox, IconButton, Input, Size, Tone,
 };
 use dioxus::prelude::*;
+use domain::ingredient::IngredientEntry;
 
 /// One chosen ingredient in the dialog's in-memory list.
 #[derive(Clone, PartialEq)]
@@ -12,16 +13,7 @@ pub struct RecipeLine {
     pub qty: String,
     pub note: String,
     pub optional: bool,
-    // True when this ingredient was created here (not picked from the catalog),
-    // so the list can flag it.
-    pub is_new: bool,
-    // Payload data captured at add-time so the line can become a submit wire type.
-    // Existing pick: `ingredient_id` is set. New ingredient: `purchase_size` plus
-    // exactly one of `unit_id` (picked unit) or `new_unit` (typed unit).
-    pub ingredient_id: Option<String>,
-    pub purchase_size: String,
-    pub unit_id: Option<String>,
-    pub new_unit: Option<String>,
+    pub ingredient: IngredientEntry,
 }
 
 /// A single row in the "In this recipe" list: a read view with Edit/× actions,
@@ -48,7 +40,8 @@ pub fn IngredientLine(
             div { class: "mr-ing-line mr-ing-line--editing",
                 div { class: "mr-ing-line__head",
                     span { class: "mr-ing-line__name", "{line.name}" }
-                    if line.is_new {
+
+                    if let IngredientEntry::New { .. } = &line.ingredient {
                         Badge { tone: Tone::Green, "New" }
                     }
                 }
@@ -111,10 +104,9 @@ pub fn IngredientLine(
                 div { class: "mr-ing-line__main",
                     div { class: "mr-ing-line__head",
                         span { class: "mr-ing-line__name", "{line.name}" }
-                        if line.is_new {
+                        if let IngredientEntry::New { .. } = &line.ingredient {
                             Badge { tone: Tone::Green, "New" }
-                        }
-                        if line.optional {
+                        } else if line.optional {
                             Badge { tone: Tone::Neutral, "Optional" }
                         }
                     }

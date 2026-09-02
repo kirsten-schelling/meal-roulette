@@ -3,6 +3,8 @@ use crate::components::ui::{
 };
 use crate::features::recipe::components::ingredient_line::RecipeLine;
 use dioxus::prelude::*;
+use domain::ingredient::IngredientEntry;
+use domain::unit::UnitEntry;
 
 /// The tinted "add ingredient" well: search-or-create an ingredient, give a
 /// brand-new one its unit and pack size, set qty/note, then emit the finished
@@ -17,7 +19,7 @@ pub fn IngredientComposer(
 ) -> Element {
     let mut ingredient = use_signal(Picker::default);
     let mut unit = use_signal(Picker::default);
-    let mut purchase_size = use_signal(String::new);
+    let mut purchase_size = use_signal(|| 0);
     let mut qty = use_signal(String::new);
     let mut note = use_signal(String::new);
     let mut optional = use_signal(|| false);
@@ -38,7 +40,7 @@ pub fn IngredientComposer(
     };
 
     let can_add = if creating {
-        unit().is_resolved() && !purchase_size().trim().is_empty() && !qty().trim().is_empty()
+        unit().is_resolved() && purchase_size() > 0 && !qty().trim().is_empty()
     } else {
         ing.picked.is_some() && !qty().trim().is_empty()
     };
@@ -53,7 +55,7 @@ pub fn IngredientComposer(
                 // A fresh create starts the unit/pack-size sub-form clean.
                 on_create: move |_| {
                     unit.set(Picker::default());
-                    purchase_size.set(String::new());
+                    purchase_size.set(0);
                 },
             }
 
@@ -74,7 +76,7 @@ pub fn IngredientComposer(
                         label: "Purchase size".to_string(),
                         kind: "number".to_string(),
                         value: purchase_size(),
-                        oninput: move |e: FormEvent| purchase_size.set(e.value()),
+                        oninput: move |e: FormEvent| purchase_size.set(e.value().parse().unwrap()),
                         placeholder: "e.g. 500".to_string(),
                     }
                 }
@@ -109,51 +111,31 @@ pub fn IngredientComposer(
                         disabled: !can_add,
                         onclick: move |_| {
                             let ing = ingredient();
-                            let (name, unit_label, is_new, ingredient_id, unit_id, new_unit) =
-                                if let Some(opt) = &ing.picked {
-                                    (
-                                        opt.label.clone(),
-                                        opt.hint.clone(),
-                                        false,
-                                        Some(opt.id.clone()),
-                                        None,
-                                        None,
-                                    )
-                                } else if let Some(name) = &ing.new_name {
+                            let (name_output, unit_output, ingredient_output) = match(&ing.picked, &ing.new_name) {
+                                (Some(opt), _) => (opt.label.clone(), opt.hint.clone() , IngredientEntry::Existing(opt.id)),
+                                (None, Some(name)) => {
                                     let u = unit();
-                                    match (&u.new_name, &u.picked) {
-                                        (Some(nu), _) => {
-                                            (name.clone(), nu.clone(), true, None, None, Some(nu.clone()))
-                                        }
-                                        (None, Some(po)) => (
-                                            name.clone(),
-                                            po.label.clone(),
-                                            true,
-                                            None,
-                                            Some(po.id.clone()),
-                                            None,
-                                        ),
+                                    let (unit_label, unit_entry) = match (&u.new_name, &u.picked) {
+                                        (Some(nu), _) => (nu.clone(), UnitEntry::New(nu.clone())),
+                                        (None, Some(po)) => (po.label.clone(), UnitEntry::Existing(po.id)),
                                         (None, None) => return,
-                                    }
-                                } else {
-                                    return;
-                                };
+                                    };
+                                    (name.clone(), unit_label, IngredientEntry::New { name: name.clone(), purchase_size: purchase_size(), unit: unit_entry })
+                                },
+                                (None, None) => return,
+                            };
                             on_add.call(RecipeLine {
                                 id: 0,
-                                name,
-                                unit: unit_label,
+                                name: name_output,
+                                unit: unit_output,
                                 qty: qty().trim().to_string(),
                                 note: note().trim().to_string(),
                                 optional: optional(),
-                                is_new,
-                                ingredient_id,
-                                purchase_size: purchase_size().trim().to_string(),
-                                unit_id,
-                                new_unit,
+                                ingredient: ingredient_output,
                             });
                             ingredient.set(Picker::default());
                             unit.set(Picker::default());
-                            purchase_size.set(String::new());
+                            purchase_size.set(0);
                             qty.set(String::new());
                             note.set(String::new());
                             optional.set(false);

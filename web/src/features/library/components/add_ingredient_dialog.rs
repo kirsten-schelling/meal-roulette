@@ -6,7 +6,6 @@ use crate::features::library::components::{ManageListsDialog, ManageTab};
 use crate::features::unit::hooks::use_unit::use_get_units;
 use dioxus::prelude::*;
 use domain::ingredient::NewIngredient;
-use uuid::Uuid;
 
 /// The standalone "Add ingredient" dialog for the Library page. Unlike the
 /// recipe flow (which can create a unit transactionally), `POST /ingredients`
@@ -37,7 +36,7 @@ pub fn AddIngredientDialog(on_close: EventHandler<()>, on_saved: EventHandler<()
     let unit_options: Vec<ComboOption> = match units() {
         Some(Ok(list)) => list
             .iter()
-            .map(|u| ComboOption::new(u.id.to_string(), u.name.clone()))
+            .map(|u| ComboOption::new(u.id, u.name.clone()))
             .collect(),
         _ => Vec::new(),
     };
@@ -51,10 +50,7 @@ pub fn AddIngredientDialog(on_close: EventHandler<()>, on_saved: EventHandler<()
             .parse::<i32>()
             .ok()
             .filter(|s| *s > 0);
-        let unit_id = unit()
-            .picked
-            .as_ref()
-            .and_then(|o| o.id.parse::<Uuid>().ok());
+        let unit_id = unit().picked.as_ref().map(|o| o.id);
         match (n.is_empty(), size, unit_id) {
             (false, Some(purchase_size), Some(unit_id)) => Some(NewIngredient {
                 household_id: None,
