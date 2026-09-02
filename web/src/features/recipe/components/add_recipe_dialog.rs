@@ -52,11 +52,15 @@ fn validate_form(
     difficulty: i16,
     time_mins: Signal<String, UnsyncStorage>,
     servings: Signal<String, UnsyncStorage>,
+    protein: Picker,
+    cuisine: Picker,
 ) -> bool {
     if title.trim().is_empty()
         || number_field_error(&time_mins(), "Time").is_some()
         || number_field_error(&servings(), "Servings").is_some()
         || !(1..=5).contains(&difficulty)
+        || !protein.is_resolved()
+        || !cuisine.is_resolved()
     {
         return false;
     }
@@ -251,7 +255,7 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                 }
                                 Button {
                                     variant: ButtonVariant::Solid,
-                                    disabled: saving || !validate_form(title(), difficulty(), time_mins, servings),
+                                    disabled: saving || !validate_form(title(), difficulty(), time_mins, servings, protein(), cuisine()),
                                     onclick: move |_| {
                                         add_recipe.submit(build_new_recipe(
                                             NewRecipeForm {
@@ -369,14 +373,12 @@ fn build_new_recipe(form: NewRecipeForm) -> NewRecipe {
         })
         .collect();
 
-    let cuisine = match (form.cuisine.picked, form.cuisine.new_name) {
-        (Some(opt), _) => CuisineEntry::Existing(opt.id),
-        (None, name) => CuisineEntry::New(name.unwrap_or_default()),
-    };
-    let protein = match (form.protein.picked, form.protein.new_name) {
-        (Some(opt), _) => ProteinEntry::Existing(opt.id),
-        (None, name) => ProteinEntry::New(name.unwrap_or_default()),
-    };
+    let cuisine = form
+        .cuisine
+        .resolve(CuisineEntry::Existing, CuisineEntry::New);
+    let protein = form
+        .protein
+        .resolve(ProteinEntry::Existing, ProteinEntry::New);
 
     NewRecipe {
         household_id: None,

@@ -64,6 +64,18 @@ impl Picker {
     pub fn is_resolved(&self) -> bool {
         self.picked.is_some() || self.new_name.is_some()
     }
+
+    pub fn resolve<T>(
+        self,
+        existing: impl FnOnce(Uuid) -> T,
+        created: impl FnOnce(String) -> T,
+    ) -> T {
+        match (self.picked, self.new_name) {
+            (Some(opt), _) => existing(opt.id),
+            (None, Some(name)) => created(name),
+            (None, None) => panic!("Picker is not resolved"),
+        }
+    }
 }
 
 /// A type-to-search field that can also create. The caller hands over a
