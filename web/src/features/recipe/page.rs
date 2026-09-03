@@ -69,9 +69,7 @@ pub fn Recipes() -> Element {
             div { class: "mr-pagehead",
                 div { class: "mr-pagehead__titles",
                     Heading { level: 1, "Recipes" }
-                    Text { muted: true,
-                        "Your recipe library: everything the roulette can pick from."
-                    }
+                    Text { muted: true, "Your recipe library: everything the roulette can pick from." }
                 }
                 Button {
                     variant: ButtonVariant::Solid,
@@ -118,14 +116,10 @@ pub fn Recipes() -> Element {
             // ── The table, driven by the resource's three states.
             match recipes() {
                 None => rsx! {
-                    div { class: "mr-tablepanel mr-tablestate",
-                        Spinner {}
-                    }
+                    div { class: "mr-tablepanel mr-tablestate", Spinner {} }
                 },
                 Some(Err(e)) => rsx! {
-                    Alert { tone: Tone::Red, title: "Couldn't load recipes",
-                        "{e}"
-                    }
+                    Alert { tone: Tone::Red, title: "Couldn't load recipes", "{e}" }
                 },
                 Some(Ok(list)) => rsx! {
                     div { class: "mr-tablepanel",

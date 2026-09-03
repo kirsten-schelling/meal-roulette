@@ -77,12 +77,13 @@ pub fn IngredientLine(
                             variant: ButtonVariant::Solid,
                             size: Size::Sm,
                             onclick: move |_| {
-                                on_save.call(RecipeLine {
-                                    qty: draft_qty().trim().to_string(),
-                                    note: draft_note().trim().to_string(),
-                                    optional: draft_optional(),
-                                    ..base.clone()
-                                });
+                                on_save
+                                    .call(RecipeLine {
+                                        qty: draft_qty().trim().to_string(),
+                                        note: draft_note().trim().to_string(),
+                                        optional: draft_optional(),
+                                        ..base.clone()
+                                    });
                             },
                             "Save"
                         }

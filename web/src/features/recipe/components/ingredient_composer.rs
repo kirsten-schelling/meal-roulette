@@ -60,9 +60,7 @@ pub fn IngredientComposer(
             }
 
             if creating {
-                Text { muted: true, small: true,
-                    "New ingredient: give it a unit and pack size."
-                }
+                Text { muted: true, small: true, "New ingredient: give it a unit and pack size." }
                 div { class: "mr-form-grid",
                     Combobox {
                         label: "Unit".to_string(),
@@ -111,8 +109,13 @@ pub fn IngredientComposer(
                         disabled: !can_add,
                         onclick: move |_| {
                             let ing = ingredient();
-                            let (name_output, unit_output, ingredient_output) = match(&ing.picked, &ing.new_name) {
-                                (Some(opt), _) => (opt.label.clone(), opt.hint.clone() , IngredientEntry::Existing(opt.id)),
+                            let (name_output, unit_output, ingredient_output) = match (
+                                &ing.picked,
+                                &ing.new_name,
+                            ) {
+                                (Some(opt), _) => {
+                                    (opt.label.clone(), opt.hint.clone(), IngredientEntry::Existing(opt.id))
+                                }
                                 (None, Some(name)) => {
                                     let u = unit();
                                     let (unit_label, unit_entry) = match (&u.new_name, &u.picked) {
@@ -120,19 +123,28 @@ pub fn IngredientComposer(
                                         (None, Some(po)) => (po.label.clone(), UnitEntry::Existing(po.id)),
                                         (None, None) => return,
                                     };
-                                    (name.clone(), unit_label, IngredientEntry::New { name: name.clone(), purchase_size: purchase_size(), unit: unit_entry })
-                                },
+                                    (
+                                        name.clone(),
+                                        unit_label,
+                                        IngredientEntry::New {
+                                            name: name.clone(),
+                                            purchase_size: purchase_size(),
+                                            unit: unit_entry,
+                                        },
+                                    )
+                                }
                                 (None, None) => return,
                             };
-                            on_add.call(RecipeLine {
-                                id: 0,
-                                name: name_output,
-                                unit: unit_output,
-                                qty: qty().trim().to_string(),
-                                note: note().trim().to_string(),
-                                optional: optional(),
-                                ingredient: ingredient_output,
-                            });
+                            on_add
+                                .call(RecipeLine {
+                                    id: 0,
+                                    name: name_output,
+                                    unit: unit_output,
+                                    qty: qty().trim().to_string(),
+                                    note: note().trim().to_string(),
+                                    optional: optional(),
+                                    ingredient: ingredient_output,
+                                });
                             ingredient.set(Picker::default());
                             unit.set(Picker::default());
                             purchase_size.set(0);

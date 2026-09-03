@@ -168,7 +168,10 @@ pub fn Combobox(
                     span { class: "mr-combo__flag", "New" }
                 }
                 if open() {
-                    div { class: "mr-sel__backdrop", onclick: move |_| open.set(false) }
+                    div {
+                        class: "mr-sel__backdrop",
+                        onclick: move |_| open.set(false),
+                    }
                     div { class: "mr-sel__popup",
                         div { class: "mr-sel__list mr-scroll", role: "listbox",
                             for o in filtered.iter() {

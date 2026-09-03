@@ -175,10 +175,10 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
             div { class: "mr-manage",
                 Tabs {
                     labels: vec![
-                        "Cuisines".to_string(),
-                        "Proteins".to_string(),
-                        "Units".to_string(),
-                    ],
+                                                                "Cuisines".to_string(),
+                                                                "Proteins".to_string(),
+                                                                "Units".to_string(),
+                                                            ],
                     selected: tab(),
                     on_select: move |i: usize| {
                         tab.set(i);
@@ -221,21 +221,15 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
                     }
 
                     if let Some(msg) = add_error {
-                        Alert { tone: Tone::Red, title: "Couldn't add that",
-                            "{msg}"
-                        }
+                        Alert { tone: Tone::Red, title: "Couldn't add that", "{msg}" }
                     }
 
                     match rows {
                         None => rsx! {
-                            div { class: "mr-manage__state",
-                                Spinner {}
-                            }
+                            div { class: "mr-manage__state", Spinner {} }
                         },
                         Some(Err(msg)) => rsx! {
-                            Alert { tone: Tone::Red, title: "Couldn't load the list",
-                                "{msg}"
-                            }
+                            Alert { tone: Tone::Red, title: "Couldn't load the list", "{msg}" }
                         },
                         Some(Ok(list)) if list.is_empty() => rsx! {
                             div { class: "mr-manage__state",
@@ -249,8 +243,8 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
                                         key: "{row.id}",
                                         row: row.clone(),
                                         editing_draft: editing()
-                                            .filter(|(id, _)| *id == row.id)
-                                            .map(|(_, draft)| draft),
+                                                                                                                            .filter(|(id, _)| *id == row.id)
+                                                                                                                            .map(|(_, draft)| draft),
                                         on_edit: move |(id, name): (String, String)| {
                                             editing.set(Some((id, name)));
                                         },
@@ -388,9 +382,7 @@ fn ConfirmDeleteRow(
             danger: true,
             on_confirm: move |_| on_confirm.call(()),
             on_cancel: move |_| on_cancel.call(()),
-            Text {
-                "This removes it for good. If a recipe still uses it, the delete is refused."
-            }
+            Text { "This removes it for good. If a recipe still uses it, the delete is refused." }
         }
     }
 }

@@ -165,7 +165,10 @@ pub fn SearchBar(
                 }
 
                 if menu() {
-                    div { class: "mr-sel__backdrop", onclick: move |_| menu.set(false) }
+                    div {
+                        class: "mr-sel__backdrop",
+                        onclick: move |_| menu.set(false),
+                    }
                     div { class: "mr-fsearch__menu",
                         div { class: "mr-fsearch__menu-head", "Filter by" }
                         div { class: "mr-sel__list mr-scroll", role: "listbox",

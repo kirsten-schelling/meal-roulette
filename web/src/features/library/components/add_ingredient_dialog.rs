@@ -96,9 +96,7 @@ pub fn AddIngredientDialog(on_close: EventHandler<()>, on_saved: EventHandler<()
                 }
 
                 if let Some(msg) = error {
-                    Alert { tone: Tone::Red, title: "Couldn't add the ingredient",
-                        "{msg}"
-                    }
+                    Alert { tone: Tone::Red, title: "Couldn't add the ingredient", "{msg}" }
                 }
             }
 

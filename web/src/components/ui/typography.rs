@@ -4,9 +4,15 @@ use dioxus::prelude::*;
 #[component]
 pub fn Heading(#[props(default = 2)] level: u8, children: Element) -> Element {
     match level {
-        1 => rsx! { h1 { class: "mr-h1", {children} } },
-        3 => rsx! { h3 { class: "mr-h3", {children} } },
-        _ => rsx! { h2 { class: "mr-h2", {children} } },
+        1 => rsx! {
+            h1 { class: "mr-h1", {children} }
+        },
+        3 => rsx! {
+            h3 { class: "mr-h3", {children} }
+        },
+        _ => rsx! {
+            h2 { class: "mr-h2", {children} }
+        },
     }
 }
 

@@ -21,7 +21,11 @@ pub fn Toast(
         Tone::Neutral => "mr-toast--neutral",
     };
     // Errors interrupt the screen reader; everything else waits its turn.
-    let role = if matches!(tone, Tone::Red) { "alert" } else { "status" };
+    let role = if matches!(tone, Tone::Red) {
+        "alert"
+    } else {
+        "status"
+    };
 
     rsx! {
         div { class: "mr-toast {tone_cls}", role: "{role}",

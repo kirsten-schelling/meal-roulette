@@ -113,7 +113,11 @@ pub fn Select(
                                             {
                                                 let v = opt.value.clone();
                                                 let selected = opt.value == value;
-                                                let cls = if selected { "mr-sel__opt mr-sel__opt--active" } else { "mr-sel__opt" };
+                                                let cls = if selected {
+                                                    "mr-sel__opt mr-sel__opt--active"
+                                                } else {
+                                                    "mr-sel__opt"
+                                                };
                                                 rsx! {
                                                     div {
                                                         key: "{opt.value}",
@@ -176,7 +180,11 @@ pub fn Select(
                                             {
                                                 let v = opt.value.clone();
                                                 let selected = opt.value == value;
-                                                let cls = if selected { "mr-sel__opt mr-sel__opt--active" } else { "mr-sel__opt" };
+                                                let cls = if selected {
+                                                    "mr-sel__opt mr-sel__opt--active"
+                                                } else {
+                                                    "mr-sel__opt"
+                                                };
                                                 rsx! {
                                                     div {
                                                         key: "{opt.value}",

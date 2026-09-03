@@ -28,9 +28,7 @@ pub fn LookupCard(
             div { class: "mr-lookupcard__body",
                 match names {
                     None => rsx! {
-                        div { class: "mr-lookupcard__state",
-                            Spinner {}
-                        }
+                        div { class: "mr-lookupcard__state", Spinner {} }
                     },
                     Some(Err(msg)) => rsx! {
                         Alert { tone: Tone::Red, "{msg}" }

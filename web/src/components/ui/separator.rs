@@ -21,7 +21,9 @@ pub fn Separator(
         },
         Orientation::Horizontal => match label.clone() {
             Some(l) => rsx! {
-                div { class: "mr-sep-label", span { "{l}" } }
+                div { class: "mr-sep-label",
+                    span { "{l}" }
+                }
             },
             None => rsx! {
                 hr { class: "mr-sep" }

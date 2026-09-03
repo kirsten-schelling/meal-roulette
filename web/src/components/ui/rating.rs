@@ -54,7 +54,10 @@ pub fn Rating(
             // DOM order is reversed (max..1) and flex-direction row-reverse, so
             // the CSS sibling combinator can preview-fill the dots *before* the
             // hovered one — see .mr-rating in primitives.css.
-            div { class: "mr-rating", role: "radiogroup", aria_label: "{aria}",
+            div {
+                class: "mr-rating",
+                role: "radiogroup",
+                aria_label: "{aria}",
                 for n in (1..=max).rev() {
                     {
                         let filled = value.is_some_and(|v| v >= n);

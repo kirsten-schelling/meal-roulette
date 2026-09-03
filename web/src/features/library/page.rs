@@ -115,14 +115,10 @@ pub fn Library() -> Element {
                 div { class: "mr-library__main",
                     match ingredients() {
                         None => rsx! {
-                            div { class: "mr-tablepanel mr-tablestate",
-                                Spinner {}
-                            }
+                            div { class: "mr-tablepanel mr-tablestate", Spinner {} }
                         },
                         Some(Err(e)) => rsx! {
-                            Alert { tone: Tone::Red, title: "Couldn't load ingredients",
-                                "{e}"
-                            }
+                            Alert { tone: Tone::Red, title: "Couldn't load ingredients", "{e}" }
                         },
                         Some(Ok(list)) => rsx! {
                             div { class: "mr-tablepanel",
@@ -130,7 +126,7 @@ pub fn Library() -> Element {
                                     columns: columns.clone(),
                                     rows: list,
                                     empty: "No ingredients yet. Add one, or let recipes create them as you go."
-                                        .to_string(),
+                                                                                                                .to_string(),
                                 }
                             }
                         },

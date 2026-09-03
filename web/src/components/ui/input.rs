@@ -24,7 +24,11 @@ pub fn Input(
                 value: "{value}",
                 placeholder: placeholder.clone().unwrap_or_default(),
                 oninput: move |e| oninput.call(e),
-                onblur: move |e| {if let Some(b) = onblur {b.call(e)}},
+                onblur: move |e| {
+                    if let Some(b) = onblur {
+                        b.call(e)
+                    }
+                },
             }
         }
     }

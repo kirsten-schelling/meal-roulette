@@ -140,7 +140,11 @@ pub fn DataTable<T: Clone + PartialEq + 'static>(
                 tbody {
                     if rows.is_empty() {
                         tr {
-                            td { class: "mr-table__empty", colspan: "{col_count}", "{empty}" }
+                            td {
+                                class: "mr-table__empty",
+                                colspan: "{col_count}",
+                                "{empty}"
+                            }
                         }
                     } else {
                         for (i, row) in rows.iter().enumerate() {
