@@ -1,6 +1,6 @@
 use crate::components::ui::{
     Button, ButtonVariant, ComboOption, Combobox, Heading, Input, Modal, Picker, Rating,
-    RatingScale, Separator, Spinner,
+    RatingScale, Separator, Spinner, Tone,
 };
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
@@ -10,6 +10,7 @@ use crate::features::recipe::components::ingredient_composer::IngredientComposer
 use crate::features::recipe::components::ingredient_line::{IngredientLine, RecipeLine};
 use crate::features::recipe::hooks::use_recipe::use_add_recipe;
 use crate::features::unit::hooks::use_unit::use_get_units;
+use crate::hooks::use_toast::{use_toast, ToastController};
 use dioxus::prelude::*;
 use domain::cuisine::CuisineEntry;
 use domain::protein::ProteinEntry;
@@ -113,11 +114,17 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
 
     // Submit handle — hooks must be created during render, not in the click handler.
     let add_recipe = use_add_recipe();
+    let use_toast = use_toast();
     // On a successful save the page closes us and refetches; an error leaves the
     // dialog open for now (a toast will come later).
     use_effect(move || {
         if matches!(&*add_recipe.result.read(), Some(Ok(_))) {
             on_saved.call(());
+            use_toast.show(
+                Some("Success".to_string()),
+                format!("{} added successfully!", title()),
+                Tone::Green,
+            );
         }
     });
     let saving = (add_recipe.loading)();
@@ -255,20 +262,29 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                 }
                                 Button {
                                     variant: ButtonVariant::Solid,
-                                    disabled: saving || !validate_form(title(), difficulty(), time_mins, servings, protein(), cuisine()),
+                                    disabled: saving
+                                        || !validate_form(
+                                            title(),
+                                            difficulty(),
+                                            time_mins,
+                                            servings,
+                                            protein(),
+                                            cuisine(),
+                                        ),
                                     onclick: move |_| {
-                                        add_recipe.submit(build_new_recipe(
-                                            NewRecipeForm {
-                                                title: title(),
-                                                difficulty: difficulty(),
-                                                time_mins: time_mins(),
-                                                servings: servings(),
-                                                healthiness: healthiness(),
-                                                cuisine: cuisine(),
-                                                protein: protein(),
-                                                lines: lines(),
-                                            },
-                                        ));
+                                        add_recipe
+                                            .submit(
+                                                build_new_recipe(NewRecipeForm {
+                                                    title: title(),
+                                                    difficulty: difficulty(),
+                                                    time_mins: time_mins(),
+                                                    servings: servings(),
+                                                    healthiness: healthiness(),
+                                                    cuisine: cuisine(),
+                                                    protein: protein(),
+                                                    lines: lines(),
+                                                }),
+                                            );
                                     },
                                     if saving {
                                         Spinner {}
@@ -278,8 +294,6 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                 }
                             }
                         },
-
-                        // ── Composer: search or create ingredients, set amounts ──
                         Panel::Ingredients => rsx! {
                             div { class: "mr-recipe-dialog__content",
                                 IngredientComposer {

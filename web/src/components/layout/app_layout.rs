@@ -3,6 +3,7 @@
 //! main column. Owns only UI state (the light/dark toggle) — no app logic.
 
 use crate::components::layout::{Header, NavEntry, Sidebar};
+use crate::components::toast_master::ToastMaster;
 use crate::router::Route;
 use dioxus::prelude::*;
 
@@ -15,12 +16,16 @@ pub fn AppLayout() -> Element {
 
     rsx! {
         div { class: "mr-scope mr-shell", "data-theme": "{theme}",
-            Header { dark: dark(), on_toggle: move |v| dark.set(v) }
-            Sidebar { entries: nav_entries() }
-            main { class: "mr-main",
-                div { class: "mr-main__inner",
-                    // The current route's page renders here.
-                    Outlet::<Route> {}
+            // Inside the themed shell so the toast stack follows the toggle,
+            // not the OS colour scheme.
+            ToastMaster {
+                Header { dark: dark(), on_toggle: move |v| dark.set(v) }
+                Sidebar { entries: nav_entries() }
+                main { class: "mr-main",
+                    div { class: "mr-main__inner",
+                        // The current route's page renders here.
+                        Outlet::<Route> {}
+                    }
                 }
             }
         }

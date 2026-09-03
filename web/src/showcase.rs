@@ -2,7 +2,7 @@
 //! mode to check both palettes. Delete once we rebuild the real pages on
 //! these primitives.
 
-use crate::components::ui::*;
+use crate::{components::ui::*, hooks::use_toast::ToastController};
 use dioxus::prelude::*;
 use uuid::Uuid;
 
@@ -22,6 +22,8 @@ pub fn Showcase() -> Element {
     let mut notes = use_signal(String::new);
     let protein_pick = use_signal(Picker::default);
 
+    let toast_controller = use_context::<ToastController>();
+
     let theme = if dark() { "dark" } else { "light" };
 
     let tab_body = match tab() {
@@ -31,9 +33,7 @@ pub fn Showcase() -> Element {
     };
 
     rsx! {
-        div {
-            class: "mr-scope mr-gallery",
-            "data-theme": "{theme}",
+        div { class: "mr-scope mr-gallery", "data-theme": "{theme}",
 
             div { class: "mr-gallery__inner",
 
@@ -43,7 +43,11 @@ pub fn Showcase() -> Element {
                         Heading { level: 1, "Warm: component gallery" }
                         Text { muted: true, "The locked-in vibe. Flip dark mode." }
                     }
-                    Switch { checked: dark(), onchange: move |v| dark.set(v), label: "Dark mode".to_string() }
+                    Switch {
+                        checked: dark(),
+                        onchange: move |v| dark.set(v),
+                        label: "Dark mode".to_string(),
+                    }
                 }
 
                 // ── buttons ────────────────────────────────────────────────
@@ -51,15 +55,39 @@ pub fn Showcase() -> Element {
                     Card { header: "Buttons".to_string(),
                         VStack { gap: 0.7,
                             HStack { gap: 0.5, align: Align::Center,
-                                Button { variant: ButtonVariant::Solid, size: Size::Sm, "Small" }
+                                Button {
+                                    variant: ButtonVariant::Solid,
+                                    size: Size::Sm,
+                                    "Small"
+                                }
                                 Button { variant: ButtonVariant::Solid, "Medium" }
-                                Button { variant: ButtonVariant::Solid, size: Size::Lg, "Large" }
+                                Button {
+                                    variant: ButtonVariant::Solid,
+                                    size: Size::Lg,
+                                    "Large"
+                                }
                             }
                             HStack { gap: 0.5, align: Align::Center,
                                 Button { variant: ButtonVariant::Outline, "Outline" }
                                 Button { variant: ButtonVariant::Ghost, "Ghost" }
                                 Button { variant: ButtonVariant::Danger, "Delete" }
-                                Button { variant: ButtonVariant::Solid, loading: true, "Saving" }
+                                Button {
+                                    variant: ButtonVariant::Solid,
+                                    loading: true,
+                                    "Saving"
+                                }
+                                Button {
+                                    variant: ButtonVariant::Solid,
+                                    onclick: move |_| {
+                                        toast_controller
+                                            .show(
+                                                Some("Success".to_string()),
+                                                "Recipe saved successfully".to_string(),
+                                                Tone::Green,
+                                            )
+                                    },
+                                    "Show toast"
+                                }
                             }
                         }
                     }
@@ -162,22 +190,36 @@ pub fn Showcase() -> Element {
                                 Badge { tone: Tone::Red, "Ambitious" }
                                 Badge { tone: Tone::Neutral, "Draft" }
                             }
-                            Alert { tone: Tone::Green, title: "Recipe added".to_string(),
+                            Alert {
+                                tone: Tone::Green,
+                                title: "Recipe added".to_string(),
                                 "“Pad Thai” is now in your library."
                             }
-                            Alert { tone: Tone::Amber, "Heads up: 3 ingredients are missing from your pantry." }
+                            Alert { tone: Tone::Amber,
+                                "Heads up: 3 ingredients are missing from your pantry."
+                            }
                             Toast {
                                 tone: Tone::Green,
                                 title: "Recipe added".to_string(),
                                 on_dismiss: move |_| {},
                                 "“Pad Thai” is now in your library."
                             }
-                            Toast { tone: Tone::Red, title: "Couldn't save".to_string(),
+                            Toast {
+                                tone: Tone::Red,
+                                title: "Couldn't save".to_string(),
                                 "The API said no. Try again."
                             }
                             HStack { gap: 0.3, align: Align::Center,
-                                IconButton { label: "Edit".to_string(), onclick: move |_| {}, "✎" }
-                                IconButton { label: "Add".to_string(), onclick: move |_| {}, "＋" }
+                                IconButton {
+                                    label: "Edit".to_string(),
+                                    onclick: move |_| {},
+                                    "✎"
+                                }
+                                IconButton {
+                                    label: "Add".to_string(),
+                                    onclick: move |_| {},
+                                    "＋"
+                                }
                                 IconButton {
                                     label: "Remove".to_string(),
                                     danger: true,
@@ -192,9 +234,18 @@ pub fn Showcase() -> Element {
                                 Spinner { size: Size::Lg }
                             }
                             VStack { gap: 0.5,
-                                Skeleton { width: "70%".to_string(), height: "1rem".to_string() }
-                                Skeleton { width: "100%".to_string(), height: "1rem".to_string() }
-                                Skeleton { width: "45%".to_string(), height: "1rem".to_string() }
+                                Skeleton {
+                                    width: "70%".to_string(),
+                                    height: "1rem".to_string(),
+                                }
+                                Skeleton {
+                                    width: "100%".to_string(),
+                                    height: "1rem".to_string(),
+                                }
+                                Skeleton {
+                                    width: "45%".to_string(),
+                                    height: "1rem".to_string(),
+                                }
                             }
                         }
                     }
@@ -214,17 +265,23 @@ pub fn Showcase() -> Element {
                             tbody {
                                 tr {
                                     td { "Pad Thai" }
-                                    td { Badge { tone: Tone::Green, "Easy" } }
+                                    td {
+                                        Badge { tone: Tone::Green, "Easy" }
+                                    }
                                     td { "25 min" }
                                 }
                                 tr {
                                     td { "Tacos" }
-                                    td { Badge { tone: Tone::Amber, "Medium" } }
+                                    td {
+                                        Badge { tone: Tone::Amber, "Medium" }
+                                    }
                                     td { "40 min" }
                                 }
                                 tr {
                                     td { "Beef Wellington" }
-                                    td { Badge { tone: Tone::Red, "Ambitious" } }
+                                    td {
+                                        Badge { tone: Tone::Red, "Ambitious" }
+                                    }
                                     td { "120 min" }
                                 }
                             }
@@ -252,7 +309,9 @@ pub fn Showcase() -> Element {
                         VStack { gap: 0.7,
                             Heading { level: 2, "A serif heading" }
                             Text { "Body text sits in the sans-serif face for easy reading." }
-                            Text { muted: true, small: true, "Muted small text: captions, hints, metadata." }
+                            Text { muted: true, small: true,
+                                "Muted small text: captions, hints, metadata."
+                            }
                             Separator { label: "then".to_string() }
                             Button {
                                 variant: ButtonVariant::Solid,

@@ -58,6 +58,11 @@ body { margin: 0; }
   --mr-chevron: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5 L6 8 L9.5 4.5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
   /* search magnifier — same mask trick as the chevron */
   --mr-search: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='7' cy='7' r='4.5' fill='none' stroke='black' stroke-width='1.6'/><path d='M10.5 10.5 L14 14' stroke='black' stroke-width='1.6' stroke-linecap='round'/></svg>");
+  /* toast tone icons — same mask trick, painted in the tone color */
+  --mr-ic-check: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6.4' fill='none' stroke='black' stroke-width='1.6'/><path d='M5.1 8.3 L7.2 10.4 L11 6.2' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  --mr-ic-warn:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path d='M8 2.4 L14.4 13.4 H1.6 Z' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/><path d='M8 6.4 V9.4' stroke='black' stroke-width='1.7' stroke-linecap='round'/><circle cx='8' cy='11.5' r='.95' fill='black'/></svg>");
+  --mr-ic-error: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6.4' fill='none' stroke='black' stroke-width='1.6'/><path d='M5.7 5.7 L10.3 10.3 M10.3 5.7 L5.7 10.3' stroke='black' stroke-width='1.7' stroke-linecap='round'/></svg>");
+  --mr-ic-info:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6.4' fill='none' stroke='black' stroke-width='1.6'/><path d='M8 7.3 V11.2' stroke='black' stroke-width='1.7' stroke-linecap='round'/><circle cx='8' cy='4.9' r='.95' fill='black'/></svg>");
 }
 
 /* Dark tokens — shared by system-dark and the manual [data-theme="dark"] flag.
@@ -436,18 +441,19 @@ body { margin: 0; }
 /* ═══════════════════════════════════════════════════════════════════════
    TOAST — floating notification card. This is only the look: position
    toasts with .mr-toast-stack and drive show/dismiss from the app.
+   Anatomy: tone icon · body (title + muted subtitle) · optional dismiss ×.
    ═══════════════════════════════════════════════════════════════════════ */
 .mr-toast-stack {
   position: fixed; right: 1rem; bottom: 1rem; z-index: 60;
   display: flex; flex-direction: column; align-items: flex-end; gap: .6rem;
 }
 .mr-toast {
-  display: flex; align-items: flex-start; gap: .5rem;
-  width: 20rem; max-width: calc(100vw - 2rem);
+  display: flex; align-items: flex-start; gap: .7rem;
+  width: 22rem; max-width: calc(100vw - 2rem);
   background: var(--mr-surface); color: var(--mr-text);
   border: 1px solid var(--mr-border); border-left-width: 4px;
   border-radius: var(--mr-radius-sm); box-shadow: var(--mr-shadow-lg);
-  padding: .7rem .8rem .7rem .95rem;
+  padding: .85rem .6rem .85rem 1rem;
   animation: mr-toast-in .18s ease-out;
 }
 /* Toned toasts wash the whole card, not just the edge, so green/red read at a
@@ -465,9 +471,30 @@ body { margin: 0; }
   background: color-mix(in srgb, var(--mr-red-bg) 50%, var(--mr-surface));
 }
 .mr-toast--neutral { border-left-color: var(--mr-text-muted); }
-.mr-toast__body { flex: 1 1 auto; min-width: 0; }
-.mr-toast__title { margin: 0 0 .1rem; font-weight: 700; font-size: .9rem; }
+
+.mr-toast__icon {
+  flex: none; width: 1.2rem; height: 1.2rem; margin-top: .05rem;
+  background: currentColor; color: var(--mr-text-muted);
+  -webkit-mask: var(--mr-ic-info) center / contain no-repeat;
+          mask: var(--mr-ic-info) center / contain no-repeat;
+}
+.mr-toast--green .mr-toast__icon { color: var(--mr-green-fg); -webkit-mask-image: var(--mr-ic-check); mask-image: var(--mr-ic-check); }
+.mr-toast--amber .mr-toast__icon { color: var(--mr-amber-fg); -webkit-mask-image: var(--mr-ic-warn);  mask-image: var(--mr-ic-warn); }
+.mr-toast--red   .mr-toast__icon { color: var(--mr-red-fg);   -webkit-mask-image: var(--mr-ic-error); mask-image: var(--mr-ic-error); }
+
+.mr-toast__body { flex: 1 1 auto; min-width: 0; padding-top: .05rem; }
+.mr-toast__title {
+  margin: 0; font-weight: 650; font-size: .93rem; line-height: 1.3;
+  letter-spacing: -.005em;
+}
 .mr-toast__msg { font-size: .88rem; line-height: 1.45; }
+/* Under a title the message steps back into a subtitle. */
+.mr-toast__title + .mr-toast__msg {
+  margin-top: .2rem; font-size: .84rem;
+  color: color-mix(in srgb, var(--mr-text) 72%, transparent);
+}
+/* The dismiss × sits on the title line rather than floating mid-card. */
+.mr-toast .mr-iconbtn { width: 1.6rem; height: 1.6rem; margin: -.25rem 0 0; font-size: 1.05rem; }
 @keyframes mr-toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .mr-toast { animation: none; } }
 
