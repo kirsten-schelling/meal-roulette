@@ -38,13 +38,15 @@ new-migration name:
 prepare:
     cargo sqlx prepare --workspace -- --all-targets
 
-# format Rust
+# format Rust, then the rsx! blocks in the web app
 fmt:
     cargo fmt
+    cd web && dx fmt
 
 # lint: fmt check + clippy (fails on warnings, enforces query_as!)
 lint:
     cargo fmt --check
+    cd web && dx fmt --check
     cargo clippy --all-targets -- -D warnings
 
 # type-check everything without producing binaries
