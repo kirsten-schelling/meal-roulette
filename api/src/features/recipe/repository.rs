@@ -1,5 +1,5 @@
 // use super::model::{NewRecipe, Recipe, UpdateRecipe};
-use domain::recipe::{InsertRecipe, Recipe, UpdateRecipe};
+use domain::recipe::{InsertRecipe, Recipe, RecipeCount, UpdateRecipe};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -110,4 +110,20 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<Recipe, sqlx::Error> {
     .fetch_one(pool)
     .await?;
     Ok(recipe)
+}
+
+pub async fn list_by_cuisine(pool: &PgPool, cuisine_id: Uuid) -> Result<Vec<Recipe>, sqlx::Error> {
+    let recipes = sqlx::query_as!(
+        Recipe,
+        r#"
+        SELECT id, household_id, title, difficulty, time_mins, servings,
+               healthiness, main_protein_id, cuisine_id, created_at, updated_at
+        FROM recipe
+        WHERE cuisine_id = $1
+        "#,
+        cuisine_id,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(recipes)
 }

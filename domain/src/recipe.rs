@@ -71,3 +71,9 @@ pub struct UpdateRecipe {
     pub main_protein_id: Option<Uuid>,
     pub cuisine_id: Option<Uuid>,
 }
+
+#[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]
+pub struct RecipeCount {
+    pub cuisine_id: Uuid,
+    pub count: i64,
+}

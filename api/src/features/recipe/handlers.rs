@@ -5,10 +5,12 @@ use axum::{
 use uuid::Uuid;
 
 use super::repository::{create, delete, get, list, update};
-use crate::features::cuisine::repository::create as create_cuisine;
 use crate::features::protein::repository::create as create_protein;
 use crate::features::recipe_ingredient::repository::create as create_recipe_ingredient;
 use crate::features::unit::repository::create as create_unit;
+use crate::features::{
+    cuisine::repository::create as create_cuisine, recipe::repository::list_by_cuisine,
+};
 use crate::state::AppState;
 use crate::{error::AppError, features::ingredient::repository::create as create_ingredient};
 use domain::{
@@ -165,4 +167,12 @@ pub async fn delete_recipe(
 ) -> Result<Json<Recipe>, AppError> {
     let recipe = delete(&state.db, id).await?;
     Ok(Json(recipe))
+}
+
+pub async fn get_recipes_by_cuisine(
+    State(state): State<AppState>,
+    Path(cuisine_id): Path<Uuid>,
+) -> Result<Json<Vec<Recipe>>, AppError> {
+    let recipes = list_by_cuisine(&state.db, cuisine_id).await?;
+    Ok(Json(recipes))
 }
