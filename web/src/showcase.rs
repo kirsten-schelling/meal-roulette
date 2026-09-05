@@ -228,6 +228,31 @@ pub fn Showcase() -> Element {
                                 }
                                 Text { muted: true, small: true, "icon buttons" }
                             }
+                            HStack { gap: 0.5, align: Align::Center,
+                                Text { muted: true, small: true, "usage count with a hover card" }
+                                Popover {
+                                    label: "Used by 10 recipes".to_string(),
+                                    trigger: rsx! { "10" },
+                                    p { class: "mr-popover__title", "Used by 10 recipes" }
+                                    ul { class: "mr-popover__list mr-scroll",
+                                        for name in [
+                                            "Pad Thai",
+                                            "Green curry",
+                                            "Massaman curry",
+                                            "Tom yum",
+                                            "Larb",
+                                            "Khao soi",
+                                            "Pad see ew",
+                                            "Som tam",
+                                            "Panang curry",
+                                            "Tom kha gai",
+                                        ]
+                                        {
+                                            li { class: "mr-popover__item", "{name}" }
+                                        }
+                                    }
+                                }
+                            }
                             HStack { gap: 1.0, align: Align::Center,
                                 Spinner { size: Size::Sm }
                                 Spinner { size: Size::Md }

@@ -329,6 +329,47 @@ body { margin: 0; }
 @media (prefers-reduced-motion: reduce) { .mr-selb__popup { animation: none; } }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   POPOVER — a hover/focus card hung under a trigger's right edge.
+   Fixed-positioned from the trigger's measured rect (popover.rs), so it
+   escapes scrolling and clipped ancestors. The transparent top padding is a
+   bridge: the pointer can travel from the trigger into the card without ever
+   being over anything else, which would count as leaving.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-popover { display: inline-flex; }
+.mr-popover__trigger {
+  font: inherit; color: inherit; background: none; border: 0;
+  padding: .1rem .45rem; border-radius: var(--mr-radius-pill); cursor: default;
+  transition: background .15s, color .15s;
+}
+.mr-popover__trigger:hover, .mr-popover__trigger:focus-visible {
+  background: var(--mr-neutral-bg); color: var(--mr-neutral-fg);
+}
+.mr-popover__trigger:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+.mr-popover__pop {
+  position: fixed; z-index: 45; transform: translateX(-100%);
+  padding-top: .35rem;
+}
+.mr-popover__panel {
+  min-width: 12rem; max-width: 20rem; max-height: 14rem;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--mr-surface); color: var(--mr-text);
+  border: 1px solid var(--mr-border); border-radius: var(--mr-radius);
+  box-shadow: var(--mr-shadow-lg); padding: .6rem .35rem .35rem;
+  font-size: .88rem; font-weight: 400; text-align: left; white-space: normal;
+  animation: mr-pop .12s ease-out;
+}
+@media (prefers-reduced-motion: reduce) { .mr-popover__panel { animation: none; } }
+/* A titled list inside the card: the title stays put, the list scrolls. */
+.mr-popover__title { flex: none; margin: 0 .45rem .4rem; font-weight: 600; }
+.mr-popover__list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; }
+.mr-popover__item {
+  padding: .3rem .45rem; border-top: 1px solid var(--mr-border);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mr-popover__item:first-child { border-top: none; }
+.mr-popover__note { margin: 0 .45rem .2rem; color: var(--mr-text-muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════
    SCROLLBAR — low-profile, applied across the app; also a .mr-scroll utility.
    Color derives from the muted-text token via color-mix, so it adapts to
    light/dark automatically without extra variables.

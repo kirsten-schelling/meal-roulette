@@ -1,5 +1,6 @@
 use crate::components::ui::{
-    Alert, Button, ButtonVariant, ConfirmDialog, IconButton, Modal, Size, Spinner, Tabs, Text, Tone,
+    Alert, Button, ButtonVariant, ConfirmDialog, IconButton, Modal, Popover, Size, Spinner, Tabs,
+    Text, Tone,
 };
 use crate::features::cuisine::hooks::use_cuisine::{use_add_cuisine, use_get_cuisines};
 use crate::features::protein::hooks::use_protein::{use_add_protein, use_get_proteins};
@@ -37,12 +38,14 @@ impl ManageTab {
 }
 
 /// One entry of whichever list is showing, flattened to what the rows render.
-/// `hint` is optional muted detail (a unit's description).
+/// `hint` is optional muted detail (a unit's description). `used_by` names
+/// what still references the entry; `None` until usage comes from the API.
 #[derive(Clone, PartialEq)]
 struct Row {
     id: String,
     name: String,
     hint: String,
+    used_by: Option<Vec<String>>,
 }
 
 /// Flattens a lookup fetch into rows — the error becomes a plain message so
@@ -107,16 +110,19 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
             id: c.id.to_string(),
             name: c.name.clone(),
             hint: String::new(),
+            used_by: None,
         }),
         ManageTab::Proteins => rows_from(&proteins(), |p| Row {
             id: p.id.to_string(),
             name: p.name.clone(),
             hint: String::new(),
+            used_by: None,
         }),
         ManageTab::Units => rows_from(&units(), |u| Row {
             id: u.id.to_string(),
             name: u.name.clone(),
             hint: u.description.clone().unwrap_or_default(),
+            used_by: None,
         }),
     };
 
@@ -143,6 +149,10 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
         ManageTab::Cuisines => "Add a cuisine…",
         ManageTab::Proteins => "Add a protein…",
         ManageTab::Units => "Add a unit…",
+    };
+    let used_by_noun = match current {
+        ManageTab::Cuisines | ManageTab::Proteins => "recipe",
+        ManageTab::Units => "ingredient",
     };
 
     let submit_add = move || {
@@ -175,10 +185,10 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
             div { class: "mr-manage",
                 Tabs {
                     labels: vec![
-                                                                "Cuisines".to_string(),
-                                                                "Proteins".to_string(),
-                                                                "Units".to_string(),
-                                                            ],
+                                    "Cuisines".to_string(),
+                                    "Proteins".to_string(),
+                                    "Units".to_string(),
+                                ],
                     selected: tab(),
                     on_select: move |i: usize| {
                         tab.set(i);
@@ -242,6 +252,7 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
                                     ManageRow {
                                         key: "{row.id}",
                                         row: row.clone(),
+                                        used_by_noun: used_by_noun.to_string(),
                                         editing_draft: editing()
                                                                                                                             .filter(|(id, _)| *id == row.id)
                                                                                                                             .map(|(_, draft)| draft),
@@ -286,6 +297,7 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
 #[component]
 fn ManageRow(
     row: Row,
+    used_by_noun: String,
     editing_draft: Option<String>,
     on_edit: EventHandler<(String, String)>,
     on_draft: EventHandler<(String, String)>,
@@ -349,8 +361,9 @@ fn ManageRow(
             if !row.hint.is_empty() {
                 span { class: "mr-managelist__hint", "{row.hint}" }
             }
-            // Usage count slot — dashes until counts come from the API.
-            span { class: "mr-managelist__count", "—" }
+            span { class: "mr-managelist__count",
+                UsagePopover { used_by: row.used_by.clone(), noun: used_by_noun }
+            }
             div { class: "mr-rowactions",
                 IconButton {
                     label: "Rename {row.name}".to_string(),
@@ -363,6 +376,38 @@ fn ManageRow(
                     onclick: move |_| on_delete.call((del_id.clone(), del_name.clone())),
                     "\u{00d7}"
                 }
+            }
+        }
+    }
+}
+
+/// The row's usage count, hoverable: the card lists what still references
+/// the entry. `noun` is the singular of what that is ("recipe", "ingredient").
+#[component]
+fn UsagePopover(used_by: Option<Vec<String>>, noun: String) -> Element {
+    let count = used_by.as_ref().map(Vec::len);
+    let label = match count {
+        None => "Usage isn't available yet".to_string(),
+        Some(0) => format!("Not used by any {noun}"),
+        Some(1) => format!("Used by 1 {noun}"),
+        Some(n) => format!("Used by {n} {noun}s"),
+    };
+    let shown = count.map_or("—".to_string(), |n| n.to_string());
+
+    rsx! {
+        Popover { label: label.clone(), trigger: rsx! { "{shown}" },
+            match used_by {
+                Some(names) if !names.is_empty() => rsx! {
+                    p { class: "mr-popover__title", "{label}" }
+                    ul { class: "mr-popover__list mr-scroll",
+                        for (i, name) in names.iter().enumerate() {
+                            li { key: "{i}", class: "mr-popover__item", "{name}" }
+                        }
+                    }
+                },
+                _ => rsx! {
+                    p { class: "mr-popover__note", "{label}." }
+                },
             }
         }
     }
