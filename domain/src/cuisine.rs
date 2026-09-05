@@ -1,3 +1,4 @@
+use crate::usage::UsageRef;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -10,6 +11,13 @@ pub struct Cuisine {
     pub name: String,
     pub created_at: time::OffsetDateTime,
     pub updated_at: time::OffsetDateTime,
+}
+
+/// A cuisine plus the recipes that use it.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct CuisineWithRecipeList {
+    pub cuisine: Cuisine,
+    pub used_by: Vec<UsageRef>,
 }
 
 /// Incoming body for `POST /cuisines`.

@@ -1,3 +1,4 @@
+use crate::usage::UsageRef;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -11,6 +12,13 @@ pub struct Unit {
     pub updated_at: time::OffsetDateTime,
     pub name: String,
     pub description: Option<String>,
+}
+
+/// A unit plus the ingredients measured in it.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct UnitWithIngredientList {
+    pub unit: Unit,
+    pub used_by: Vec<UsageRef>,
 }
 
 /// Incoming body for `POST /units`.

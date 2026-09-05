@@ -1,17 +1,16 @@
 use dioxus::prelude::*;
-use domain::protein::{NewProtein, Protein};
+use domain::protein::{NewProtein, Protein, ProteinWithRecipeList};
 
 #[server]
-pub async fn get_proteins() -> Result<Vec<Protein>, ServerFnError> {
+pub async fn get_proteins() -> Result<Vec<ProteinWithRecipeList>, ServerFnError> {
     use crate::server::fetcher::{get_url, send_request};
-    let proteins: Vec<Protein> =
-        send_request(|c| c.get(get_url("proteins")))
-            .await
-            .map_err(|e| ServerFnError::ServerError {
-                message: e.to_string(),
-                code: 500,
-                details: None,
-            })?;
+    let proteins: Vec<ProteinWithRecipeList> = send_request(|c| c.get(get_url("proteins")))
+        .await
+        .map_err(|e| ServerFnError::ServerError {
+        message: e.to_string(),
+        code: 500,
+        details: None,
+    })?;
     Ok(proteins)
 }
 

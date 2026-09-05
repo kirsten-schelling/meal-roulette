@@ -1,17 +1,16 @@
 use dioxus::prelude::*;
-use domain::cuisine::{Cuisine, NewCuisine};
+use domain::cuisine::{Cuisine, CuisineWithRecipeList, NewCuisine};
 
 #[server]
-pub async fn get_cuisines() -> Result<Vec<Cuisine>, ServerFnError> {
+pub async fn get_cuisines() -> Result<Vec<CuisineWithRecipeList>, ServerFnError> {
     use crate::server::fetcher::{get_url, send_request};
-    let cuisines: Vec<Cuisine> =
-        send_request(|c| c.get(get_url("cuisines")))
-            .await
-            .map_err(|e| ServerFnError::ServerError {
-                message: e.to_string(),
-                code: 500,
-                details: None,
-            })?;
+    let cuisines: Vec<CuisineWithRecipeList> = send_request(|c| c.get(get_url("cuisines")))
+        .await
+        .map_err(|e| ServerFnError::ServerError {
+        message: e.to_string(),
+        code: 500,
+        details: None,
+    })?;
     Ok(cuisines)
 }
 

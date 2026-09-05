@@ -136,17 +136,17 @@ pub fn Library() -> Element {
                 aside { class: "mr-library__rail",
                     LookupCard {
                         title: "Cuisines".to_string(),
-                        names: names_from(&cuisines(), |c| c.name.clone()),
+                        names: names_from(&cuisines(), |c| c.cuisine.name.clone()),
                         on_manage: move |_| managing.set(Some(ManageTab::Cuisines)),
                     }
                     LookupCard {
                         title: "Proteins".to_string(),
-                        names: names_from(&proteins(), |p| p.name.clone()),
+                        names: names_from(&proteins(), |p| p.protein.name.clone()),
                         on_manage: move |_| managing.set(Some(ManageTab::Proteins)),
                     }
                     LookupCard {
                         title: "Units".to_string(),
-                        names: names_from(&units(), |u| u.name.clone()),
+                        names: names_from(&units(), |u| u.unit.name.clone()),
                         on_manage: move |_| managing.set(Some(ManageTab::Units)),
                     }
                 }

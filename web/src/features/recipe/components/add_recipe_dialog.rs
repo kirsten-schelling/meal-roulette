@@ -129,12 +129,18 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
     });
     let saving = (add_recipe.loading)();
 
-    let cuisine_options = options_from(&cuisines(), |c| ComboOption::new(c.id, c.name.clone()));
-    let protein_options = options_from(&proteins(), |p| ComboOption::new(p.id, p.name.clone()));
+    let cuisine_options = options_from(&cuisines(), |c| {
+        ComboOption::new(c.cuisine.id, c.cuisine.name.clone())
+    });
+    let protein_options = options_from(&proteins(), |p| {
+        ComboOption::new(p.protein.id, p.protein.name.clone())
+    });
     let ingredient_options = options_from(&ingredients(), |i| {
         ComboOption::new(i.id, i.name.clone()).with_hint(i.unit.clone())
     });
-    let unit_options = options_from(&units(), |u| ComboOption::new(u.id, u.name.clone()));
+    let unit_options = options_from(&units(), |u| {
+        ComboOption::new(u.unit.id, u.unit.name.clone())
+    });
 
     let lines_now = lines();
     let line_count = lines_now.len();

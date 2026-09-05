@@ -7,9 +7,11 @@ use uuid::Uuid;
 use super::repository::{create, delete, get, list, update};
 use crate::error::{is_foreign_key_violation, AppError};
 use crate::state::AppState;
-use domain::unit::{NewUnit, Unit, UpdateUnit};
+use domain::unit::{NewUnit, Unit, UnitWithIngredientList, UpdateUnit};
 
-pub async fn get_units(State(state): State<AppState>) -> Result<Json<Vec<Unit>>, AppError> {
+pub async fn get_units(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<UnitWithIngredientList>>, AppError> {
     let units = list(&state.db).await?;
     Ok(Json(units))
 }
@@ -17,7 +19,7 @@ pub async fn get_units(State(state): State<AppState>) -> Result<Json<Vec<Unit>>,
 pub async fn get_unit(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<Unit>, AppError> {
+) -> Result<Json<UnitWithIngredientList>, AppError> {
     let unit = get(&state.db, id).await?;
     Ok(Json(unit))
 }

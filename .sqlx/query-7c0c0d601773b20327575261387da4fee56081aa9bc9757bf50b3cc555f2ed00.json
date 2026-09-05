@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, created_at, updated_at, name, description\n        FROM unit\n        ORDER BY created_at DESC\n        ",
+  "query": "\n        SELECT unit.id, unit.household_id, unit.created_at, unit.updated_at,\n               unit.name, unit.description,\n               COALESCE(array_agg(ingredient.name ORDER BY ingredient.name, ingredient.id)\n                        FILTER (WHERE ingredient.id IS NOT NULL), '{}') AS \"names!\",\n               COALESCE(array_agg(ingredient.id ORDER BY ingredient.name, ingredient.id)\n                        FILTER (WHERE ingredient.id IS NOT NULL), '{}') AS \"ingredient_ids!\"\n        FROM unit\n        LEFT JOIN ingredient ON ingredient.unit_id = unit.id\n        WHERE unit.id = $1\n        GROUP BY unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -68,10 +68,24 @@
             "name": "description"
           }
         }
+      },
+      {
+        "ordinal": 6,
+        "name": "names!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "ingredient_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -79,8 +93,10 @@
       false,
       false,
       false,
-      true
+      true,
+      null,
+      null
     ]
   },
-  "hash": "b6ae92eea8043ee0a4ba6d6365ed614c5628aaecb135385cb5c98dfa6dcf8ddb"
+  "hash": "7c0c0d601773b20327575261387da4fee56081aa9bc9757bf50b3cc555f2ed00"
 }

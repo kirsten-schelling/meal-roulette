@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, name, created_at, updated_at\n        FROM protein\n        WHERE id = $1\n        ",
+  "query": "\n        SELECT protein.id, protein.household_id, protein.name,\n               protein.created_at, protein.updated_at,\n               COALESCE(array_agg(recipe.title ORDER BY recipe.title, recipe.id)\n                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS \"titles!\",\n               COALESCE(array_agg(recipe.id ORDER BY recipe.title, recipe.id)\n                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS \"recipe_ids!\"\n        FROM protein\n        LEFT JOIN recipe ON recipe.main_protein_id = protein.id\n        GROUP BY protein.id\n        ORDER BY protein.created_at DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -57,20 +57,32 @@
             "name": "updated_at"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "titles!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "recipe_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
       true,
       false,
       false,
-      false
+      false,
+      null,
+      null
     ]
   },
-  "hash": "77be4687f6edee521c23a230ec457f5ca848c1712cdbf966facce5c3b3a418fa"
+  "hash": "a9e5067758d2b5c5ed89227b9f50aaafaf8b5dd449f21999b1b7914b2110c3bc"
 }

@@ -1,6 +1,6 @@
 use crate::server::api::cuisine::{add_cuisine, get_cuisines};
 use dioxus::prelude::*;
-use domain::cuisine::{Cuisine, NewCuisine};
+use domain::cuisine::{Cuisine, CuisineWithRecipeList, NewCuisine};
 
 #[derive(Clone, Copy)]
 pub struct AddCuisine {
@@ -8,9 +8,9 @@ pub struct AddCuisine {
     pub result: Signal<Option<Result<Cuisine, ServerFnError>>>,
 }
 
-pub fn use_get_cuisines() -> Resource<Result<Vec<Cuisine>, ServerFnError>> {
+pub fn use_get_cuisines() -> Resource<Result<Vec<CuisineWithRecipeList>, ServerFnError>> {
     use_resource(move || async move {
-        let cuisines: Result<Vec<Cuisine>, ServerFnError> = get_cuisines().await;
+        let cuisines: Result<Vec<CuisineWithRecipeList>, ServerFnError> = get_cuisines().await;
         cuisines
     })
 }

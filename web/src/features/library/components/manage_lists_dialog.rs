@@ -9,6 +9,7 @@ use dioxus::prelude::*;
 use domain::cuisine::NewCuisine;
 use domain::protein::NewProtein;
 use domain::unit::NewUnit;
+use domain::usage::UsageRef;
 
 /// Which list the dialog opens on. Callers deep-link straight to the list
 /// they came from (a combobox portal, a library card).
@@ -46,6 +47,10 @@ struct Row {
     name: String,
     hint: String,
     used_by: Option<Vec<String>>,
+}
+
+fn usage_names(refs: &[UsageRef]) -> Vec<String> {
+    refs.iter().map(|r| r.name.clone()).collect()
 }
 
 /// Flattens a lookup fetch into rows — the error becomes a plain message so
@@ -107,22 +112,22 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
 
     let rows = match current {
         ManageTab::Cuisines => rows_from(&cuisines(), |c| Row {
-            id: c.id.to_string(),
-            name: c.name.clone(),
+            id: c.cuisine.id.to_string(),
+            name: c.cuisine.name.clone(),
             hint: String::new(),
-            used_by: None,
+            used_by: Some(usage_names(&c.used_by)),
         }),
         ManageTab::Proteins => rows_from(&proteins(), |p| Row {
-            id: p.id.to_string(),
-            name: p.name.clone(),
+            id: p.protein.id.to_string(),
+            name: p.protein.name.clone(),
             hint: String::new(),
-            used_by: None,
+            used_by: Some(usage_names(&p.used_by)),
         }),
         ManageTab::Units => rows_from(&units(), |u| Row {
-            id: u.id.to_string(),
-            name: u.name.clone(),
-            hint: u.description.clone().unwrap_or_default(),
-            used_by: None,
+            id: u.unit.id.to_string(),
+            name: u.unit.name.clone(),
+            hint: u.unit.description.clone().unwrap_or_default(),
+            used_by: Some(usage_names(&u.used_by)),
         }),
     };
 

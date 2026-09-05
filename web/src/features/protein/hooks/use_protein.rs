@@ -1,6 +1,6 @@
 use crate::server::api::protein::{add_protein, get_proteins};
 use dioxus::prelude::*;
-use domain::protein::{NewProtein, Protein};
+use domain::protein::{NewProtein, Protein, ProteinWithRecipeList};
 
 #[derive(Clone, Copy)]
 pub struct AddProtein {
@@ -8,9 +8,9 @@ pub struct AddProtein {
     pub result: Signal<Option<Result<Protein, ServerFnError>>>,
 }
 
-pub fn use_get_proteins() -> Resource<Result<Vec<Protein>, ServerFnError>> {
+pub fn use_get_proteins() -> Resource<Result<Vec<ProteinWithRecipeList>, ServerFnError>> {
     use_resource(move || async move {
-        let proteins: Result<Vec<Protein>, ServerFnError> = get_proteins().await;
+        let proteins: Result<Vec<ProteinWithRecipeList>, ServerFnError> = get_proteins().await;
         proteins
     })
 }

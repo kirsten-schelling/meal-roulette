@@ -1,34 +1,79 @@
-use domain::protein::{NewProtein, Protein, UpdateProtein};
+use domain::protein::{NewProtein, Protein, ProteinWithRecipeList, UpdateProtein};
+use domain::usage::UsageRef;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-pub async fn list(pool: &PgPool) -> Result<Vec<Protein>, sqlx::Error> {
-    let proteins = sqlx::query_as!(
-        Protein,
+struct ProteinRow {
+    id: Uuid,
+    household_id: Option<Uuid>,
+    name: String,
+    created_at: time::OffsetDateTime,
+    updated_at: time::OffsetDateTime,
+    titles: Vec<String>,
+    recipe_ids: Vec<Uuid>,
+}
+
+impl From<ProteinRow> for ProteinWithRecipeList {
+    fn from(row: ProteinRow) -> Self {
+        ProteinWithRecipeList {
+            protein: Protein {
+                id: row.id,
+                household_id: row.household_id,
+                name: row.name,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+            },
+            used_by: row
+                .recipe_ids
+                .into_iter()
+                .zip(row.titles)
+                .map(|(id, name)| UsageRef { id, name })
+                .collect(),
+        }
+    }
+}
+
+pub async fn list(pool: &PgPool) -> Result<Vec<ProteinWithRecipeList>, sqlx::Error> {
+    let rows = sqlx::query_as!(
+        ProteinRow,
         r#"
-        SELECT id, household_id, name, created_at, updated_at
+        SELECT protein.id, protein.household_id, protein.name,
+               protein.created_at, protein.updated_at,
+               COALESCE(array_agg(recipe.title ORDER BY recipe.title, recipe.id)
+                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS "titles!",
+               COALESCE(array_agg(recipe.id ORDER BY recipe.title, recipe.id)
+                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS "recipe_ids!"
         FROM protein
-        ORDER BY created_at DESC
+        LEFT JOIN recipe ON recipe.main_protein_id = protein.id
+        GROUP BY protein.id
+        ORDER BY protein.created_at DESC
         "#,
     )
     .fetch_all(pool)
     .await?;
-    Ok(proteins)
+    Ok(rows.into_iter().map(Into::into).collect())
 }
 
-pub async fn get(pool: &PgPool, id: Uuid) -> Result<Protein, sqlx::Error> {
-    let protein = sqlx::query_as!(
-        Protein,
+pub async fn get(pool: &PgPool, id: Uuid) -> Result<ProteinWithRecipeList, sqlx::Error> {
+    let row = sqlx::query_as!(
+        ProteinRow,
         r#"
-        SELECT id, household_id, name, created_at, updated_at
+        SELECT protein.id, protein.household_id, protein.name,
+               protein.created_at, protein.updated_at,
+               COALESCE(array_agg(recipe.title ORDER BY recipe.title, recipe.id)
+                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS "titles!",
+               COALESCE(array_agg(recipe.id ORDER BY recipe.title, recipe.id)
+                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS "recipe_ids!"
         FROM protein
-        WHERE id = $1
+        LEFT JOIN recipe ON recipe.main_protein_id = protein.id
+        WHERE protein.id = $1
+        GROUP BY protein.id
         "#,
         id,
     )
     .fetch_one(pool)
     .await?;
-    Ok(protein)
+    Ok(row.into())
 }
 
 pub async fn create<'e, E>(executor: E, new_protein: NewProtein) -> Result<Protein, sqlx::Error>

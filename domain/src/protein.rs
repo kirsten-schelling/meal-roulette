@@ -1,3 +1,4 @@
+use crate::usage::UsageRef;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -10,6 +11,13 @@ pub struct Protein {
     pub name: String,
     pub created_at: time::OffsetDateTime,
     pub updated_at: time::OffsetDateTime,
+}
+
+/// A protein plus the recipes that use it as their main protein.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct ProteinWithRecipeList {
+    pub protein: Protein,
+    pub used_by: Vec<UsageRef>,
 }
 
 /// Incoming body for `POST /proteins`.

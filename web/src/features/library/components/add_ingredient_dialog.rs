@@ -36,7 +36,7 @@ pub fn AddIngredientDialog(on_close: EventHandler<()>, on_saved: EventHandler<()
     let unit_options: Vec<ComboOption> = match units() {
         Some(Ok(list)) => list
             .iter()
-            .map(|u| ComboOption::new(u.id, u.name.clone()))
+            .map(|u| ComboOption::new(u.unit.id, u.unit.name.clone()))
             .collect(),
         _ => Vec::new(),
     };

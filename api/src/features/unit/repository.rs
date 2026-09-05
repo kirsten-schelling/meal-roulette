@@ -1,34 +1,81 @@
-use domain::unit::{NewUnit, Unit, UpdateUnit};
+use domain::unit::{NewUnit, Unit, UnitWithIngredientList, UpdateUnit};
+use domain::usage::UsageRef;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-pub async fn list(pool: &PgPool) -> Result<Vec<Unit>, sqlx::Error> {
-    let units = sqlx::query_as!(
-        Unit,
+struct UnitRow {
+    id: Uuid,
+    household_id: Option<Uuid>,
+    created_at: time::OffsetDateTime,
+    updated_at: time::OffsetDateTime,
+    name: String,
+    description: Option<String>,
+    names: Vec<String>,
+    ingredient_ids: Vec<Uuid>,
+}
+
+impl From<UnitRow> for UnitWithIngredientList {
+    fn from(row: UnitRow) -> Self {
+        UnitWithIngredientList {
+            unit: Unit {
+                id: row.id,
+                household_id: row.household_id,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                name: row.name,
+                description: row.description,
+            },
+            used_by: row
+                .ingredient_ids
+                .into_iter()
+                .zip(row.names)
+                .map(|(id, name)| UsageRef { id, name })
+                .collect(),
+        }
+    }
+}
+
+pub async fn list(pool: &PgPool) -> Result<Vec<UnitWithIngredientList>, sqlx::Error> {
+    let rows = sqlx::query_as!(
+        UnitRow,
         r#"
-        SELECT id, household_id, created_at, updated_at, name, description
+        SELECT unit.id, unit.household_id, unit.created_at, unit.updated_at,
+               unit.name, unit.description,
+               COALESCE(array_agg(ingredient.name ORDER BY ingredient.name, ingredient.id)
+                        FILTER (WHERE ingredient.id IS NOT NULL), '{}') AS "names!",
+               COALESCE(array_agg(ingredient.id ORDER BY ingredient.name, ingredient.id)
+                        FILTER (WHERE ingredient.id IS NOT NULL), '{}') AS "ingredient_ids!"
         FROM unit
-        ORDER BY created_at DESC
+        LEFT JOIN ingredient ON ingredient.unit_id = unit.id
+        GROUP BY unit.id
+        ORDER BY unit.created_at DESC
         "#,
     )
     .fetch_all(pool)
     .await?;
-    Ok(units)
+    Ok(rows.into_iter().map(Into::into).collect())
 }
 
-pub async fn get(pool: &PgPool, id: Uuid) -> Result<Unit, sqlx::Error> {
-    let unit = sqlx::query_as!(
-        Unit,
+pub async fn get(pool: &PgPool, id: Uuid) -> Result<UnitWithIngredientList, sqlx::Error> {
+    let row = sqlx::query_as!(
+        UnitRow,
         r#"
-        SELECT id, household_id, created_at, updated_at, name, description
+        SELECT unit.id, unit.household_id, unit.created_at, unit.updated_at,
+               unit.name, unit.description,
+               COALESCE(array_agg(ingredient.name ORDER BY ingredient.name, ingredient.id)
+                        FILTER (WHERE ingredient.id IS NOT NULL), '{}') AS "names!",
+               COALESCE(array_agg(ingredient.id ORDER BY ingredient.name, ingredient.id)
+                        FILTER (WHERE ingredient.id IS NOT NULL), '{}') AS "ingredient_ids!"
         FROM unit
-        WHERE id = $1
+        LEFT JOIN ingredient ON ingredient.unit_id = unit.id
+        WHERE unit.id = $1
+        GROUP BY unit.id
         "#,
         id,
     )
     .fetch_one(pool)
     .await?;
-    Ok(unit)
+    Ok(row.into())
 }
 
 pub async fn create<'e, E>(executor: E, new_unit: NewUnit) -> Result<Unit, sqlx::Error>

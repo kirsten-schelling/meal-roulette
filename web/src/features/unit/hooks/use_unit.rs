@@ -1,6 +1,6 @@
 use crate::server::api::unit::{add_unit, get_units};
 use dioxus::prelude::*;
-use domain::unit::{NewUnit, Unit};
+use domain::unit::{NewUnit, Unit, UnitWithIngredientList};
 
 #[derive(Clone, Copy)]
 pub struct AddUnit {
@@ -8,9 +8,9 @@ pub struct AddUnit {
     pub result: Signal<Option<Result<Unit, ServerFnError>>>,
 }
 
-pub fn use_get_units() -> Resource<Result<Vec<Unit>, ServerFnError>> {
+pub fn use_get_units() -> Resource<Result<Vec<UnitWithIngredientList>, ServerFnError>> {
     use_resource(move || async move {
-        let units: Result<Vec<Unit>, ServerFnError> = get_units().await;
+        let units: Result<Vec<UnitWithIngredientList>, ServerFnError> = get_units().await;
         units
     })
 }

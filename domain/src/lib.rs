@@ -15,3 +15,4 @@ pub mod shopping_list_item;
 pub mod slept_ingredient;
 pub mod tag;
 pub mod unit;
+pub mod usage;

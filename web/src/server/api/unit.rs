@@ -1,10 +1,10 @@
 use dioxus::prelude::*;
-use domain::unit::{NewUnit, Unit};
+use domain::unit::{NewUnit, Unit, UnitWithIngredientList};
 
 #[server]
-pub async fn get_units() -> Result<Vec<Unit>, ServerFnError> {
+pub async fn get_units() -> Result<Vec<UnitWithIngredientList>, ServerFnError> {
     use crate::server::fetcher::{get_url, send_request};
-    let units: Vec<Unit> = send_request(|c| c.get(get_url("units")))
+    let units: Vec<UnitWithIngredientList> = send_request(|c| c.get(get_url("units")))
         .await
         .map_err(|e| ServerFnError::ServerError {
             message: e.to_string(),

@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT cuisine.id, cuisine.household_id, cuisine.name,\n               cuisine.created_at, cuisine.updated_at,\n               COALESCE(array_agg(recipe.title ORDER BY recipe.title, recipe.id)\n                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS \"titles!\",\n               COALESCE(array_agg(recipe.id ORDER BY recipe.title, recipe.id)\n                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS \"recipe_ids!\"\n        FROM cuisine\n        LEFT JOIN recipe ON recipe.cuisine_id = cuisine.id\n        GROUP BY cuisine.id\n        ORDER BY cuisine.created_at DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "cuisine",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "household_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "cuisine",
+            "name": "household_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "cuisine",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "cuisine",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "cuisine",
+            "name": "updated_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "titles!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "recipe_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "dd668c3d5dc5dc96ba1df2eee76a2801d014e4ca75b943ec14794069f80a608a"
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, name, created_at, updated_at\n        FROM cuisine\n        ORDER BY created_at DESC\n        ",
+  "query": "\n        SELECT cuisine.id, cuisine.household_id, cuisine.name,\n               cuisine.created_at, cuisine.updated_at,\n               COALESCE(array_agg(recipe.title ORDER BY recipe.title, recipe.id)\n                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS \"titles!\",\n               COALESCE(array_agg(recipe.id ORDER BY recipe.title, recipe.id)\n                        FILTER (WHERE recipe.id IS NOT NULL), '{}') AS \"recipe_ids!\"\n        FROM cuisine\n        LEFT JOIN recipe ON recipe.cuisine_id = cuisine.id\n        WHERE cuisine.id = $1\n        GROUP BY cuisine.id\n        ",
   "describe": {
     "columns": [
       {
@@ -57,18 +57,34 @@
             "name": "updated_at"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "titles!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "recipe_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
       true,
       false,
       false,
-      false
+      false,
+      null,
+      null
     ]
   },
-  "hash": "855167b4697f05478c0ea530e12221f8f50272d425c65f66daaee14b146ac13a"
+  "hash": "fdb6520c72cd8bd8675a58c4a2fff9e70272b3612e0b1103e64b7c767e47506f"
 }
