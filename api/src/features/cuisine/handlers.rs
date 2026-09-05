@@ -5,7 +5,7 @@ use axum::{
 use uuid::Uuid;
 
 use super::repository::{create, delete, get, list, update};
-use crate::error::AppError;
+use crate::error::{is_foreign_key_violation, AppError};
 use crate::state::AppState;
 use domain::cuisine::{Cuisine, NewCuisine, UpdateCuisine};
 
@@ -43,6 +43,11 @@ pub async fn delete_cuisine(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<Cuisine>, AppError> {
-    let cuisine = delete(&state.db, id).await?;
+    let cuisine = delete(&state.db, id).await.map_err(|e| {
+        if let Some(_db) = is_foreign_key_violation(&e) {
+            return AppError::Conflict("Still in use by a recipe".to_string());
+        }
+        e.into()
+    })?;
     Ok(Json(cuisine))
 }

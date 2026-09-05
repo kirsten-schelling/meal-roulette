@@ -6,15 +6,29 @@ pub enum AppError {
     #[expect(dead_code)]
     BadRequest(String),
 }
+
+pub fn is_foreign_key_violation(error: &sqlx::Error) -> Option<&dyn sqlx::error::DatabaseError> {
+    error
+        .as_database_error()
+        .filter(|db| db.is_foreign_key_violation())
+}
+
+pub fn is_unique_violation(error: &sqlx::Error) -> bool {
+    error
+        .as_database_error()
+        .is_some_and(|db| db.is_unique_violation())
+}
 impl From<sqlx::Error> for AppError {
     fn from(error: sqlx::Error) -> Self {
         if matches!(error, sqlx::Error::RowNotFound) {
             return AppError::NotFound("not found".to_string());
         }
-        if let sqlx::Error::Database(ref err) = error {
-            if err.is_unique_violation() {
-                return AppError::Conflict("Already exists or referenced".to_string());
-            }
+        if is_unique_violation(&error) {
+            return AppError::Conflict("Already exists".to_string());
+        }
+        if let Some(db) = is_foreign_key_violation(&error) {
+            let constraint = db.constraint().unwrap_or_default();
+            return AppError::Conflict(format!("Still in use by another record: {constraint}"));
         }
         AppError::Db(error)
     }
