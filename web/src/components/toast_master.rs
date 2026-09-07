@@ -7,7 +7,7 @@ use crate::{
 
 #[component]
 pub fn ToastMaster(children: Element) -> Element {
-    let mut toasts = use_signal(|| Vec::<ToastItem>::new());
+    let mut toasts = use_signal(Vec::<ToastItem>::new);
     use_context_provider(|| ToastController { toasts });
 
     rsx! {

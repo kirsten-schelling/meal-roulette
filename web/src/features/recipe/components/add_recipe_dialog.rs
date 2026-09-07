@@ -10,7 +10,7 @@ use crate::features::recipe::components::ingredient_composer::IngredientComposer
 use crate::features::recipe::components::ingredient_line::{IngredientLine, RecipeLine};
 use crate::features::recipe::hooks::use_recipe::use_add_recipe;
 use crate::features::unit::hooks::use_unit::use_get_units;
-use crate::hooks::use_toast::{use_toast, ToastController};
+use crate::hooks::use_toast::use_toast;
 use dioxus::prelude::*;
 use domain::cuisine::CuisineEntry;
 use domain::protein::ProteinEntry;

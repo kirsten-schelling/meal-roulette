@@ -28,7 +28,7 @@ impl ToastController {
         toasts.write().push(ToastItem {
             id,
             title: title.unwrap_or_default(),
-            message: message.into(),
+            message,
             tone,
         });
 
