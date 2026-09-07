@@ -14,11 +14,11 @@ db:
 db-down:
     docker compose down
 
-# run the API  ->  http://localhost:3000
+# run the REST routes on their own (the web server already serves them under /api)  ->  http://localhost:3000
 api:
     cargo run -p api
 
-# run the web app  ->  http://localhost:8080
+# run the web app: Dioxus + #[server] functions + REST under /api  ->  http://localhost:8080
 web:
     cd web && dx serve
 

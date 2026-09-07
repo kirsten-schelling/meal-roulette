@@ -8,16 +8,16 @@ embedded). The full feature vision lives in [docs/product/roadmap.md](docs/produ
 
 ## Stack
 
-- **Frontend** — Dioxus 0.7 (Rust, fullstack — `#[server]` BFF) (`web/`)
-- **Backend** — Rust (Axum + SQLx); one Cargo workspace: `api`, `domain`, `web`
+- **Frontend** — Dioxus 0.7 (Rust, fullstack; `#[server]` functions call the data layer in-process) (`web/`)
+- **Backend** — Rust (Axum + SQLx) as a library the web server embeds; one Cargo workspace: `api`, `domain`, `web`
 - **Database** — Postgres (via Docker locally)
 
 ## Layout
 
 ```
-api/                 Axum HTTP server + SQL migrations
+api/                 data layer: state, errors, repositories, REST router (+ a thin standalone bin) + SQL migrations
 domain/              shared wire types (api <-> web <-> future device)
-web/                 Dioxus app (fullstack, #[server] BFF)
+web/                 Dioxus app (fullstack): SSR, #[server] functions, REST routes under /api — one process
 docs/                architecture, product, decisions, guides
 docker-compose.yml   local Postgres
 ```
@@ -30,7 +30,7 @@ docker-compose.yml   local Postgres
 
 ## Run locally
 
-Three processes, one per terminal:
+Two processes, one per terminal:
 
 ```bash
 # 1. Postgres
@@ -38,14 +38,12 @@ docker compose up -d
 ```
 
 ```bash
-# 2. API  ->  http://localhost:3000
-cargo run -p api
-```
-
-```bash
-# 3. Web  ->  http://localhost:8080
+# 2. Web  ->  http://localhost:8080  (the app, and the REST routes under /api)
 cd web && dx serve
 ```
+
+The REST routes can also run on their own with `cargo run -p api` (http://localhost:3000);
+the web app does not need that.
 
 Environment variables, migrations, and the `just` task recipes are covered in
 [docs/guides/local-dev.md](docs/guides/local-dev.md).

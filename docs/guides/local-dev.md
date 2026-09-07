@@ -14,19 +14,26 @@ the tooling rationale.
 
 ## Services
 
-Three processes, one per terminal:
+Two processes, one per terminal:
 
 | Service | Command | URL |
 | --- | --- | --- |
 | Database | `docker compose up -d` | Postgres on localhost:5432 |
-| API | `cargo run -p api` | http://localhost:3000 |
 | Web | `cd web && dx serve` | http://localhost:8080 |
 
-Both env vars live in the root `.env` (see `.env.example`):
+The web server is the whole backend: it renders the app, runs the `#[server]` functions, and
+serves the REST routes under http://localhost:8080/api (for curl and the device). The REST
+routes can also run on their own with `cargo run -p api` (http://localhost:3000); the web app
+does not need that process.
 
-- `DATABASE_URL` — feeds `sqlx-cli` and the compile-time query macros.
-- `API_URL` — the base URL the web server's `#[server]` functions use to reach the API
-  (locally `http://localhost:3000`); the web server panics on startup without it.
+One env var lives in the root `.env` (see `.env.example`):
+
+- `DATABASE_URL` — feeds `sqlx-cli`, the compile-time query macros, and both servers at
+  startup; the web server panics on startup without it.
+
+The server build compiles the sqlx queries. When no database is reachable at build time, set
+`SQLX_OFFLINE=true` to build from the committed `.sqlx` cache (refresh it with `just prepare`
+after changing a query or the schema).
 
 ## just recipes
 

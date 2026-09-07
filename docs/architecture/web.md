@@ -11,7 +11,10 @@ The `recipe` feature is the reference implementation.
 The web app compiles from one source tree into **two binaries**:
 
 - **Client build** — WebAssembly, runs in the browser. Enabled by the `web` feature.
-- **Server build** — native, runs the backend-for-frontend (BFF). Enabled by the `server` feature.
+- **Server build** — native, runs the whole server side in one process: server-side rendering,
+  the `#[server]` functions, and the REST routes from the `api` crate. Enabled by the `server`
+  feature, which is also the only thing that pulls the `api` crate (and with it sqlx, axum and
+  tokio) into the build.
 
 Every component and most modules are compiled into *both*. Server-only code is compiled into
 the server build alone, gated with `#[cfg(feature = "server")]`.
@@ -20,7 +23,7 @@ the server build alone, gated with `#[cfg(feature = "server")]`.
 
 ```
 web/src/
-├── main.rs                     # entry point, launch, root App component
+├── main.rs                     # entry point: launch (client) or server::serve (server), root App
 ├── router.rs                   # Route enum: URL <-> page component
 ├── models.rs                   # small view helpers (wire types come from the domain crate)
 ├── showcase.rs                 # temporary /showcase component gallery
@@ -32,12 +35,14 @@ web/src/
 │
 ├── pages/                      # shell route stubs not yet wired to a feature
 │                               #   (their fate: docs/decisions/pending.md)
-├── hooks/                      # GENERIC, cross-feature client hooks (reserved)
+├── hooks/                      # GENERIC, cross-feature client hooks
 │
 ├── server/                     # SERVER-SIDE boundary
-│   ├── api/                    #   #[server] functions (the BFF RPC surface)
+│   ├── api/                    #   #[server] functions (the RPC surface the browser calls)
 │   │   └── <feature>.rs
-│   └── fetcher.rs              #   #[cfg(server)] HTTP plumbing to the backend API
+│   ├── serve.rs                #   [server] pool + AppState, Axum router: app + REST under /api
+│   ├── state.rs                #   [server] app_state(): AppState from the request extension
+│   └── error.rs                #   [server] server_fn_error(): AppError -> ServerFnError
 │
 └── features/                   # one folder per feature
     └── <feature>/
@@ -46,50 +51,62 @@ web/src/
         └── components/         #   feature-specific UI
 ```
 
+`[server]` marks modules compiled only with the `server` feature.
+
 ## Responsibilities
 
 - **`features/<feature>/page.rs`** — the component a route renders. Composes UI and reads data
-  from the feature's hooks. No HTTP, no business logic.
+  from the feature's hooks. No data access, no business logic.
 - **`features/<feature>/hooks/`** — client-side data hooks (`use_*`) that wrap `use_resource`
-  and call a `#[server]` function. They own the route-to-type mapping.
+  and call a `#[server]` function. They own the call-to-type mapping.
 - **`features/<feature>/components/`** — UI used only by this feature.
 - **`components/`** — UI reusable by more than one feature. Litmus test: if a second feature
   could use it, it lives here; otherwise it lives in the feature.
 - **`server/api/<feature>.rs`** — the `#[server]` functions for that feature. The only surface
-  the browser calls.
-- **`server/fetcher.rs`** — server-only HTTP client used *inside* `#[server]` bodies to reach
-  the backend API. Gated `#[cfg(feature = "server")]`.
-- **`hooks/`** — generic client hooks shared across features. Reserved.
+  the browser calls. Each takes `AppState` from `app_state()`, calls the feature's repository
+  in the `api` crate, and maps the error with `server_fn_error`.
+- **`server/serve.rs`** — server-only bootstrap: connects the pool, builds the Axum router
+  (Dioxus app, server functions, REST routes nested under `/api`), attaches `AppState` to every
+  request as an extension, and serves.
+- **`server/state.rs`**, **`server/error.rs`** — the two helpers every server function uses.
+- **`hooks/`** — generic client hooks shared across features.
 
 ## Data flow
 
 ```
-page.rs  ->  feature hook  ->  #[server] fn     ->  fetcher       ->  backend API
-(browser)    (browser)         (RPC -> server)      (server only)     (Axum)
+page.rs  ->  feature hook  ->  #[server] fn      ->  api::features::<x>::repository  ->  Postgres
+(browser)    (browser)         (RPC -> server)       (api crate, same process)
 ```
 
-The browser never calls the backend directly. The `#[server]` function is the boundary: on the
-client build it is replaced by a network call; on the server build it runs its body.
+The browser never touches the data layer directly. The `#[server]` function is the boundary: on
+the client build it is replaced by a network call; on the server build it runs its body. The
+REST routes under `/api` exist for other clients (curl, the device); the web app does not use
+them.
 
 ## Rules
 
-1. **BFF boundary.** The browser reaches the backend only through a `#[server]` function. No
-   direct client-to-backend requests.
+1. **Server boundary.** The browser reaches data only through a `#[server]` function. No
+   client-side calls to the REST routes.
 2. **Server function placement and shape.** `#[server]` functions live in
    `server/api/<feature>.rs`. They are concrete — no generic type parameters, because each is
    registered as a fixed endpoint — and return `Result<T, ServerFnError>`. `ServerFnError` is
-   the only error type permitted to cross the boundary; `reqwest::Error` and other server-only
-   errors are mapped to it inside the function and must not appear in a hook or component type.
+   the only error type permitted to cross the boundary; `AppError`, `sqlx::Error` and other
+   server-only errors are mapped to it inside the function (`server_fn_error`) and must not
+   appear in a hook or component type.
 3. **Server-only imports go inside the function body.** The `#[server]` macro gates only the
    function *body* for the server build — not the `use` statements beside it. A server-only
-   import (`fetcher`, `reqwest`, `sqlx`, ...) at module scope in a file that also compiles on
-   the client will fail the client build. Put such imports inside the `#[server]` body, or gate
-   them with `#[cfg(feature = "server")]`. Types that appear in the function *signature*
-   (e.g. `Recipe`, `ServerFnError`) are the exception: they exist in both builds and belong at
-   module scope.
-4. **Hooks call server functions, not the fetcher.** A feature hook imports its `#[server]`
-   function; it must not import `server::fetcher`.
-5. **Type safety over generics.** The web app favours explicit per-resource `#[server]`
+   import (`api`, `sqlx`, `crate::server::{app_state, server_fn_error}`, ...) at module scope
+   in a file that also compiles on the client will fail the client build. Put such imports
+   inside the `#[server]` body, or gate them with `#[cfg(feature = "server")]`. Types that
+   appear in the function *signature* (e.g. `Recipe`, `ServerFnError`) are the exception: they
+   exist in both builds and belong at module scope.
+4. **Thin server functions.** A server function takes the state, calls one repository
+   function, and maps the error. Logic that both the REST handler and the server function
+   need — a transaction spanning tables, resolving an inline lookup value — belongs in the
+   `api` crate's repository, not in the server function.
+5. **Hooks call server functions, not the data layer.** A feature hook imports its `#[server]`
+   function; it must not import `api` or anything under `server/` other than `server/api`.
+6. **Type safety over generics.** The web app favours explicit per-resource `#[server]`
    functions and typed hooks over a single generic proxy, accepting the extra files as the cost
    of end-to-end type checking. See
    [decisions/0001-typed-server-functions-over-generic-proxy.md](../decisions/0001-typed-server-functions-over-generic-proxy.md).
@@ -97,6 +114,8 @@ client build it is replaced by a network call; on the server build it runs its b
 ## Adding a feature
 
 1. Create `features/<feature>/` with `mod.rs`, `page.rs`, and `hooks/`.
-2. Add a `#[server]` function per backend call in `server/api/<feature>.rs`.
+2. Add a `#[server]` function per data call in `server/api/<feature>.rs`, calling the feature's
+   repository in `api/src/features/<feature>/repository.rs` (declare the module `pub` in the
+   feature's `mod.rs` if it is not yet).
 3. Add a hook per call in `features/<feature>/hooks/` that awaits the server function.
 4. Register the page in `router.rs`.

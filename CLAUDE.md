@@ -5,9 +5,10 @@ list. Learning-oriented — Rust backend as an on-ramp toward embedded. Feature 
 [docs/product/roadmap.md](docs/product/roadmap.md).
 
 ## Stack
-- Frontend: Dioxus 0.7 (Rust, fullstack — `#[server]` BFF) — `web/`
-- Backend: Rust (Axum + SQLx) — `api/`, with shared wire types in `domain/`. One root Cargo
-  workspace: `api`, `domain`, `web`.
+- Frontend: Dioxus 0.7 (Rust, fullstack — `#[server]` functions call the data layer in-process) — `web/`
+- Backend: Rust (Axum + SQLx) — `api/` is a library (state, errors, repositories, REST router)
+  embedded by the web server; shared wire types in `domain/`. One root Cargo workspace: `api`,
+  `domain`, `web`.
 - Database: Postgres (Docker locally)
 - `web2/` (SvelteKit) and `web3/` (Next) — gitignored reference spikes from the UI comparison; not part of the build.
 
@@ -19,8 +20,8 @@ split between generic and feature-scoped components/hooks. Read
 
 ## Local dev
 - DB:  `docker compose up -d`
-- API: `cargo run -p api`     -> http://localhost:3000
-- Web: `cd web && dx serve`   -> http://localhost:8080
+- Web: `cd web && dx serve`   -> http://localhost:8080 (app + `#[server]` functions + REST under `/api`)
+- REST on its own (optional): `cargo run -p api` -> http://localhost:3000
 
 ## Conventions
 - **Teaching mode (learning project):** For API / web-server / non-UI logic, default to *hints*

@@ -3,29 +3,20 @@ use domain::cuisine::{Cuisine, CuisineWithRecipeList, NewCuisine};
 
 #[server]
 pub async fn get_cuisines() -> Result<Vec<CuisineWithRecipeList>, ServerFnError> {
-    use crate::server::fetcher::{get_url, send_request};
-    let cuisines: Vec<CuisineWithRecipeList> = send_request(|c| c.get(get_url("cuisines")))
-        .await
-        .map_err(|e| ServerFnError::ServerError {
-        message: e.to_string(),
-        code: 500,
-        details: None,
-    })?;
-    Ok(cuisines)
+    use crate::server::{app_state, server_fn_error};
+    use api::features::cuisine::repository;
+
+    let state = app_state()?;
+    repository::list(&state.db).await.map_err(server_fn_error)
 }
 
 #[server]
 pub async fn add_cuisine(cuisine: NewCuisine) -> Result<Cuisine, ServerFnError> {
-    use crate::server::fetcher::{get_url, send_request};
-    let cuisine: Cuisine = send_request(|c| {
-        c.post(get_url("cuisines"))
-            .body(serde_json::to_string(&cuisine).unwrap())
-    })
-    .await
-    .map_err(|e| ServerFnError::ServerError {
-        message: e.to_string(),
-        code: 500,
-        details: None,
-    })?;
-    Ok(cuisine)
+    use crate::server::{app_state, server_fn_error};
+    use api::features::cuisine::repository;
+
+    let state = app_state()?;
+    repository::create(&state.db, cuisine)
+        .await
+        .map_err(server_fn_error)
 }

@@ -3,29 +3,20 @@ use domain::unit::{NewUnit, Unit, UnitWithIngredientList};
 
 #[server]
 pub async fn get_units() -> Result<Vec<UnitWithIngredientList>, ServerFnError> {
-    use crate::server::fetcher::{get_url, send_request};
-    let units: Vec<UnitWithIngredientList> = send_request(|c| c.get(get_url("units")))
-        .await
-        .map_err(|e| ServerFnError::ServerError {
-            message: e.to_string(),
-            code: 500,
-            details: None,
-        })?;
-    Ok(units)
+    use crate::server::{app_state, server_fn_error};
+    use api::features::unit::repository;
+
+    let state = app_state()?;
+    repository::list(&state.db).await.map_err(server_fn_error)
 }
 
 #[server]
 pub async fn add_unit(unit: NewUnit) -> Result<Unit, ServerFnError> {
-    use crate::server::fetcher::{get_url, send_request};
-    let unit: Unit = send_request(|c| {
-        c.post(get_url("units"))
-            .body(serde_json::to_string(&unit).unwrap())
-    })
-    .await
-    .map_err(|e| ServerFnError::ServerError {
-        message: e.to_string(),
-        code: 500,
-        details: None,
-    })?;
-    Ok(unit)
+    use crate::server::{app_state, server_fn_error};
+    use api::features::unit::repository;
+
+    let state = app_state()?;
+    repository::create(&state.db, unit)
+        .await
+        .map_err(server_fn_error)
 }

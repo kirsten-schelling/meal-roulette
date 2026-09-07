@@ -17,11 +17,15 @@
 ### Backend
 
 - **Rust** — Axum 0.8 + SQLx 0.9 (features: `postgres`, `macros`, `migrate`, `uuid`, `time`, `runtime-tokio`, `tls-rustls`).
-- One root Cargo **workspace**: `api` (HTTP server) + `domain` (wire types shared api ↔ web ↔
-  future device) + `web` (the Dioxus app) + _(planned)_ a solver crate (the meal roller written
-  in **C**, called via FFI — see C/C++ projects).
+- One root Cargo **workspace**: `api` (a library: state, error mapping, repositories and the REST
+  router, plus a thin standalone binary) + `domain` (wire types shared api ↔ web ↔ future device)
+  + `web` (the Dioxus app, whose server build embeds `api`) + _(planned)_ a solver crate (the
+  meal roller written in **C**, called via FFI — see C/C++ projects).
 - Feature-oriented modules: `features/<x>/{ mod.rs = routes, handlers.rs, repository.rs }`;
   request/response types live in the `domain` crate.
+- Logic that both the REST handlers and the web app's `#[server]` functions need (a transaction
+  spanning tables, resolving an inline lookup value) lives in the repository, so both stay thin
+  adapters over the same functions.
 - **UUIDv7** primary keys (`DEFAULT uuidv7()`, needs Postgres 18), plus `created_at` / `updated_at` with a shared `set_updated_at` trigger.
 - **SQL migrations** via `sqlx-cli` (`api/migrations`, reversible with `-r`). Migrations are the schema source of truth — never edit one that's been applied; add a new one.
 - **Only** `query_as!` **allowed** — `clippy.toml` (`disallowed-methods` + `disallowed-macros`) bans the unchecked and anonymous forms.
@@ -32,23 +36,32 @@
 - **Neon** intended for prod (serverless, scale-to-zero, branch-per-PR).
 - `DATABASE_URL` lives in the root `.env` — feeds both `sqlx-cli` and the compile-time query macros.
 
-### Data pattern — BFF, no form actions
+### Data pattern — one process, server functions over the data layer
 
-- **Reads:** server-side (SvelteKit `load` / Next server component / Dioxus `#[server]`) fetch the Rust API **server-to-server**. The browser never calls the API directly.
-- **Writes:** a **BFF endpoint** (SvelteKit `+server.ts`, Next route handler, or Dioxus `#[server]`) that the client calls with `fetch`, then refresh (`invalidateAll` / `router.refresh`).
-- Deliberately **not** using SvelteKit form actions or client data libs (SWR/React-Query) — though TanStack Query stays an option if client caching is wanted later.
+- The Dioxus server (Axum, `:8080`) is the only server. Its `#[server]` functions call
+  `api::features::<x>::repository` directly; there is no HTTP hop to a separate API.
+- The REST router (`api::app::build`) is mounted in the same process under `/api` for curl and
+  the device / simulator. The browser never calls it; it goes through server functions only.
+- **Reads** wrap a server function in `use_resource`; **writes** call a server function, then
+  refresh. No form actions, no client data libs (TanStack Query stays an option if client
+  caching is wanted later).
+- Rationale, and the criteria for splitting into a second process again:
+  [decisions/0002-single-process.md](../decisions/0002-single-process.md).
 
-### Auth (planned) — BFF / token-handler pattern
+### Auth (planned) — one layer, session cookie
 
-- The web server is the **BFF** and the **OIDC client**: it runs the login flow, holds the tokens, and sets an **httpOnly session cookie**. Tokens never reach JS.
-- Every read/write runs server-side and attaches the **access token**, calling the Rust API server-to-server.
-- The **Rust API is the resource server**: it validates the JWT against the issuer's JWKS (`jsonwebtoken` + JWKS, or a crate like `jwt-authorizer`).
-- OIDC client libs to evaluate: `openid-client` (most standards-compliant), **Auth.js** (`@auth/sveltekit`), **Better Auth**.
-- This architecture is identical under Svelte / React / Dioxus, so it doesn't gate the frontend choice.
+- The Dioxus server is the **OIDC client**: it runs the login flow, holds the tokens, and sets an
+  **httpOnly session cookie**. Tokens never reach JS.
+- Every server function runs behind that cookie; the server validates the session and passes the
+  household scope down into the repositories.
+- The resource-server half of the token-handler pattern (JWT validation against the issuer's
+  JWKS via `jsonwebtoken` + JWKS, or a crate like `jwt-authorizer`) is only needed if an outside
+  client — the device — calls the REST routes under `/api`.
+- OIDC client libs to evaluate: `openid-client` (most standards-compliant), **Auth.js**, **Better Auth**.
 
 ### Infra (intended)
 
-- **Neon** (DB) + **Fly.io** (API) + **Pulumi** (IaC, against Neon + Cloudflare). Cheap and transferable.
+- **Neon** (DB) + **Fly.io** (one app: the web server) + **Pulumi** (IaC, against Neon + Cloudflare). Cheap and transferable.
 
 ### Tooling installed on this machine
 
@@ -67,9 +80,9 @@ Same recipes page (table + add form) built several ways to decide by _taste_:
 | SvelteKit + DaisyUI            | Opinionated, themed, **nice out of the box**; one `data-theme` swaps the whole look.                                                                |
 | Next 16 + Chakra v3            | Built. Renders, but has an SSR hydration warning to fix. The work-familiar stack.                                                                   |
 | Next 16 + Mantine / AntD / MUI | **Planned, not built** — each needs its own Next-16 SSR wiring; paused as low-value grind.                                                          |
-| **Dioxus 0.7** (Rust → WASM)   | **Chosen.** React-like, one codebase → web/desktop/mobile, `#[server]` BFF. No OOB components (used Pico.css + hand-built `DifficultyBadge`). |
+| **Dioxus 0.7** (Rust → WASM)   | **Chosen.** React-like, one codebase → web/desktop/mobile, `#[server]` fns. No OOB components (used Pico.css + hand-built `DifficultyBadge`). |
 
-**Status: DECIDED → Dioxus** (fullstack, `#[server]` BFF), now the main app in **`web/`**. Trade-off accepted: **no ready-made component library → build your own** (which is wanted anyway).
+**Status: DECIDED → Dioxus** (fullstack, `#[server]` functions), now the main app in **`web/`**. Trade-off accepted: **no ready-made component library → build your own** (which is wanted anyway).
 
 **Final layout:** `web/` = **Dioxus** (the app, committed) · `web2/` = SvelteKit · `web3/` = Next/React. `web2/` and `web3/` are kept as **gitignored reference spikes** (not built or committed) — delete anytime.
 
@@ -94,7 +107,7 @@ Goal: get real C/C++ reps (embedded hiring still expects them), done _coherently
 2. **Kitchen-screen firmware in C++ / ESP-IDF** — _the résumé-credible embedded C++._
    Write portable display/render logic that compiles for the ESP32 **and** a host-side simulator (fake framebuffer → terminal) so it can be TDD'd without hardware. Real hardware + partner's electronics input; a fair way off (see below).
 3. **Meal-roulette solver in C — server-side, in the API** _(decided direction)._
-   Write the roller/constraint-solver in **portable C** in a dedicated solver crate, called from the API's `/roll` endpoint via FFI. Recipes come from Postgres, cross the boundary as plain arrays, chosen indices come back. **Lives in the API backend (`:3000`), NOT the Dioxus web/BFF server.**
+   Write the roller/constraint-solver in **portable C** in a dedicated solver crate, called from a `/roll` route via FFI. Recipes come from Postgres, cross the boundary as plain arrays, chosen indices come back. **Server-gated inside the one process, as a dependency of the `api` library; it never reaches the wasm build.**
    ```
    solver/
      build.rs               # compiles csrc/solver.c via the `cc` crate
@@ -119,7 +132,7 @@ Goal: get real C/C++ reps (embedded hiring still expects them), done _coherently
 ## Open decisions
 
 - OIDC client library (`openid-client` / Auth.js / Better Auth).
-- When to start the **BFF + auth** layer.
+- When to start the **auth** layer.
 - The full queue lives in [../decisions/pending.md](../decisions/pending.md).
 
-_(Resolved: frontend = **Dioxus fullstack** (`#[server]` BFF); meal-roller = **C in the API** via FFI, not client-side WASM.)_
+_(Resolved: frontend = **Dioxus fullstack** (`#[server]` functions over the in-process data layer, [0002](../decisions/0002-single-process.md)); meal-roller = **C in the `api` library** via FFI, not client-side WASM.)_

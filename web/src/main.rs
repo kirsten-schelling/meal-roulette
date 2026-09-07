@@ -12,10 +12,14 @@ mod showcase;
 use router::Route;
 
 fn main() {
-    #[cfg(feature = "server")]
-    let _ = dotenvy::dotenv();
-
+    #[cfg(not(feature = "server"))]
     dioxus::launch(App);
+
+    #[cfg(feature = "server")]
+    {
+        let _ = dotenvy::dotenv();
+        server::serve(App);
+    }
 }
 
 #[component]
