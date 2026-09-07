@@ -31,7 +31,7 @@ pub struct NewUnit {
 }
 
 /// Partial update body for `PUT /units/{id}`.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct UpdateUnit {
     pub name: Option<String>,
     pub description: Option<String>,
