@@ -28,7 +28,7 @@ pub struct NewProtein {
 }
 
 /// Partial update body for `PUT /proteins/{id}`.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct UpdateProtein {
     pub name: Option<String>,
 }
