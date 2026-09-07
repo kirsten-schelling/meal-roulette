@@ -4,7 +4,7 @@ use axum::{
 };
 use uuid::Uuid;
 
-use super::repository::{create, delete, get, list, update};
+use super::repository::{create_with_unit, delete, get, list, update};
 use crate::error::{is_foreign_key_violation, AppError};
 use crate::state::AppState;
 use domain::ingredient::{Ingredient, NewIngredient, UpdateIngredient};
@@ -28,7 +28,7 @@ pub async fn create_ingredient(
     State(state): State<AppState>,
     Json(new_ingredient): Json<NewIngredient>,
 ) -> Result<Json<Ingredient>, AppError> {
-    let ingredient = create(&state.db, new_ingredient).await?;
+    let ingredient = create_with_unit(&state.db, new_ingredient).await?;
     Ok(Json(ingredient))
 }
 

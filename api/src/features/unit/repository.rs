@@ -1,4 +1,4 @@
-use domain::unit::{NewUnit, Unit, UnitWithIngredientList, UpdateUnit};
+use domain::unit::{NewUnit, Unit, UnitEntry, UnitWithIngredientList, UpdateUnit};
 use domain::usage::UsageRef;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -96,6 +96,27 @@ where
     .fetch_one(executor)
     .await?;
     Ok(unit)
+}
+
+pub async fn resolve<'e, E>(executor: E, entry: UnitEntry) -> Result<Uuid, sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    match entry {
+        UnitEntry::Existing(id) => Ok(id),
+        UnitEntry::New(name) => {
+            let unit = create(
+                executor,
+                NewUnit {
+                    household_id: None,
+                    name,
+                    description: None,
+                },
+            )
+            .await?;
+            Ok(unit.id)
+        }
+    }
 }
 
 pub async fn update(pool: &PgPool, id: Uuid, unit: UpdateUnit) -> Result<Unit, sqlx::Error> {

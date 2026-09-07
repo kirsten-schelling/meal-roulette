@@ -1,5 +1,11 @@
-// use super::model::{NewRecipe, Recipe, UpdateRecipe};
-use domain::recipe::{InsertRecipe, Recipe, RecipeCount, UpdateRecipe};
+use crate::features::{cuisine, ingredient, protein, recipe_ingredient, unit};
+use domain::{
+    cuisine::{CuisineEntry, NewCuisine},
+    ingredient::{IngredientEntry, InsertIngredient},
+    protein::{NewProtein, ProteinEntry},
+    recipe::{InsertRecipe, NewRecipe, Recipe, RecipeWithIngredients, UpdateRecipe},
+    recipe_ingredient::{NewRecipeIngredient, RecipeIngredient},
+};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -44,6 +50,105 @@ where
     .fetch_one(executor)
     .await?;
     Ok(recipe)
+}
+
+pub async fn create_with_ingredients(
+    pool: &PgPool,
+    mut new_recipe: NewRecipe,
+) -> Result<RecipeWithIngredients, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    let recipe_ingredients = std::mem::take(&mut new_recipe.ingredients);
+
+    // Inline-created cuisine/protein win; otherwise fall back to the id the client
+    // picked from the catalog.
+    let cuisine_id = match new_recipe.cuisine {
+        CuisineEntry::Existing(id) => id,
+        CuisineEntry::New(name) => {
+            cuisine::repository::create(
+                &mut *tx,
+                NewCuisine {
+                    household_id: None,
+                    name,
+                },
+            )
+            .await?
+            .id
+        }
+    };
+    let main_protein_id = match new_recipe.protein {
+        ProteinEntry::Existing(id) => id,
+        ProteinEntry::New(name) => {
+            protein::repository::create(
+                &mut *tx,
+                NewProtein {
+                    household_id: None,
+                    name,
+                },
+            )
+            .await?
+            .id
+        }
+    };
+
+    let recipe = create(
+        &mut *tx,
+        InsertRecipe {
+            household_id: None,
+            title: new_recipe.title,
+            difficulty: new_recipe.difficulty,
+            time_mins: new_recipe.time_mins,
+            servings: new_recipe.servings,
+            healthiness: new_recipe.healthiness,
+            main_protein_id: Some(main_protein_id),
+            cuisine_id: Some(cuisine_id),
+        },
+    )
+    .await?;
+
+    let mut ingredients: Vec<RecipeIngredient> = Vec::new();
+    for entry in recipe_ingredients {
+        let ingredient_id = match entry.ingredient {
+            IngredientEntry::Existing(id) => id,
+            IngredientEntry::New {
+                name,
+                purchase_size,
+                unit,
+            } => {
+                // Resolve the unit first so its borrow of `tx` ends before the
+                // ingredient insert borrows `tx` again.
+                let unit_id = unit::repository::resolve(&mut *tx, unit).await?;
+                ingredient::repository::create(
+                    &mut *tx,
+                    InsertIngredient {
+                        household_id: None,
+                        name,
+                        purchase_size,
+                        unit_id,
+                    },
+                )
+                .await?
+                .id
+            }
+        };
+        let ingredient = recipe_ingredient::repository::create(
+            &mut *tx,
+            recipe.id,
+            NewRecipeIngredient {
+                ingredient_id,
+                qty: entry.qty,
+                note: entry.note,
+                is_optional: entry.is_optional,
+            },
+        )
+        .await?;
+        ingredients.push(ingredient);
+    }
+
+    tx.commit().await?;
+    Ok(RecipeWithIngredients {
+        ingredients: Some(ingredients),
+        recipe,
+    })
 }
 
 pub async fn get(pool: &PgPool, id: Uuid) -> Result<Recipe, sqlx::Error> {

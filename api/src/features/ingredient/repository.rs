@@ -1,4 +1,5 @@
-use domain::ingredient::{Ingredient, NewIngredient, UpdateIngredient};
+use crate::features::unit;
+use domain::ingredient::{Ingredient, InsertIngredient, NewIngredient, UpdateIngredient};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -35,7 +36,7 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<Ingredient, sqlx::Error> {
 
 pub async fn create<'e, E>(
     executor: E,
-    ingredient: NewIngredient,
+    ingredient: InsertIngredient,
 ) -> Result<Ingredient, sqlx::Error>
 where
     E: sqlx::PgExecutor<'e>,
@@ -59,6 +60,27 @@ where
         .await?;
     Ok(ingredient)
 }
+
+pub async fn create_with_unit(
+    pool: &PgPool,
+    new_ingredient: NewIngredient,
+) -> Result<Ingredient, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    let unit_id = unit::repository::resolve(&mut *tx, new_ingredient.unit).await?;
+    let ingredient = create(
+        &mut *tx,
+        InsertIngredient {
+            household_id: new_ingredient.household_id,
+            name: new_ingredient.name,
+            purchase_size: new_ingredient.purchase_size,
+            unit_id,
+        },
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(ingredient)
+}
+
 pub async fn update(
     pool: &PgPool,
     id: Uuid,

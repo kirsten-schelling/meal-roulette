@@ -16,9 +16,21 @@ pub struct Ingredient {
     pub updated_at: time::OffsetDateTime,
 }
 
+/// Incoming body for `POST /ingredients`.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct NewIngredient {
     /// Optional for now — omit for a global ingredient. Becomes session-derived under auth.
+    pub household_id: Option<Uuid>,
+    pub name: String,
+    pub purchase_size: i32,
+    pub unit: UnitEntry,
+}
+
+/// The resolved columns actually written to `ingredient` — built server-side after
+/// an inline unit has been created and its id filled in. Not a wire type; it only
+/// carries the row.
+#[derive(Debug)]
+pub struct InsertIngredient {
     pub household_id: Option<Uuid>,
     pub name: String,
     pub purchase_size: i32,

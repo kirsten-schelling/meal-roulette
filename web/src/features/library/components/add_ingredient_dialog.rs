@@ -6,11 +6,12 @@ use crate::features::library::components::{ManageListsDialog, ManageTab};
 use crate::features::unit::hooks::use_unit::use_get_units;
 use dioxus::prelude::*;
 use domain::ingredient::NewIngredient;
+use domain::unit::UnitEntry;
 
-/// The standalone "Add ingredient" dialog for the Library page. Unlike the
-/// recipe flow (which can create a unit transactionally), `POST /ingredients`
-/// takes an existing `unit_id` — so the unit field is a strict picker, and its
-/// manage portal is the way to create a missing unit without leaving here.
+/// The standalone "Add ingredient" dialog for the Library page. The unit field
+/// picks an existing unit or, like the recipe flow, takes a new name that is
+/// created together with the ingredient; its manage portal is for editing the
+/// units list without leaving here.
 #[component]
 pub fn AddIngredientDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -> Element {
     let mut name = use_signal(String::new);
@@ -50,13 +51,13 @@ pub fn AddIngredientDialog(on_close: EventHandler<()>, on_saved: EventHandler<()
             .parse::<i32>()
             .ok()
             .filter(|s| *s > 0);
-        let unit_id = unit().picked.as_ref().map(|o| o.id);
-        match (n.is_empty(), size, unit_id) {
-            (false, Some(purchase_size), Some(unit_id)) => Some(NewIngredient {
+        let u = unit();
+        match (n.is_empty(), size, u.is_resolved()) {
+            (false, Some(purchase_size), true) => Some(NewIngredient {
                 household_id: None,
                 name: n,
                 purchase_size,
-                unit_id,
+                unit: u.resolve(UnitEntry::Existing, UnitEntry::New),
             }),
             _ => None,
         }
@@ -79,10 +80,9 @@ pub fn AddIngredientDialog(on_close: EventHandler<()>, on_saved: EventHandler<()
                 div { class: "mr-form-grid",
                     Combobox {
                         label: "Unit".to_string(),
-                        placeholder: "Search units…".to_string(),
+                        placeholder: "Search, or type + Enter…".to_string(),
                         options: unit_options.clone(),
                         picker: unit,
-                        can_create: false,
                         manage_label: "Manage units…".to_string(),
                         on_manage: move |_| managing.set(true),
                     }
