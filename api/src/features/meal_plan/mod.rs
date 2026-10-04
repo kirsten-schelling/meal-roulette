@@ -1,5 +1,5 @@
 mod handlers;
-mod repository;
+pub mod repository;
 
 use crate::state::AppState;
 use axum::{routing::get, Router};
@@ -10,6 +10,7 @@ pub fn routes() -> Router<AppState> {
             "/meal-plans",
             get(handlers::get_meal_plans).post(handlers::create_meal_plan),
         )
+        .route("/meal-plans/latest", get(handlers::get_latest_meal_plan))
         .route(
             "/meal-plans/{id}",
             get(handlers::get_meal_plan)

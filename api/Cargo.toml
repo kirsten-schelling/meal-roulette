@@ -13,4 +13,6 @@ uuid = { version = "1", features = ["v7", "serde"] }
 time = { version = "0.3", features = ["serde", "macros", "formatting", "parsing"] }
 rust_decimal = { version = "1", features = ["serde-float"] }
 dotenvy = "0.15"
+rand = "0.9"
 domain = { path = "../domain" }
+solver = { path = "../solver" }

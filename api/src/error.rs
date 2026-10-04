@@ -7,6 +7,9 @@ pub enum AppError {
     NotFound(String),
     Conflict(String),
     BadRequest(String),
+    /// Well-formed, but cannot be carried out against the current data.
+    Unprocessable(String),
+    Internal(String),
 }
 
 impl AppError {
@@ -16,6 +19,8 @@ impl AppError {
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
             AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            AppError::Unprocessable(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
@@ -26,7 +31,9 @@ impl fmt::Display for AppError {
             AppError::Db(error) => write!(f, "{error}"),
             AppError::NotFound(message)
             | AppError::Conflict(message)
-            | AppError::BadRequest(message) => f.write_str(message),
+            | AppError::BadRequest(message)
+            | AppError::Unprocessable(message)
+            | AppError::Internal(message) => f.write_str(message),
         }
     }
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO meal_plan (household_id, start_date, seed, name)\n        VALUES ($1, $2, $3, $4)\n        RETURNING id, household_id, start_date, seed, name, created_at, updated_at\n        ",
+  "query": "\n        INSERT INTO meal_plan (household_id, start_date, seed, name, roll_constraints)\n        VALUES ($1, $2, $3, $4, $5)\n        RETURNING id, household_id, start_date, seed, name,\n                  roll_constraints AS \"roll_constraints: Json<RollConstraints>\",\n                  created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "roll_constraints: Json<RollConstraints>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "roll_constraints"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -86,7 +97,8 @@
         "Uuid",
         "Date",
         "Int8",
-        "Text"
+        "Text",
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -96,8 +108,9 @@
       true,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "bfcdfbc035be3b5fad3f74eb1aa608a20e5b348d85b2a4c663cfde8e63fa7c51"
+  "hash": "d1692cf0f29bb6f79986e26ee8974e90d44ca0c93adcd102d13c018767616a26"
 }

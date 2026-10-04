@@ -1,0 +1,196 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT planned_meal.id, planned_meal.meal_plan_id, planned_meal.recipe_id,\n               planned_meal.scheduled_date, planned_meal.is_pinned, planned_meal.target_difficulty,\n               recipe.title, recipe.difficulty, recipe.time_mins, recipe.servings, recipe.healthiness,\n               recipe.cuisine_id, cuisine.name AS \"cuisine?\",\n               recipe.main_protein_id, protein.name AS \"protein?\"\n        FROM planned_meal\n        JOIN recipe ON recipe.id = planned_meal.recipe_id\n        LEFT JOIN cuisine ON cuisine.id = recipe.cuisine_id\n        LEFT JOIN protein ON protein.id = recipe.main_protein_id\n        WHERE planned_meal.id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "meal_plan_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "meal_plan_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "recipe_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "recipe_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "scheduled_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "scheduled_date"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "is_pinned",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "is_pinned"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "target_difficulty",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "target_difficulty"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "difficulty",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "difficulty"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "time_mins",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "time_mins"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "servings",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "servings"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "healthiness",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "healthiness"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "cuisine_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "cuisine_id"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "cuisine?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "cuisine",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "main_protein_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "main_protein_id"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "protein?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "protein",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c9b6bebe127f7509a63524f731ef444939bdf996435f00bd89d78d0f4713d2bb"
+}
