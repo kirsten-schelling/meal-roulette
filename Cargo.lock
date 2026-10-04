@@ -52,6 +52,7 @@ dependencies = [
  "dotenvy",
  "rust_decimal",
  "serde",
+ "serde_json",
  "sqlx",
  "time",
  "tokio",
@@ -1415,6 +1416,7 @@ version = "0.1.0"
 dependencies = [
  "rust_decimal",
  "serde",
+ "serde_json",
  "time",
  "uuid",
 ]
@@ -4387,6 +4389,7 @@ dependencies = [
  "dotenvy",
  "gloo-timers",
  "serde",
+ "serde_json",
  "uuid",
 ]
 

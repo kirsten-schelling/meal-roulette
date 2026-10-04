@@ -1,6 +1,12 @@
 # Rust build artifacts (root workspace + web/ Dioxus app)
 target/
 
+# C solver standalone build output (from `just solver`)
+/solver/build/
+
+# clangd include paths — machine-specific absolute paths (MSVC + Windows SDK)
+/solver/compile_flags.txt
+
 # Dioxus / dx build artifacts
 .dioxus/
 /web/dist/

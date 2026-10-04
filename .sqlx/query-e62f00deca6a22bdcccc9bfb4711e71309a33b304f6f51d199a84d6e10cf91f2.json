@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE roll_preset\n        SET is_default = false\n        WHERE is_default\n          AND id <> $1\n          AND household_id IS NOT DISTINCT FROM\n              (SELECT household_id FROM roll_preset WHERE id = $1)\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "roll_preset",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e62f00deca6a22bdcccc9bfb4711e71309a33b304f6f51d199a84d6e10cf91f2"
+}

@@ -11,7 +11,7 @@ pub struct ToastItem {
     pub tone: Tone,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct ToastController {
     pub toasts: Signal<Vec<ToastItem>>,
 }
