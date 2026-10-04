@@ -350,8 +350,8 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
                                         row: row.clone(),
                                         used_by_noun: used_by_noun.to_string(),
                                         editing_draft: editing()
-                                                                                                                            .filter(|(id, _)| *id == row.id)
-                                                                                                                            .map(|(_, draft)| draft),
+                                                                                                                                                                                                            .filter(|(id, _)| *id == row.id)
+                                                                                                                                                                                                            .map(|(_, draft)| draft),
                                         on_edit: move |(id, name): (Uuid, String)| {
                                             clear_results();
                                             editing.set(Some((id, name)));

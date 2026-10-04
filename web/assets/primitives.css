@@ -1058,6 +1058,29 @@ body { margin: 0; }
 .mr-library__main { min-width: 0; }
 .mr-library__rail { display: flex; flex-direction: column; gap: 1rem; }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   PLAN — the rolled week on Home, and the recipe picker in the swap dialog.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-week { display: flex; flex-direction: column; margin-bottom: 1rem; }
+.mr-week__row {
+  display: flex; gap: .9rem; align-items: baseline;
+  padding: .45rem 0; border-bottom: 1px solid var(--mr-border);
+}
+.mr-week__row:last-child { border-bottom: none; }
+.mr-week__day { flex: none; width: 6.5rem; color: var(--mr-text-muted); font-size: .9rem; }
+
+.mr-picklist {
+  display: flex; flex-direction: column; max-height: 22rem; overflow-y: auto;
+  border: 1px solid var(--mr-border); border-radius: var(--mr-radius-sm);
+}
+.mr-picklist__row {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .6rem .8rem; border-bottom: 1px solid var(--mr-border);
+}
+.mr-picklist__row:last-child { border-bottom: none; }
+.mr-picklist__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.mr-picklist__meta { color: var(--mr-text-muted); font-size: .85rem; }
+
 /* A rail card for one tiny lookup list: title + count + a manage doorway,
    with the values as chips below. */
 .mr-lookupcard__head {
