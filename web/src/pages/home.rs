@@ -1,44 +1,84 @@
-//! Landing page: the welcome + the roulette. Everything here is visual only —
-//! the "Spin" button just toggles a decorative wheel animation so the page
-//! feels alive. The real roll-a-week-of-meals logic gets wired in later.
+//! Landing dashboard: a snapshot of the week plus shortcuts into the app. The
+//! week panel is a placeholder until the planned-meals data is wired in.
 
 use crate::components::ui::*;
+use crate::router::Route;
 use dioxus::prelude::*;
 
 #[component]
 pub fn Home() -> Element {
-    // Placeholder interaction: flips the wheel's spin animation on/off.
-    let mut spinning = use_signal(|| false);
-    let wheel_cls = if spinning() {
-        "mr-wheel mr-wheel--spin"
-    } else {
-        "mr-wheel"
-    };
-    let label = if spinning() { "Stop" } else { "Spin the wheel" };
-
     rsx! {
-        section { class: "mr-hero",
-            div { class: "mr-hero__stage",
-                div { class: "mr-hero__pointer", aria_hidden: "true" }
-                div { class: "{wheel_cls}", aria_hidden: "true",
-                    div { class: "mr-wheel__hub" }
-                }
-            }
-
-            Heading { level: 1, "What's for dinner?" }
-            div { class: "mr-hero__sub",
+        div { class: "mr-page",
+            header { class: "mr-page__head",
+                Heading { level: 1, "What's for dinner?" }
                 Text { muted: true,
-                    "Spin to roll a week of meals from your recipes, then turn it into a shopping list in one click."
+                    "Your week at a glance. Roll a plan, then turn it into a shopping list."
                 }
             }
 
-            Button {
-                variant: ButtonVariant::Solid,
-                size: Size::Lg,
-                onclick: move |_| spinning.toggle(),
-                "{label}"
+            VStack { gap: 1.25,
+                Card { header: "This week".to_string(),
+                    div { class: "mr-empty",
+                        div { class: "mr-empty__icon", aria_hidden: "true", "🎲" }
+                        Heading { level: 3, "No week rolled yet" }
+                        Text { muted: true,
+                            "Spin the roller to fill the week. Your meals show up here once the plan is wired in."
+                        }
+                        Link {
+                            to: Route::Roll {},
+                            class: "mr-btn mr-btn--solid mr-btn--lg",
+                            "Roll a week"
+                        }
+                    }
+                }
+
+                div { style: "display:grid; grid-template-columns:repeat(auto-fit, minmax(12rem, 1fr)); gap:.9rem;",
+                    DashLink {
+                        to: Route::Recipes {},
+                        icon: "📖",
+                        label: "Recipes",
+                        hint: "Browse and add recipes",
+                    }
+                    DashLink {
+                        to: Route::PlannedMeals {},
+                        icon: "📅",
+                        label: "Planned Meals",
+                        hint: "The week the roller picked",
+                    }
+                    DashLink {
+                        to: Route::ShoppingList {},
+                        icon: "🛒",
+                        label: "Shopping List",
+                        hint: "What to buy this week",
+                    }
+                    DashLink {
+                        to: Route::Library {},
+                        icon: "🧺",
+                        label: "Library",
+                        hint: "Ingredients, proteins, cuisines",
+                    }
+                }
             }
-            Text { small: true, muted: true, "Layout preview. The spin isn't wired to anything yet." }
+        }
+    }
+}
+
+/// A card that navigates to a section. Renders as a link so the whole card is
+/// clickable and keyboard-focusable.
+#[component]
+fn DashLink(to: Route, icon: String, label: String, hint: String) -> Element {
+    rsx! {
+        Link { to: to, class: "mr-card mr-dashlink",
+            div {
+                class: "mr-card__body",
+                style: "display:flex; align-items:center; gap:.7rem;",
+                span { style: "font-size:1.5rem; line-height:1;", aria_hidden: "true", "{icon}" }
+                div {
+                    div { style: "font-weight:600;", "{label}" }
+                    div { style: "color:var(--mr-text-muted); font-size:.85rem;", "{hint}" }
+                }
+                span { class: "mr-dashlink__arrow", aria_hidden: "true", "›" }
+            }
         }
     }
 }

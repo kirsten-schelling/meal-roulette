@@ -1,6 +1,7 @@
 {
   "recommendations": [
     "rust-lang.rust-analyzer",
+    "llvm-vs-code-extensions.vscode-clangd",
     "DioxusLabs.dioxus",
     "tamasfe.even-better-toml",
     "vadimcn.vscode-lldb",

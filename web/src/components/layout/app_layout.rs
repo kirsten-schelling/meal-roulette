@@ -37,6 +37,11 @@ pub fn AppLayout() -> Element {
 fn nav_entries() -> Vec<NavEntry> {
     vec![
         NavEntry {
+            icon: "🎲",
+            label: "Roll",
+            to: Route::Roll {},
+        },
+        NavEntry {
             icon: "📖",
             label: "Recipes",
             to: Route::Recipes {},

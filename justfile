@@ -18,6 +18,10 @@ db-down:
 api:
     cargo run -p api
 
+# build + run the C solver standalone with the host harness (see printf output without the API)
+solver input="solver/input.txt":
+    powershell -NoProfile -ExecutionPolicy Bypass -File solver\run.ps1 "{{input}}"
+
 # run the web app: Dioxus + #[server] functions + REST under /api  ->  http://localhost:8080
 web:
     cd web && dx serve
