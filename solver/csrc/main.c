@@ -97,7 +97,8 @@ int main(int argc, char **argv) {
         .num_cuisine_requirements = cuisine_count,
         .num_protein_requirements = protein_count,
         .num_recipes = count,
-        .num_recipes_to_pick = want
+        .num_recipes_to_pick = want,
+        .seed = 1
     };
     fprintf(stderr, "[harness] read %d recipes from %s\n", count, input_path);
 
@@ -105,8 +106,8 @@ int main(int argc, char **argv) {
         .recipe_indices = malloc(sizeof(int32_t) * (size_t)input.num_recipes_to_pick)
     };
 
-    int status = mr_solver_ping(&input, &output);
-    printf("mr_solver_ping() -> %d\n", status);
+    int status = mr_solver_roll(&input, &output);
+    printf("mr_solver_roll() -> %d\n", status);
 
     free(output.recipe_indices);
     free(recipes);
