@@ -8,7 +8,10 @@ list. Learning-oriented — Rust backend as an on-ramp toward embedded. Feature 
 - Frontend: Dioxus 0.7 (Rust, fullstack — `#[server]` functions call the data layer in-process) — `web/`
 - Backend: Rust (Axum + SQLx) — `api/` is a library (state, errors, repositories, REST router)
   embedded by the web server; shared wire types in `domain/`. One root Cargo workspace: `api`,
-  `domain`, `web`.
+  `domain`, `solver`, `web`.
+- Solver: the meal roller, written in C (`solver/csrc/`) and compiled by `solver/build.rs` into
+  the `solver` crate, which exposes a safe `roll()` over one `extern "C"` call. The `api` roll
+  feature (`api/src/features/roll/`) flattens recipes and rules into its integer-only input.
 - Database: Postgres (Docker locally)
 - `web2/` (SvelteKit) and `web3/` (Next) — gitignored reference spikes from the UI comparison; not part of the build.
 
