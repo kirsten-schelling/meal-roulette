@@ -50,9 +50,11 @@ dependencies = [
  "axum",
  "domain",
  "dotenvy",
+ "rand 0.9.5",
  "rust_decimal",
  "serde",
  "serde_json",
+ "solver",
  "sqlx",
  "time",
  "tokio",
@@ -3423,6 +3425,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "solver"
+version = "0.1.0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "spin"
 version = "0.9.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4390,6 +4399,7 @@ dependencies = [
  "gloo-timers",
  "serde",
  "serde_json",
+ "time",
  "uuid",
 ]
 

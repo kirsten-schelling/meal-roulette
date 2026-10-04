@@ -51,7 +51,7 @@ void random_shuffle(Recipe *array, int array_size, int to_pick) {
     }
 }
 
-void filter_recipes(int *filtered_recipe_indexes, Recipe *recipes, Recipe required_shape,
+void filter_recipes(int *filtered_recipe_indexes, const Recipe *recipes, Recipe required_shape,
     int num_recipes, int *filtered_recipe_length) {
     for (int i = 0; i < num_recipes; i++) {
         printf("Req Cuisine: %d, Recipe Cuisine: %d, Req Protein: %d, Recipe "
@@ -69,7 +69,7 @@ void filter_recipes(int *filtered_recipe_indexes, Recipe *recipes, Recipe requir
     realloc(filtered_recipe_indexes, (*filtered_recipe_length - 1) * sizeof(int));
 }
 
-void select_recipes(Output *output, Recipe *recipes_to_pick, Recipe *recipes,
+void select_recipes(Output *output, Recipe *recipes_to_pick, const Recipe *recipes,
     int num_recipes_to_pick, int num_recipes) {
     for (int i = 0; i < num_recipes_to_pick; i++) {
         int *filtered_recipe_indexes = malloc(num_recipes * sizeof(int));
@@ -82,7 +82,7 @@ void select_recipes(Output *output, Recipe *recipes_to_pick, Recipe *recipes,
 }
 
 void insert_recipe_cuisines(Recipe *recipes_to_pick, int num_recipes_to_pick,
-    CuisineRequirement *cuisine_requirements, int num_cuisine_requirements) {
+    const CuisineRequirement *cuisine_requirements, int num_cuisine_requirements) {
     int cuisines_selected = 0;
     for (int i = 0; i < num_cuisine_requirements; i++) {
         for (int j = 0; j < cuisine_requirements[i].num_days; j++) {
@@ -93,7 +93,7 @@ void insert_recipe_cuisines(Recipe *recipes_to_pick, int num_recipes_to_pick,
 }
 
 void insert_recipe_proteins(Recipe *recipes_to_pick, int num_recipes_to_pick,
-    ProteinRequirement *protein_requirements, int num_protein_requirements) {
+    const ProteinRequirement *protein_requirements, int num_protein_requirements) {
     int cuisines_selected = 0;
     for (int i = 0; i < num_protein_requirements; i++) {
         for (int j = 0; j < protein_requirements[i].num_days; j++) {
@@ -103,7 +103,7 @@ void insert_recipe_proteins(Recipe *recipes_to_pick, int num_recipes_to_pick,
     }
 }
 
-bool validate_cuisine_requirements(CuisineRequirement *cuisine_requirements,
+bool validate_cuisine_requirements(const CuisineRequirement *cuisine_requirements,
     int num_cuisine_requirements, int num_recipes_to_pick) {
     int total_cuisine_requirements = 0;
     for (int i = 0; i < num_cuisine_requirements; i++) {
@@ -115,7 +115,8 @@ bool validate_cuisine_requirements(CuisineRequirement *cuisine_requirements,
     return true;
 }
 
-int mr_solver_ping(Input *input, Output *output) {
+int32_t mr_solver_roll(const Input *input, Output *output) {
+    srand((unsigned int)input->seed);
     Recipe *recipes_to_pick = malloc(input->num_recipes_to_pick * sizeof(Recipe));
     for (int i = 0; i < input->num_recipes_to_pick; i++) {
         recipes_to_pick[i] = (Recipe){0};
@@ -123,7 +124,7 @@ int mr_solver_ping(Input *input, Output *output) {
 
     if (!validate_cuisine_requirements(input->cuisine_requirements, input->num_cuisine_requirements,
             input->num_recipes_to_pick)) {
-        return 1;
+        return MR_ERR_UNSATISFIABLE;
     }
 
     insert_recipe_cuisines(recipes_to_pick, input->num_recipes_to_pick, input->cuisine_requirements,
@@ -149,5 +150,7 @@ int mr_solver_ping(Input *input, Output *output) {
             input->recipes[output->recipe_indices[i]].cuisine);
     }
 
-    return 0;
+    return MR_OK;
 }
+
+size_t mr_solver_input_size(void) { return sizeof(Input); }
