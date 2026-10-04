@@ -126,7 +126,7 @@ pub fn Library() -> Element {
                                     columns: columns.clone(),
                                     rows: list,
                                     empty: "No ingredients yet. Add one, or let recipes create them as you go."
-                                                                                                                .to_string(),
+                                                                                                                                                                                        .to_string(),
                                 }
                             }
                         },

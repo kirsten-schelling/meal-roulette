@@ -8,9 +8,10 @@ use dioxus::prelude::*;
 
 use crate::components::layout::AppLayout;
 use crate::features::library::page::Library;
+use crate::features::plan::page::PlannedMeals;
 use crate::features::recipe::page::Recipes;
 use crate::features::roll::page::Roll;
-use crate::pages::{CookingLog, Home, PlannedMeals, ShoppingList};
+use crate::pages::{CookingLog, Home, ShoppingList};
 use crate::showcase::Showcase;
 
 #[derive(Routable, Clone, PartialEq)]

@@ -1,20 +1,23 @@
 //! The roll setup page: pick a preset (or build fresh), choose how many days
-//! and the constraints, then hit Roll. The roll itself runs the C solver, wired
-//! in later (issue #6), so the Roll button just reports that for now. Presets
-//! save the whole form as a JSON payload through the roll_preset API.
+//! and the constraints, then hit Roll. Rolling sends the cuisine and protein
+//! rules to the solver and lands on the planned-meals page. Presets save the
+//! whole form as a JSON payload through the roll_preset API.
 
 use crate::components::ui::*;
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
 use crate::features::protein::hooks::use_protein::use_get_proteins;
+use crate::features::roll::hooks::use_roll::roll_week;
 use crate::features::roll::hooks::use_roll_preset::{
     add_roll_preset, delete_roll_preset, set_default_roll_preset, update_roll_preset,
     use_get_roll_presets,
 };
 use crate::features::roll::settings::{DifficultyDays, LookupRule, RollSettings, SavedIngredient};
 use crate::hooks::use_toast::use_toast;
-use crate::models::difficulty_label;
+use crate::models::{difficulty_label, parse_iso_date};
+use crate::router::Route;
 use dioxus::prelude::*;
+use domain::roll::{CountRule, RollConstraints, RollRequest};
 use domain::roll_preset::{NewRollPreset, UpdateRollPreset};
 use uuid::Uuid;
 
@@ -43,9 +46,13 @@ pub fn Roll() -> Element {
     let ingredients = use_get_ingredients();
     let presets = use_get_roll_presets();
     let toast = use_toast();
+    let navigator = use_navigator();
 
-    // The shape of the week.
+    // The shape of the week. An empty date means today; an empty seed means random.
     let mut num_days = use_signal(|| "7".to_string());
+    let mut start_date = use_signal(String::new);
+    let mut seed = use_signal(String::new);
+    let mut rolling = use_signal(|| false);
 
     // Difficulty: a simple lean, or an exact per-level day mix when toggled on.
     let mut difficulty = use_signal(|| "any".to_string());
@@ -167,8 +174,7 @@ pub fn Roll() -> Element {
                                         } else {
                                             p.name.clone()
                                         };
-                                        preset_options
-                                            .push(SelectOption::new(p.id.to_string(), label));
+                                        preset_options.push(SelectOption::new(p.id.to_string(), label));
                                     }
                                     let has_selection = !selected_preset().is_empty();
                                     rsx! {
@@ -195,22 +201,26 @@ pub fn Roll() -> Element {
                                                                 RollSettings,
                                                             >(p.settings)
                                                             {
-                                                                Ok(s) => apply_settings(
-                                                                    s,
-                                                                    num_days,
-                                                                    difficulty,
-                                                                    difficulty_exact,
-                                                                    difficulty_mix,
-                                                                    protein_rules,
-                                                                    cuisine_rules,
-                                                                    chosen_ingredients,
-                                                                ),
-                                                                Err(_) => toast.show(
-                                                                    Some("Load failed".to_string()),
-                                                                    "This preset's settings couldn't be read."
-                                                                        .to_string(),
-                                                                    Tone::Red,
-                                                                ),
+                                                                Ok(s) => {
+                                                                    apply_settings(
+                                                                        s,
+                                                                        num_days,
+                                                                        difficulty,
+                                                                        difficulty_exact,
+                                                                        difficulty_mix,
+                                                                        protein_rules,
+                                                                        cuisine_rules,
+                                                                        chosen_ingredients,
+                                                                    )
+                                                                }
+                                                                Err(_) => {
+                                                                    toast
+                                                                        .show(
+                                                                            Some("Load failed".to_string()),
+                                                                            "This preset's settings couldn't be read.".to_string(),
+                                                                            Tone::Red,
+                                                                        )
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -237,11 +247,12 @@ pub fn Roll() -> Element {
                                                     );
                                                     let Ok(payload) = serde_json::to_value(&settings)
                                                     else {
-                                                        toast.show(
-                                                            Some("Update failed".to_string()),
-                                                            "Could not encode settings.".to_string(),
-                                                            Tone::Red,
-                                                        );
+                                                        toast
+                                                            .show(
+                                                                Some("Update failed".to_string()),
+                                                                "Could not encode settings.".to_string(),
+                                                                Tone::Red,
+                                                            );
                                                         return;
                                                     };
                                                     let mut presets = presets;
@@ -257,17 +268,21 @@ pub fn Roll() -> Element {
                                                         {
                                                             Ok(_) => {
                                                                 presets.restart();
-                                                                toast.show(
-                                                                    Some("Updated".to_string()),
-                                                                    "Preset updated.".to_string(),
-                                                                    Tone::Green,
-                                                                );
+                                                                toast
+                                                                    .show(
+                                                                        Some("Updated".to_string()),
+                                                                        "Preset updated.".to_string(),
+                                                                        Tone::Green,
+                                                                    );
                                                             }
-                                                            Err(e) => toast.show(
-                                                                Some("Update failed".to_string()),
-                                                                e.to_string(),
-                                                                Tone::Red,
-                                                            ),
+                                                            Err(e) => {
+                                                                toast
+                                                                    .show(
+                                                                        Some("Update failed".to_string()),
+                                                                        e.to_string(),
+                                                                        Tone::Red,
+                                                                    )
+                                                            }
                                                         }
                                                     });
                                                 },
@@ -287,20 +302,21 @@ pub fn Roll() -> Element {
                                                         match set_default_roll_preset(uid).await {
                                                             Ok(_) => {
                                                                 presets.restart();
-                                                                toast.show(
-                                                                    Some("Default set".to_string()),
-                                                                    "This preset is now the default."
-                                                                        .to_string(),
-                                                                    Tone::Green,
-                                                                );
+                                                                toast
+                                                                    .show(
+                                                                        Some("Default set".to_string()),
+                                                                        "This preset is now the default.".to_string(),
+                                                                        Tone::Green,
+                                                                    );
                                                             }
-                                                            Err(e) => toast.show(
-                                                                Some(
-                                                                    "Couldn't set default".to_string(),
-                                                                ),
-                                                                e.to_string(),
-                                                                Tone::Red,
-                                                            ),
+                                                            Err(e) => {
+                                                                toast
+                                                                    .show(
+                                                                        Some("Couldn't set default".to_string()),
+                                                                        e.to_string(),
+                                                                        Tone::Red,
+                                                                    )
+                                                            }
                                                         }
                                                     });
                                                 },
@@ -322,17 +338,21 @@ pub fn Roll() -> Element {
                                                             Ok(_) => {
                                                                 selected_preset.set(String::new());
                                                                 presets.restart();
-                                                                toast.show(
-                                                                    Some("Deleted".to_string()),
-                                                                    "Preset removed.".to_string(),
-                                                                    Tone::Green,
-                                                                );
+                                                                toast
+                                                                    .show(
+                                                                        Some("Deleted".to_string()),
+                                                                        "Preset removed.".to_string(),
+                                                                        Tone::Green,
+                                                                    );
                                                             }
-                                                            Err(e) => toast.show(
-                                                                Some("Delete failed".to_string()),
-                                                                e.to_string(),
-                                                                Tone::Red,
-                                                            ),
+                                                            Err(e) => {
+                                                                toast
+                                                                    .show(
+                                                                        Some("Delete failed".to_string()),
+                                                                        e.to_string(),
+                                                                        Tone::Red,
+                                                                    )
+                                                            }
                                                         }
                                                     });
                                                 },
@@ -370,11 +390,12 @@ pub fn Roll() -> Element {
                                         chosen_ingredients,
                                     );
                                     let Ok(payload) = serde_json::to_value(&settings) else {
-                                        toast.show(
-                                            Some("Save failed".to_string()),
-                                            "Could not encode settings.".to_string(),
-                                            Tone::Red,
-                                        );
+                                        toast
+                                            .show(
+                                                Some("Save failed".to_string()),
+                                                "Could not encode settings.".to_string(),
+                                                Tone::Red,
+                                            );
                                         return;
                                     };
                                     let mut presets = presets;
@@ -390,17 +411,16 @@ pub fn Roll() -> Element {
                                             Ok(_) => {
                                                 preset_name.set(String::new());
                                                 presets.restart();
-                                                toast.show(
-                                                    Some("Saved".to_string()),
-                                                    "Preset saved.".to_string(),
-                                                    Tone::Green,
-                                                );
+                                                toast
+                                                    .show(
+                                                        Some("Saved".to_string()),
+                                                        "Preset saved.".to_string(),
+                                                        Tone::Green,
+                                                    );
                                             }
-                                            Err(e) => toast.show(
-                                                Some("Save failed".to_string()),
-                                                e.to_string(),
-                                                Tone::Red,
-                                            ),
+                                            Err(e) => {
+                                                toast.show(Some("Save failed".to_string()), e.to_string(), Tone::Red)
+                                            }
                                         }
                                     });
                                 },
@@ -411,18 +431,45 @@ pub fn Roll() -> Element {
                 }
 
                 Card { header: "Week shape".to_string(),
-                    div { style: "width:8rem;",
-                        Input {
-                            label: "How many days".to_string(),
-                            kind: "number".to_string(),
-                            value: num_days(),
-                            oninput: move |e: FormEvent| num_days.set(e.value()),
+                    VStack { gap: 0.5,
+                        div { style: "display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end;",
+                            div { style: "width:8rem;",
+                                Input {
+                                    label: "How many days".to_string(),
+                                    kind: "number".to_string(),
+                                    value: num_days(),
+                                    oninput: move |e: FormEvent| num_days.set(e.value()),
+                                }
+                            }
+                            div { style: "width:11rem;",
+                                Input {
+                                    label: "Start date".to_string(),
+                                    kind: "date".to_string(),
+                                    value: start_date(),
+                                    oninput: move |e: FormEvent| start_date.set(e.value()),
+                                }
+                            }
+                            div { style: "width:9rem;",
+                                Input {
+                                    label: "Seed".to_string(),
+                                    kind: "number".to_string(),
+                                    value: seed(),
+                                    placeholder: "Random".to_string(),
+                                    oninput: move |e: FormEvent| seed.set(e.value()),
+                                }
+                            }
+                        }
+                        Text { small: true, muted: true,
+                            "Leave the date empty to start today. Enter a plan's seed to repeat that roll."
                         }
                     }
                 }
 
                 Card { header: "Difficulty".to_string(),
                     VStack { gap: 0.75,
+                        Text { small: true, muted: true,
+                            "Saved with presets. The roller doesn't apply difficulty yet."
+                        }
                         Switch {
                             checked: difficulty_exact(),
                             onchange: move |v| difficulty_exact.set(v),
@@ -430,14 +477,14 @@ pub fn Roll() -> Element {
                         }
                         if difficulty_exact() {
                             div { style: "display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end;",
-                                for (i , dd) in difficulty_mix.read().clone().into_iter().enumerate() {
+                                for (i, dd) in difficulty_mix.read().clone().into_iter().enumerate() {
                                     {
                                         let idx = i;
                                         rsx! {
                                             div { style: "width:6.5rem;",
                                                 Input {
                                                     label: difficulty_label(dd.level.into())
-                                                        .to_string(),
+                                                                                                            .to_string(),
                                                     kind: "number".to_string(),
                                                     value: "{dd.days}",
                                                     oninput: move |e: FormEvent| {
@@ -499,7 +546,11 @@ pub fn Roll() -> Element {
                             }
                         }
                         for rule in protein_rules.read().clone() {
-                            RuleRow { key: "{rule.id}", rule: rule.clone(), rules: protein_rules }
+                            RuleRow {
+                                key: "{rule.id}",
+                                rule: rule.clone(),
+                                rules: protein_rules,
+                            }
                         }
                     }
                 }
@@ -529,7 +580,11 @@ pub fn Roll() -> Element {
                             }
                         }
                         for rule in cuisine_rules.read().clone() {
-                            RuleRow { key: "{rule.id}", rule: rule.clone(), rules: cuisine_rules }
+                            RuleRow {
+                                key: "{rule.id}",
+                                rule: rule.clone(),
+                                rules: cuisine_rules,
+                            }
                         }
                     }
                 }
@@ -537,7 +592,7 @@ pub fn Roll() -> Element {
                 Card { header: "Must-use ingredients".to_string(),
                     VStack { gap: 0.75,
                         Text { small: true, muted: true,
-                            "Guarantee the week includes a recipe using each of these."
+                            "Guarantee the week includes a recipe using each of these. Saved with presets; the roller doesn't apply ingredients yet."
                         }
                         {
                             match ingredients() {
@@ -567,9 +622,7 @@ pub fn Roll() -> Element {
                                             Chip {
                                                 key: "{opt.id}",
                                                 label: opt.label.clone(),
-                                                onremove: move |_| {
-                                                    chosen_ingredients.with_mut(|v| v.retain(|o| o.id != iid))
-                                                },
+                                                onremove: move |_| { chosen_ingredients.with_mut(|v| v.retain(|o| o.id != iid)) },
                                             }
                                         }
                                     }
@@ -584,14 +637,68 @@ pub fn Roll() -> Element {
                         variant: ButtonVariant::Solid,
                         size: Size::Lg,
                         disabled: day_count == 0,
+                        loading: rolling(),
                         onclick: move |_| {
-                            toast
-                                .show(
-                                    Some("Not wired up yet".to_string()),
-                                    "The roll runs the C solver, added later (issue #6). Your choices are not sent anywhere yet."
-                                        .to_string(),
-                                    Tone::Amber,
-                                );
+                            let Ok(num_days) = u16::try_from(day_count) else {
+                                return;
+                            };
+                            if num_days == 0 || rolling() {
+                                return;
+                            }
+                            let constraints = RollConstraints {
+                                cuisines: count_rules(&cuisine_rules.read()),
+                                proteins: count_rules(&protein_rules.read()),
+                            };
+                            let seed = seed().trim().parse::<i64>().ok();
+                            let typed_date = start_date();
+                            rolling.set(true);
+                            spawn(async move {
+                                let start_date = match typed_date.trim() {
+                                    "" => today().await,
+                                    typed => {
+                                        match parse_iso_date(typed) {
+                                            Some(date) => Some(date),
+                                            None => {
+                                                toast
+                                                    .show(
+                                                        Some("Check the date".to_string()),
+                                                        "The start date couldn't be read.".to_string(),
+                                                        Tone::Red,
+                                                    );
+                                                rolling.set(false);
+                                                return;
+                                            }
+                                        }
+                                    }
+                                };
+                                let request = RollRequest {
+                                    household_id: None,
+                                    start_date,
+                                    num_days,
+                                    seed,
+                                    constraints,
+                                };
+                                match roll_week(request).await {
+                                    Ok(plan) => {
+                                        toast
+                                            .show(
+                                                Some("Rolled".to_string()),
+                                                format!("{} dinners planned.", plan.meals.len()),
+                                                Tone::Green,
+                                            );
+                                        navigator.push(Route::PlannedMeals {});
+                                    }
+                                    Err(e) => {
+                                        toast
+                                            .show(
+                                                Some("Couldn't roll".to_string()),
+                                                e.to_string(),
+                                                Tone::Red,
+                                            )
+                                    }
+                                }
+                                rolling.set(false);
+                            });
                         },
                         "Roll the week"
                     }
@@ -602,6 +709,26 @@ pub fn Roll() -> Element {
             }
         }
     }
+}
+
+/// The rules as the solver wants them: ids and day counts, no display names.
+fn count_rules(rules: &[LookupRule]) -> Vec<CountRule> {
+    rules
+        .iter()
+        .map(|rule| CountRule {
+            id: rule.id,
+            times: rule.times,
+        })
+        .collect()
+}
+
+/// The browser's local date, so a plan starts on the user's today rather than
+/// the server's. `None` lets the server fall back to its own date.
+async fn today() -> Option<time::Date> {
+    let script = "const d = new Date(); \
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;";
+    let value = document::eval(script).await.ok()?;
+    parse_iso_date(value.as_str()?)
 }
 
 /// Append a picked lookup option as a rule (count 1), skipping duplicates.
@@ -625,7 +752,9 @@ fn RuleRow(rule: LookupRule, mut rules: Signal<Vec<LookupRule>>) -> Element {
     let rid = rule.id;
     rsx! {
         div { style: "display:flex; align-items:flex-end; gap:.6rem; flex-wrap:wrap;",
-            span { style: "min-width:6rem; padding-bottom:.55rem; font-weight:600;", "{rule.name}" }
+            span { style: "min-width:6rem; padding-bottom:.55rem; font-weight:600;",
+                "{rule.name}"
+            }
             div { style: "width:5.5rem;",
                 Input {
                     label: "Times".to_string(),
