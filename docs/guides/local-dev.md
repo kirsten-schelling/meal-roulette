@@ -6,6 +6,7 @@ the tooling rationale.
 ## Prerequisites
 
 - Rust (rustup; MSVC toolchain on Windows)
+- A C compiler for the `solver` crate (the MSVC Build Tools on Windows, gcc or clang elsewhere)
 - Docker (local Postgres)
 - `dioxus-cli` (`dx`) — the web app
 - `sqlx-cli` — migrations
@@ -38,6 +39,14 @@ after changing a query or the schema).
 ## just recipes
 
 Task recipes live in the `justfile` — run `just` to list them.
+
+## Solver
+
+The C solver in `solver/csrc` is compiled by cargo through `solver/build.rs`, so any `cargo`
+command that builds `api` or the web server build also builds it. `cargo test -p solver` runs
+the Rust-side checks (the C/Rust struct layout agree, and a smoke roll). `just solver` compiles
+the standalone host harness and runs it against `solver/input.txt` for printf-style debugging
+without the server.
 
 ## Migrations
 

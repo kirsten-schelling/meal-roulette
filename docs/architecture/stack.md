@@ -19,8 +19,8 @@
 - **Rust** — Axum 0.8 + SQLx 0.9 (features: `postgres`, `macros`, `migrate`, `uuid`, `time`, `runtime-tokio`, `tls-rustls`).
 - One root Cargo **workspace**: `api` (a library: state, error mapping, repositories and the REST
   router, plus a thin standalone binary) + `domain` (wire types shared api ↔ web ↔ future device)
-  + `web` (the Dioxus app, whose server build embeds `api`) + _(planned)_ a solver crate (the
-  meal roller written in **C**, called via FFI — see C/C++ projects).
+  + `web` (the Dioxus app, whose server build embeds `api`) + `solver` (the meal roller written
+  in **C**, called via FFI — see C/C++ projects).
 - Feature-oriented modules: `features/<x>/{ mod.rs = routes, handlers.rs, repository.rs }`;
   request/response types live in the `domain` crate.
 - Logic that both the REST handlers and the web app's `#[server]` functions need (a transaction
