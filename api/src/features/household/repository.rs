@@ -31,6 +31,34 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<Household, sqlx::Error> {
     Ok(household)
 }
 
+/// The household every unscoped request acts for until auth arrives: the
+/// first one created, or a fresh "Home" when the table is empty.
+pub async fn default_household(pool: &PgPool) -> Result<Household, sqlx::Error> {
+    let existing = sqlx::query_as!(
+        Household,
+        r#"
+        SELECT id, name, created_at, updated_at
+        FROM household
+        ORDER BY created_at
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(pool)
+    .await?;
+    match existing {
+        Some(household) => Ok(household),
+        None => {
+            create(
+                pool,
+                NewHousehold {
+                    name: "Home".to_string(),
+                },
+            )
+            .await
+        }
+    }
+}
+
 pub async fn create(pool: &PgPool, household: NewHousehold) -> Result<Household, sqlx::Error> {
     let household = sqlx::query_as!(
         Household,

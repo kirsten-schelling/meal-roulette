@@ -106,6 +106,7 @@ erDiagram
         date start_date
         bigint seed "nullable"
         text name "nullable"
+        jsonb roll_constraints "rules the plan was rolled under"
     }
     planned_meal {
         uuid meal_plan_id FK
@@ -270,12 +271,16 @@ recipe amounts and the ingredient are entered in the same unit, so no conversion
 
 **`meal_plan`** — one rolled week (the header). `household_id` (`NOT NULL`), `start_date`,
 `seed` (nullable — stored so a roll is reproducible, per the roadmap's seeded-rolls feature),
-`name` (nullable label).
+`name` (nullable label), `roll_constraints` (`JSONB`, default `{}` — the cuisine and protein
+day-count rules the plan was rolled under, in the shape of `domain::roll::RollConstraints`; kept
+so a single day can be re-rolled against the same rules).
 
 **`planned_meal`** — one dinner slot in a plan. `meal_plan_id` (`ON DELETE CASCADE`),
 `recipe_id` (`ON DELETE RESTRICT`), `scheduled_date`, `is_pinned` (the pin/keep feature),
 `target_difficulty` (nullable — the per-day difficulty override; `NULL` means use the day's
-default). `uq_planned_meal (meal_plan_id, scheduled_date)` — one dinner per day per plan.
+default). `uq_planned_meal (meal_plan_id, scheduled_date)` — one dinner per day per plan;
+`uq_planned_meal_recipe (meal_plan_id, recipe_id)` — a recipe appears at most once per plan,
+whether the solver picked it or a swap chose it.
 
 **`cook_log`** — the permanent record of what was actually cooked. `household_id`
 (`NOT NULL`), `recipe_id` (`ON DELETE RESTRICT`), `cooked_on`, `planned_meal_id` (nullable

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, start_date, seed, name, created_at, updated_at\n        FROM meal_plan\n        ORDER BY start_date DESC\n        ",
+  "query": "\n        DELETE FROM meal_plan\n        WHERE id = $1\n        RETURNING id, household_id, start_date, seed, name,\n                  roll_constraints AS \"roll_constraints: Json<RollConstraints>\",\n                  created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -60,6 +60,17 @@
       },
       {
         "ordinal": 5,
+        "name": "roll_constraints: Json<RollConstraints>",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "roll_constraints"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -82,7 +93,9 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -91,8 +104,9 @@
       true,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "e854da57d0cff4db302d5cb3e460969550f70373b5311fb4ba3bbc4a1a35ca79"
+  "hash": "e39e0221251ec8bdf477c91854fe8696b8c92e07bca9f73322dc057cb0727cea"
 }
