@@ -305,6 +305,33 @@ pub async fn update(
     Ok(recipe)
 }
 
+/// A new recipe under `title` with the same details, tags and ingredient lines as `id`.
+pub async fn copy(pool: &PgPool, id: Uuid, title: &str) -> Result<Recipe, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    let recipe = sqlx::query_as!(
+        Recipe,
+        r#"
+        INSERT INTO recipe
+            (household_id, title, difficulty, time_mins, servings,
+             healthiness, main_protein_id, cuisine_id)
+        SELECT household_id, $2, difficulty, time_mins, servings,
+               healthiness, main_protein_id, cuisine_id
+        FROM recipe
+        WHERE id = $1
+        RETURNING id, household_id, title, difficulty, time_mins, servings,
+                  healthiness, main_protein_id, cuisine_id, created_at, updated_at
+        "#,
+        id,
+        title.trim(),
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    recipe_tag::repository::copy_tags(&mut *tx, id, recipe.id).await?;
+    recipe_ingredient::repository::copy_lines(&mut *tx, id, recipe.id).await?;
+    tx.commit().await?;
+    Ok(recipe)
+}
+
 /// Ingredient lines and tags go with the recipe; meal plans and the cooking log keep it, so
 /// the database refuses the delete while either still points at it.
 pub async fn delete(pool: &PgPool, id: Uuid) -> Result<Recipe, sqlx::Error> {

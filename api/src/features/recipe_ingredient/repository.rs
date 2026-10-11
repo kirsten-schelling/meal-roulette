@@ -176,6 +176,47 @@ pub async fn add(
     Ok(line)
 }
 
+/// Gives `to_recipe` the same ingredient lines as `from_recipe`.
+pub async fn copy_lines<'e, E>(
+    executor: E,
+    from_recipe: Uuid,
+    to_recipe: Uuid,
+) -> Result<Vec<RecipeIngredient>, sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    sqlx::query_as!(
+        RecipeIngredient,
+        r#"
+        WITH inserted AS (
+            INSERT INTO recipe_ingredient (recipe_id, ingredient_id, qty, note, is_optional)
+            SELECT $2, ingredient_id, qty, note, is_optional
+            FROM recipe_ingredient
+            WHERE recipe_id = $1
+            RETURNING id, created_at, updated_at, recipe_id, ingredient_id, qty, note, is_optional
+        )
+        SELECT
+            inserted.id,
+            inserted.created_at,
+            inserted.updated_at,
+            inserted.recipe_id,
+            inserted.ingredient_id,
+            ingredient.name AS ingredient_name,
+            unit.name AS unit,
+            inserted.qty,
+            inserted.note,
+            inserted.is_optional
+        FROM inserted
+        JOIN ingredient ON inserted.ingredient_id = ingredient.id
+        JOIN unit ON ingredient.unit_id = unit.id
+        "#,
+        from_recipe,
+        to_recipe,
+    )
+    .fetch_all(executor)
+    .await
+}
+
 pub async fn delete(
     pool: &PgPool,
     recipe_id: Uuid,

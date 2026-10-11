@@ -62,6 +62,29 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<RecipeTag, sqlx::Error> {
     Ok(link)
 }
 
+/// Gives `to_recipe` the same tags as `from_recipe`.
+pub async fn copy_tags<'e, E>(
+    executor: E,
+    from_recipe: Uuid,
+    to_recipe: Uuid,
+) -> Result<Vec<RecipeTag>, sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    sqlx::query_as!(
+        RecipeTag,
+        r#"
+        INSERT INTO recipe_tag (recipe_id, tag_id)
+        SELECT $2, tag_id FROM recipe_tag WHERE recipe_id = $1
+        RETURNING id, recipe_id, tag_id, created_at, updated_at
+        "#,
+        from_recipe,
+        to_recipe,
+    )
+    .fetch_all(executor)
+    .await
+}
+
 /// Makes `tag_ids` the recipe's whole tag set: links not listed are removed, missing ones
 /// added. Returns the links that were added.
 pub async fn replace_for_recipe(

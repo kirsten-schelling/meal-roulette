@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO recipe_tag (recipe_id, tag_id)\n        SELECT $2, tag_id FROM recipe_tag WHERE recipe_id = $1\n        RETURNING id, recipe_id, tag_id, created_at, updated_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recipe_tag",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "recipe_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recipe_tag",
+            "name": "recipe_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "tag_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recipe_tag",
+            "name": "tag_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "recipe_tag",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "recipe_tag",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "74d864fd4e3eb0f1283b89e38e3615a48f0b0963086edc366490f53503f0f0c6"
+}
