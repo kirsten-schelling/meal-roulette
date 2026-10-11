@@ -2,6 +2,7 @@ use crate::components::ui::{
     Alert, Button, ButtonVariant, ComboOption, Combobox, Input, Modal, Picker, Spinner, Tone,
 };
 use crate::features::ingredient::hooks::use_ingredient::{update_ingredient, use_add_ingredient};
+use crate::features::ingredient::parse::parse_purchase_size;
 use crate::features::library::components::{ManageListsDialog, ManageTab};
 use crate::features::unit::hooks::use_unit::use_get_units;
 use crate::models::error_message;
@@ -25,7 +26,8 @@ pub fn IngredientDialog(
     let mut purchase_size = use_signal(|| {
         start
             .as_ref()
-            .map(|i| i.purchase_size.to_string())
+            .and_then(|i| i.purchase_size)
+            .map(|s| s.to_string())
             .unwrap_or_default()
     });
     let unit = use_signal(|| {
@@ -64,17 +66,13 @@ pub fn IngredientDialog(
 
     // The parts only exist once every field is valid; the button keys off them,
     // so nothing here can panic on half-filled input.
-    let parts: Option<(String, i32, UnitEntry)> = {
+    let size_check = parse_purchase_size(&purchase_size());
+    let parts: Option<(String, Option<i32>, UnitEntry)> = {
         let n = name().trim().to_string();
-        let size = purchase_size()
-            .trim()
-            .parse::<i32>()
-            .ok()
-            .filter(|s| *s > 0);
         let u = unit();
-        match (n.is_empty(), size, u.is_resolved()) {
-            (false, Some(size), true) => {
-                Some((n, size, u.resolve(UnitEntry::Existing, UnitEntry::New)))
+        match (n.is_empty(), &size_check, u.is_resolved()) {
+            (false, Ok(size), true) => {
+                Some((n, *size, u.resolve(UnitEntry::Existing, UnitEntry::New)))
             }
             _ => None,
         }
@@ -150,12 +148,12 @@ pub fn IngredientDialog(
                         on_manage: move |_| managing.set(true),
                     }
                     Input {
-                        label: "Purchase size".to_string(),
+                        label: "Purchase size (optional)".to_string(),
                         kind: "number".to_string(),
                         value: purchase_size(),
-                        required: true,
                         oninput: move |e: FormEvent| purchase_size.set(e.value()),
                         placeholder: "e.g. 400".to_string(),
+                        error: size_check.clone().err(),
                     }
                 }
 

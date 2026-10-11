@@ -2,6 +2,7 @@ use crate::components::ui::{
     Badge, Button, ButtonVariant, Checkbox, Icon, IconButton, IconName, Input, Size, Tone,
 };
 use crate::features::recipe::components::ingredient_composer::parse_qty;
+use crate::models::amount_label;
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
 
@@ -95,10 +96,11 @@ pub fn IngredientLine(
             }
         }
     } else {
+        let amount = amount_label(parse_qty(&line.qty).ok().flatten(), &line.unit);
         let meta = if line.note.trim().is_empty() {
-            format!("{} {}", line.qty, line.unit)
+            amount
         } else {
-            format!("{} {} · {}", line.qty, line.unit, line.note)
+            format!("{amount} · {}", line.note)
         };
         let e_qty = line.qty.clone();
         let e_note = line.note.clone();

@@ -7,7 +7,7 @@ use crate::features::recipe::hooks::use_recipe::{
     remove_recipe_ingredient, update_recipe_ingredient,
 };
 use crate::hooks::use_toast::use_toast;
-use crate::models::error_message;
+use crate::models::{amount_label, error_message};
 use dioxus::prelude::*;
 use domain::recipe_ingredient::{RecipeIngredient, UpdateRecipeIngredient};
 
@@ -24,7 +24,10 @@ impl LineDraft {
     fn new(line: &RecipeIngredient) -> Self {
         LineDraft {
             line: line.clone(),
-            qty: line.qty.normalize().to_string(),
+            qty: line
+                .qty
+                .map(|q| q.normalize().to_string())
+                .unwrap_or_default(),
             note: line.note.clone().unwrap_or_default(),
             optional: line.is_optional,
         }
@@ -166,6 +169,7 @@ pub fn IngredientTable(lines: Vec<RecipeIngredient>, on_changed: EventHandler<()
                         kind: "number".to_string(),
                         value: d.qty.clone(),
                         autofocus: true,
+                        placeholder: "Optional".to_string(),
                         oninput: move |e: FormEvent| {
                             if let Some(d) = draft.write().as_mut() {
                                 d.qty = e.value();
@@ -176,7 +180,7 @@ pub fn IngredientTable(lines: Vec<RecipeIngredient>, on_changed: EventHandler<()
                     span { class: "mr-line-edit__unit", "{l.unit}" }
                 }
             },
-            None => rsx! { "{l.qty.normalize()} {l.unit}" },
+            None => rsx! { "{amount_label(l.qty, &l.unit)}" },
         })
         .align(CellAlign::End),
         Column::new("Note", move |l: &RecipeIngredient| match editing(l) {

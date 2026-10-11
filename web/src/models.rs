@@ -1,4 +1,5 @@
 use dioxus::prelude::ServerFnError;
+use rust_decimal::Decimal;
 use time::macros::format_description;
 use time::Date;
 
@@ -19,6 +20,14 @@ pub fn difficulty_label(d: i32) -> &'static str {
         4 => "Hard",
         5 => "Ambitious",
         _ => "—",
+    }
+}
+
+/// "1.5 kg", trailing zeros dropped; "As needed" for a line that gives no amount.
+pub fn amount_label(qty: Option<Decimal>, unit: &str) -> String {
+    match qty {
+        Some(qty) => format!("{} {unit}", qty.normalize()),
+        None => "As needed".to_string(),
     }
 }
 

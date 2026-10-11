@@ -238,9 +238,9 @@ migrate to global (`household_id = NULL`) once a shared, curated set stabilises.
 `name`, nullable `household_id`, `uq_<table>_household_name`. `protein` and `cuisine` are
 single-valued on a recipe (FK on `recipe`); `tag` is many-valued (via `recipe_tag`).
 
-**`ingredient`** — a purchasable ingredient. `name`, `purchase_size`
-(`chk_ingredient_purchase_size_positive CHECK (purchase_size > 0)`), `unit_id` (how it is
-measured). Scoped by `household_id` (nullable). `uq_ingredient_household_name`.
+**`ingredient`** — a purchasable ingredient. `name`, `purchase_size` (nullable: not every
+ingredient comes in a fixed pack; `chk_ingredient_purchase_size_positive CHECK
+(purchase_size > 0)` when set), `unit_id` (how it is measured). Scoped by `household_id` (nullable). `uq_ingredient_household_name`.
 
 ### Recipe composition
 
@@ -261,8 +261,8 @@ The old `last_cooked` column is **removed** — recency now derives from `cook_l
 
 **`recipe_ingredient`** — ingredients in a recipe. `recipe_id` (FK, `ON DELETE CASCADE`),
 `ingredient_id` (FK, `ON DELETE RESTRICT` — an ingredient in use can't be deleted out from
-under a recipe), `qty` (`numeric(10,2)`, `chk_recipe_ingredient_qty_positive CHECK
-(qty > 0)`), `note`, `is_optional`. `uq_recipe_ingredient (recipe_id, ingredient_id)`. The
+under a recipe), `qty` (`numeric(10,2)`, nullable for a line with no set amount such as "salt, to taste";
+`chk_recipe_ingredient_qty_positive CHECK (qty > 0)` when set), `note`, `is_optional`. `uq_recipe_ingredient (recipe_id, ingredient_id)`. The
 unit is implicit — the ingredient's own unit (matches the roadmap's "simple mode", where
 recipe amounts and the ingredient are entered in the same unit, so no conversion is needed).
 
@@ -306,7 +306,7 @@ so a list can be ad-hoc or outlive its plan), `name` (nullable).
 updates in place. Ad-hoc lists (`meal_plan_id` `NULL`) never collide.
 
 **`shopping_list_item`** — one aggregated line. `shopping_list_id` (`ON DELETE CASCADE`),
-`ingredient_id` (`ON DELETE RESTRICT`), `qty` (`> 0`), `unit_id` (a **snapshot** of the
+`ingredient_id` (`ON DELETE RESTRICT`), `qty` (`> 0`; NULL when none of the plan's recipes gave an amount), `unit_id` (a **snapshot** of the
 unit at generation time, so a historical list stays correct even if the ingredient's unit
 is later changed), `is_purchased` (simple check-off; a purchased-at timestamp is a trivial
 later add), `note`. `uq_shopping_list_item (shopping_list_id, ingredient_id)` — the list is

@@ -15,7 +15,7 @@ pub struct RecipeIngredient {
     pub ingredient_id: Uuid,
     pub ingredient_name: String,
     pub unit: String,
-    pub qty: Decimal,
+    pub qty: Option<Decimal>,
     pub note: Option<String>,
     pub is_optional: bool,
 }
@@ -24,7 +24,7 @@ pub struct RecipeIngredient {
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct NewRecipeIngredient {
     pub ingredient_id: Uuid,
-    pub qty: Decimal,
+    pub qty: Option<Decimal>,
     pub note: Option<String>,
     #[serde(default)]
     pub is_optional: bool,
@@ -36,10 +36,10 @@ pub struct NewRecipeIngredient {
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct NewRecipeIngredientDraft {
     pub name: String,
-    pub purchase_size: i32,
+    pub purchase_size: Option<i32>,
     pub unit_id: Option<Uuid>,
     pub new_unit: Option<String>,
-    pub qty: Decimal,
+    pub qty: Option<Decimal>,
     pub note: Option<String>,
     #[serde(default)]
     pub is_optional: bool,
@@ -49,7 +49,7 @@ pub struct NewRecipeIngredientDraft {
 /// also be cleared.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct UpdateRecipeIngredient {
-    pub qty: Decimal,
+    pub qty: Option<Decimal>,
     pub note: Option<String>,
     pub is_optional: bool,
 }
@@ -57,7 +57,7 @@ pub struct UpdateRecipeIngredient {
 #[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]
 pub struct RecipeIngredientEntry {
     pub ingredient: IngredientEntry,
-    pub qty: Decimal,
+    pub qty: Option<Decimal>,
     pub note: Option<String>,
     pub is_optional: bool,
 }

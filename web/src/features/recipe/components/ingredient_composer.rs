@@ -1,31 +1,24 @@
 use crate::components::ui::{
     Button, ButtonVariant, Checkbox, ComboOption, Combobox, Input, Picker, Size, Text,
 };
+use crate::features::ingredient::parse::parse_purchase_size;
 use crate::features::recipe::components::ingredient_line::RecipeLine;
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
 use domain::unit::UnitEntry;
 use rust_decimal::Decimal;
 
-/// A quantity as typed: `Ok` once it is a number above zero.
-pub fn parse_qty(value: &str) -> Result<Decimal, String> {
+/// A quantity as typed: `Ok(None)` when left blank, `Ok(Some)` once it is a number
+/// above zero.
+pub fn parse_qty(value: &str) -> Result<Option<Decimal>, String> {
     let value = value.trim();
     if value.is_empty() {
-        return Err("Qty is required".to_string());
+        return Ok(None);
     }
     match value.parse::<Decimal>() {
-        Ok(qty) if qty > Decimal::ZERO => Ok(qty),
+        Ok(qty) if qty > Decimal::ZERO => Ok(Some(qty)),
         Ok(_) => Err("Qty must be more than 0".to_string()),
         Err(_) => Err("Qty must be a number".to_string()),
-    }
-}
-
-fn parse_purchase_size(value: &str) -> Result<i32, String> {
-    match value.trim().parse::<i32>() {
-        Ok(size) if size > 0 => Ok(size),
-        Ok(_) => Err("Must be more than 0".to_string()),
-        Err(_) if value.trim().is_empty() => Err("Required for a new ingredient".to_string()),
-        Err(_) => Err("Must be a whole number".to_string()),
     }
 }
 
@@ -156,7 +149,7 @@ pub fn IngredientComposer(
             }
 
             if creating && !duplicate {
-                Text { muted: true, small: true, "New ingredient: give it a unit and pack size." }
+                Text { muted: true, small: true, "New ingredient: give it a unit, and a pack size if it comes in one." }
                 div { class: "mr-form-grid",
                     Combobox {
                         label: "Unit".to_string(),
@@ -168,10 +161,9 @@ pub fn IngredientComposer(
                         on_manage: on_manage_units,
                     }
                     Input {
-                        label: "Purchase size".to_string(),
+                        label: "Purchase size (optional)".to_string(),
                         kind: "number".to_string(),
                         value: purchase_size(),
-                        required: true,
                         oninput: move |e: FormEvent| {
                             purchase_size.set(e.value());
                             size_touched.set(true);
@@ -190,7 +182,7 @@ pub fn IngredientComposer(
                             label: qty_label.clone(),
                             kind: "number".to_string(),
                             value: qty(),
-                            required: true,
+                            placeholder: "Optional".to_string(),
                             oninput: move |e: FormEvent| {
                                 qty.set(e.value());
                                 qty_touched.set(true);

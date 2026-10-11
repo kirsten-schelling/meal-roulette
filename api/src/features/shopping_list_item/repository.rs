@@ -46,7 +46,7 @@ pub async fn lines(
         SELECT shopping_list_item.id, shopping_list_item.ingredient_id,
                ingredient.name AS ingredient,
                shopping_list_item.qty, unit.name AS unit, ingredient.purchase_size,
-               CEIL(shopping_list_item.qty / ingredient.purchase_size)::int AS "packs!",
+               CEIL(shopping_list_item.qty / ingredient.purchase_size)::int AS "packs?",
                shopping_list_item.is_purchased, shopping_list_item.note,
                ARRAY(
                    SELECT recipe.title

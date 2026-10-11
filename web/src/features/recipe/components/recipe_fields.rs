@@ -205,8 +205,9 @@ impl RecipeForm {
         if !(self.protein)().is_resolved() {
             missing.push("A main protein".to_string());
         }
-        if !(self.cuisine)().is_resolved() {
-            missing.push("A cuisine".to_string());
+        let cuisine = (self.cuisine)();
+        if !cuisine.is_resolved() && !cuisine.query.trim().is_empty() {
+            missing.push("A cuisine picked from the list, or Enter to create it".to_string());
         }
         if let Err(e) = positive_count(&(self.time_mins)(), "Time") {
             missing.push(e);
@@ -227,7 +228,12 @@ impl RecipeForm {
             time_mins: positive_count(&(self.time_mins)(), "Time").ok()?,
             servings: positive_count(&(self.servings)(), "Servings").ok()?,
             healthiness: (self.healthiness)(),
-            cuisine: (self.cuisine)().resolve(CuisineEntry::Existing, CuisineEntry::New),
+            cuisine: {
+                let cuisine = (self.cuisine)();
+                cuisine
+                    .is_resolved()
+                    .then(|| cuisine.resolve(CuisineEntry::Existing, CuisineEntry::New))
+            },
             protein: (self.protein)().resolve(ProteinEntry::Existing, ProteinEntry::New),
             tags: (self.tags)().iter().map(TagChoice::entry).collect(),
         })
@@ -270,7 +276,7 @@ struct Parts {
     time_mins: i16,
     servings: i16,
     healthiness: Option<i16>,
-    cuisine: CuisineEntry,
+    cuisine: Option<CuisineEntry>,
     protein: ProteinEntry,
     tags: Vec<domain::tag::TagEntry>,
 }
@@ -328,7 +334,6 @@ pub fn RecipeFields(
                 placeholder: "Search, or type a new one and press Enter…".to_string(),
                 options: cuisine_options.clone(),
                 picker: cuisine,
-                required: true,
                 manage_label: "Manage cuisines…".to_string(),
                 on_manage: move |_| on_manage.call(ManageTab::Cuisines),
             }

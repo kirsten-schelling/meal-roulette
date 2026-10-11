@@ -17,7 +17,7 @@ use crate::features::shopping_list::hooks::use_shopping_list::{
     wake_ingredient,
 };
 use crate::hooks::use_toast::use_toast;
-use crate::models::{date_label, error_message};
+use crate::models::{amount_label, date_label, error_message};
 use crate::router::Route;
 use dioxus::prelude::*;
 use domain::shopping_list::ShoppingListForPlan;
@@ -52,14 +52,14 @@ fn lines(loaded: &Loaded) -> Vec<ShoppingListLine> {
     }
 }
 
-/// "1.5 kg": the summed amount with trailing zeros dropped.
-fn amount_label(line: &ShoppingListLine) -> String {
-    format!("{} {}", line.qty.normalize(), line.unit)
-}
-
-/// "2 x 500 g": whole packs of the ingredient's purchase size.
+/// "2 x 500 g": whole packs of the ingredient's purchase size, as far as the amount
+/// and pack size are known.
 fn packs_label(line: &ShoppingListLine) -> String {
-    format!("{} x {} {}", line.packs, line.purchase_size, line.unit)
+    match (line.packs, line.purchase_size) {
+        (Some(packs), Some(size)) => format!("{packs} x {size} {}", line.unit),
+        (None, Some(size)) => format!("{size} {} packs", line.unit),
+        (_, None) => "No pack size".to_string(),
+    }
 }
 
 fn page_subtitle(view: Option<&ShoppingListForPlan>) -> String {
@@ -267,7 +267,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                 ""
             };
             rsx! {
-                span { class: "mr-nowrap {dim}", "{amount_label(line)}" }
+                span { class: "mr-nowrap {dim}", "{amount_label(line.qty, &line.unit)}" }
             }
         })
         .align(CellAlign::End),

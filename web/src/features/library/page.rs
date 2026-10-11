@@ -86,8 +86,11 @@ pub fn Library() -> Element {
                 span { class: "mr-cell-strong", "{i.name}" }
             }
         }),
-        Column::new("Purchase size", |i: &Ingredient| {
-            rsx! { "{i.purchase_size} {i.unit}" }
+        Column::new("Purchase size", |i: &Ingredient| match i.purchase_size {
+            Some(size) => rsx! { "{size} {i.unit}" },
+            None => rsx! {
+                span { class: "mr-text--muted", "Not set" }
+            },
         })
         .align(CellAlign::End),
         Column::new("", move |i: &Ingredient| {

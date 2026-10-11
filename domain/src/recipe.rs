@@ -44,7 +44,7 @@ pub struct NewRecipe {
     pub servings: i16,
     pub healthiness: Option<i16>,
     pub protein: ProteinEntry,
-    pub cuisine: CuisineEntry,
+    pub cuisine: Option<CuisineEntry>,
     pub ingredients: Vec<RecipeIngredientEntry>,
     #[serde(default)]
     pub tags: Vec<TagEntry>,
@@ -75,7 +75,7 @@ pub struct UpdateRecipe {
     pub servings: i16,
     pub healthiness: Option<i16>,
     pub protein: ProteinEntry,
-    pub cuisine: CuisineEntry,
+    pub cuisine: Option<CuisineEntry>,
     pub tags: Vec<TagEntry>,
 }
 

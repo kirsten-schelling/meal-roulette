@@ -104,14 +104,16 @@ pub async fn get_detail(pool: &PgPool, id: Uuid) -> Result<RecipeDetail, sqlx::E
 }
 
 /// Inline-created cuisine/protein win; otherwise the id the client picked from the catalog.
+/// A recipe may have no cuisine.
 async fn resolve_lookups(
     conn: &mut PgConnection,
-    cuisine: CuisineEntry,
+    cuisine: Option<CuisineEntry>,
     protein: ProteinEntry,
-) -> Result<(Uuid, Uuid), sqlx::Error> {
+) -> Result<(Option<Uuid>, Uuid), sqlx::Error> {
     let cuisine_id = match cuisine {
-        CuisineEntry::Existing(id) => id,
-        CuisineEntry::New(name) => {
+        None => None,
+        Some(CuisineEntry::Existing(id)) => Some(id),
+        Some(CuisineEntry::New(name)) => Some(
             cuisine::repository::create(
                 &mut *conn,
                 NewCuisine {
@@ -120,8 +122,8 @@ async fn resolve_lookups(
                 },
             )
             .await?
-            .id
-        }
+            .id,
+        ),
     };
     let protein_id = match protein {
         ProteinEntry::Existing(id) => id,
@@ -219,7 +221,7 @@ pub async fn create_with_ingredients(
             servings: new_recipe.servings,
             healthiness: new_recipe.healthiness,
             main_protein_id: Some(main_protein_id),
-            cuisine_id: Some(cuisine_id),
+            cuisine_id,
         },
     )
     .await?;

@@ -9,7 +9,7 @@ pub struct Ingredient {
     /// Owning household. `None` = a global/preset ingredient shared by everyone.
     pub household_id: Option<Uuid>,
     pub name: String,
-    pub purchase_size: i32,
+    pub purchase_size: Option<i32>,
     pub unit: String,
     pub unit_id: Uuid,
     pub created_at: time::OffsetDateTime,
@@ -22,7 +22,7 @@ pub struct NewIngredient {
     /// Optional for now — omit for a global ingredient. Becomes session-derived under auth.
     pub household_id: Option<Uuid>,
     pub name: String,
-    pub purchase_size: i32,
+    pub purchase_size: Option<i32>,
     pub unit: UnitEntry,
 }
 
@@ -33,7 +33,7 @@ pub struct NewIngredient {
 pub struct InsertIngredient {
     pub household_id: Option<Uuid>,
     pub name: String,
-    pub purchase_size: i32,
+    pub purchase_size: Option<i32>,
     pub unit_id: Uuid,
 }
 
@@ -41,7 +41,7 @@ pub struct InsertIngredient {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UpdateIngredient {
     pub name: String,
-    pub purchase_size: i32,
+    pub purchase_size: Option<i32>,
     pub unit: UnitEntry,
 }
 
@@ -50,7 +50,7 @@ pub enum IngredientEntry {
     Existing(Uuid),
     New {
         name: String,
-        purchase_size: i32,
+        purchase_size: Option<i32>,
         unit: UnitEntry,
     },
 }

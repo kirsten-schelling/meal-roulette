@@ -10,7 +10,7 @@ pub struct ShoppingListItem {
     pub ingredient_id: Uuid,
     /// Snapshot of the unit at generation time.
     pub unit_id: Uuid,
-    pub qty: Decimal,
+    pub qty: Option<Decimal>,
     pub is_purchased: bool,
     pub note: Option<String>,
     pub created_at: time::OffsetDateTime,
@@ -26,11 +26,11 @@ pub struct ShoppingListLine {
     pub id: Uuid,
     pub ingredient_id: Uuid,
     pub ingredient: String,
-    pub qty: Decimal,
+    pub qty: Option<Decimal>,
     pub unit: String,
-    pub purchase_size: i32,
-    /// Whole packs of `purchase_size` needed to cover `qty`.
-    pub packs: i32,
+    pub purchase_size: Option<i32>,
+    /// Whole packs of `purchase_size` needed to cover `qty`; `None` unless both are known.
+    pub packs: Option<i32>,
     pub is_purchased: bool,
     pub note: Option<String>,
     /// Titles of the plan's recipes that call for it, in date order.
@@ -46,7 +46,7 @@ pub struct NewShoppingListItem {
     pub shopping_list_id: Uuid,
     pub ingredient_id: Uuid,
     pub unit_id: Uuid,
-    pub qty: Decimal,
+    pub qty: Option<Decimal>,
     #[serde(default)]
     pub is_purchased: bool,
     pub note: Option<String>,

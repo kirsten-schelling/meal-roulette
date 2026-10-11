@@ -12,7 +12,7 @@ use crate::features::recipe::components::recipe_fields::{
 use crate::features::recipe::hooks::use_recipe::use_add_recipe;
 use crate::features::unit::hooks::use_unit::use_get_units;
 use crate::hooks::use_toast::use_toast;
-use crate::models::error_message;
+use crate::models::{amount_label, error_message};
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
 use domain::recipe_ingredient::RecipeIngredientEntry;
@@ -55,7 +55,7 @@ fn line_entries(lines: &[RecipeLine]) -> Vec<RecipeIngredientEntry> {
         .iter()
         .map(|l| RecipeIngredientEntry {
             ingredient: l.ingredient.clone(),
-            qty: parse_qty(&l.qty).unwrap_or_default(),
+            qty: parse_qty(&l.qty).ok().flatten(),
             note: (!l.note.is_empty()).then(|| l.note.clone()),
             is_optional: l.optional,
         })
@@ -164,10 +164,11 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                         div { class: "mr-ings-summary__list mr-scroll",
                                             for line in lines_now.iter() {
                                                 {
+                                                    let amount = amount_label(parse_qty(&line.qty).ok().flatten(), &line.unit);
                                                     let amt = if line.optional {
-                                                        format!("{} {} · optional", line.qty, line.unit)
+                                                        format!("{amount} · optional")
                                                     } else {
-                                                        format!("{} {}", line.qty, line.unit)
+                                                        amount
                                                     };
                                                     rsx! {
                                                         div { key: "{line.id}", class: "mr-ings-summary__row",
