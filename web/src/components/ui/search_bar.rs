@@ -1,4 +1,4 @@
-use crate::components::ui::Chip;
+use crate::components::ui::{Chip, Icon, IconName};
 use dioxus::prelude::*;
 use std::rc::Rc;
 
@@ -161,7 +161,7 @@ pub fn SearchBar(
                         let now = menu();
                         menu.set(!now);
                     },
-                    "+"
+                    Icon { name: IconName::Plus }
                 }
 
                 if menu() {

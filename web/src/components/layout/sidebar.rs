@@ -4,13 +4,14 @@
 //! `Link` handles the routing and adds `mr-nav__link--active` to whichever entry
 //! matches the current URL, so the active-page highlight is free.
 
+use crate::components::ui::{Icon, IconName};
 use crate::router::Route;
 use dioxus::prelude::*;
 
 /// One row in the sidebar: an icon, a label, and where it navigates.
 #[derive(Clone, PartialEq)]
 pub struct NavEntry {
-    pub icon: &'static str,
+    pub icon: IconName,
     pub label: &'static str,
     pub to: Route,
 }
@@ -26,7 +27,7 @@ pub fn Sidebar(entries: Vec<NavEntry>) -> Element {
                         class: "mr-nav__link",
                         active_class: "mr-nav__link--active".to_string(),
                         to: entry.to.clone(),
-                        span { class: "mr-nav__icon", aria_hidden: "true", "{entry.icon}" }
+                        span { class: "mr-nav__icon", Icon { name: entry.icon } }
                         span { class: "mr-nav__label", "{entry.label}" }
                     }
                 }

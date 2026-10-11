@@ -1,4 +1,4 @@
-use crate::components::ui::Field;
+use crate::components::ui::{Field, Icon, IconName};
 use dioxus::prelude::*;
 use uuid::Uuid;
 
@@ -205,7 +205,8 @@ pub fn Combobox(
                                         }
                                         open.set(false);
                                     },
-                                    "＋ Create “{trimmed}”"
+                                    Icon { name: IconName::Plus }
+                                    "Create “{trimmed}”"
                                 }
                             }
                         }

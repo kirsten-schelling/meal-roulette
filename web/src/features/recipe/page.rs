@@ -1,7 +1,7 @@
 use crate::components::difficulty_badge::DifficultyBadge;
 use crate::components::ui::{
-    Alert, Badge, Button, ButtonVariant, CellAlign, Column, DataTable, FilterField, Heading,
-    IconButton, SearchBar, Size, Spinner, Text, Tone,
+    Alert, Badge, Button, ButtonVariant, CellAlign, Column, DataTable, FilterField, Heading, Icon,
+    IconButton, IconName, SearchBar, Size, Spinner, Text, Tone,
 };
 use crate::features::recipe::components::AddRecipeDialog;
 use crate::features::recipe::hooks::use_recipe::use_get_recipes;
@@ -50,12 +50,12 @@ pub fn Recipes() -> Element {
         Column::new("", |_r: &Recipe| {
             rsx! {
                 div { class: "mr-rowactions",
-                    IconButton { label: "Edit recipe".to_string(), onclick: move |_| {}, "✎" }
+                    IconButton { label: "Edit recipe".to_string(), onclick: move |_| {}, Icon { name: IconName::Edit } }
                     IconButton {
                         label: "Delete recipe".to_string(),
                         danger: true,
                         onclick: move |_| {},
-                        "\u{00d7}"
+                        Icon { name: IconName::X }
                     }
                 }
             }
@@ -74,7 +74,8 @@ pub fn Recipes() -> Element {
                 Button {
                     variant: ButtonVariant::Solid,
                     onclick: move |_| adding.set(true),
-                    "＋ Add recipe"
+                    Icon { name: IconName::Plus }
+                    "Add recipe"
                 }
             }
 

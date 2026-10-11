@@ -1,5 +1,5 @@
 use crate::components::ui::{
-    Badge, Button, ButtonVariant, Checkbox, IconButton, Input, Size, Tone,
+    Badge, Button, ButtonVariant, Checkbox, Icon, IconButton, IconName, Input, Size, Tone,
 };
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
@@ -130,7 +130,7 @@ pub fn IngredientLine(
                         label: "Remove ingredient".to_string(),
                         danger: true,
                         onclick: move |_| on_remove.call(id),
-                        "\u{00d7}"
+                        Icon { name: IconName::X }
                     }
                 }
             }

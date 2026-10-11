@@ -16,7 +16,7 @@ pub fn Header(
     rsx! {
         header { class: "mr-header",
             Link { class: "mr-brand", to: Route::Home {},
-                span { class: "mr-brand__mark", aria_hidden: "true", "🎯" }
+                BrandMark {}
                 span { class: "mr-brand__name", "Meal Roulette" }
             }
             div { class: "mr-header__actions",
