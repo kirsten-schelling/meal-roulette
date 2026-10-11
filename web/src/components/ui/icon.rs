@@ -9,6 +9,7 @@ use dioxus::prelude::*;
 /// Icons are named for their shape, not for where they are used.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum IconName {
+    Archive,
     ArrowLeft,
     CalendarWeek,
     Carrot,
@@ -21,12 +22,17 @@ pub enum IconName {
     History,
     Plus,
     Replace,
+    Star,
     X,
 }
 
 impl IconName {
     fn path(self) -> &'static str {
         match self {
+            IconName::Archive => {
+                "M3 6a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z \
+                 M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10 M10 12l4 0"
+            }
             IconName::ArrowLeft => "M5 12l14 0 M5 12l6 6 M5 12l6 -6",
             IconName::CalendarWeek => {
                 "M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z \
@@ -67,6 +73,10 @@ impl IconName {
                 "M3 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z \
                  M15 16a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z \
                  M21 11v-3a2 2 0 0 0 -2 -2h-6l3 3m0 -6l-3 3 M3 13v3a2 2 0 0 0 2 2h6l-3 -3m0 6l3 -3"
+            }
+            IconName::Star => {
+                "M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1\
+                 l-5 4.867l1.179 6.873z"
             }
             IconName::X => "M18 6l-12 12 M6 6l12 12",
         }

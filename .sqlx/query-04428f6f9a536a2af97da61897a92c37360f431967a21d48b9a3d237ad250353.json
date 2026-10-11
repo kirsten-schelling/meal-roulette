@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, start_date, seed, name,\n               roll_constraints AS \"roll_constraints: Json<RollConstraints>\",\n               created_at, updated_at\n        FROM meal_plan\n        ORDER BY created_at DESC\n        LIMIT 1\n        ",
+  "query": "\n        INSERT INTO shopping_list (household_id, meal_plan_id)\n        SELECT household_id, id\n        FROM meal_plan\n        WHERE id = $1\n        ON CONFLICT ON CONSTRAINT uq_shopping_list_meal_plan\n        DO UPDATE SET household_id = EXCLUDED.household_id\n        RETURNING id, household_id, meal_plan_id, name, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -9,7 +9,7 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "meal_plan",
+            "table": "shopping_list",
             "name": "id"
           }
         }
@@ -20,91 +20,69 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "meal_plan",
+            "table": "shopping_list",
             "name": "household_id"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "start_date",
-        "type_info": "Date",
+        "name": "meal_plan_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "meal_plan",
-            "name": "start_date"
+            "table": "shopping_list",
+            "name": "meal_plan_id"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "seed",
-        "type_info": "Int8",
-        "origin": {
-          "Table": {
-            "table": "meal_plan",
-            "name": "seed"
-          }
-        }
-      },
-      {
-        "ordinal": 4,
         "name": "name",
         "type_info": "Text",
         "origin": {
           "Table": {
-            "table": "meal_plan",
+            "table": "shopping_list",
             "name": "name"
           }
         }
       },
       {
-        "ordinal": 5,
-        "name": "roll_constraints: Json<RollConstraints>",
-        "type_info": "Jsonb",
-        "origin": {
-          "Table": {
-            "table": "meal_plan",
-            "name": "roll_constraints"
-          }
-        }
-      },
-      {
-        "ordinal": 6,
+        "ordinal": 4,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "meal_plan",
+            "table": "shopping_list",
             "name": "created_at"
           }
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 5,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "meal_plan",
+            "table": "shopping_list",
             "name": "updated_at"
           }
         }
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
       false,
-      false,
       true,
       true,
-      false,
       false,
       false
     ]
   },
-  "hash": "c7fb818f7cde9f9852b92259d4ab6f3b6be6aee63f42ab00c05919392c02dc34"
+  "hash": "04428f6f9a536a2af97da61897a92c37360f431967a21d48b9a3d237ad250353"
 }

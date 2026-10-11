@@ -31,6 +31,7 @@ impl CellAlign {
 pub struct Column<T> {
     header: String,
     align: CellAlign,
+    interactive: bool,
     cell: Rc<dyn Fn(&T) -> Element>,
 }
 
@@ -44,6 +45,7 @@ impl<T> Column<T> {
         Self {
             header: header.into(),
             align: CellAlign::Start,
+            interactive: false,
             cell: Rc::new(cell),
         }
     }
@@ -51,6 +53,13 @@ impl<T> Column<T> {
     /// Change the column's alignment (e.g. right-align a numeric column).
     pub fn align(mut self, align: CellAlign) -> Self {
         self.align = align;
+        self
+    }
+
+    /// For a column whose cells hold their own controls (row action buttons): a click inside
+    /// it stays with that control instead of also opening the row.
+    pub fn interactive(mut self) -> Self {
+        self.interactive = true;
         self
     }
 }
@@ -62,6 +71,7 @@ impl<T> Clone for Column<T> {
         Self {
             header: self.header.clone(),
             align: self.align,
+            interactive: self.interactive,
             cell: self.cell.clone(),
         }
     }
@@ -74,6 +84,7 @@ impl<T> PartialEq for Column<T> {
     fn eq(&self, other: &Self) -> bool {
         self.header == other.header
             && self.align == other.align
+            && self.interactive == other.interactive
             && Rc::ptr_eq(&self.cell, &other.cell)
     }
 }
@@ -85,6 +96,9 @@ impl<T> PartialEq for Column<T> {
 /// `selectable` adds a leading checkbox column (with select-all in the header).
 /// Selection is by row index and lives inside the table; `on_select` reports
 /// the sorted index set after every change.
+///
+/// `on_row_click` makes each row a link-like target (click, or Enter when focused) and
+/// reports the row's index.
 #[component]
 pub fn DataTable<T: Clone + PartialEq + 'static>(
     columns: Vec<Column<T>>,
@@ -94,6 +108,7 @@ pub fn DataTable<T: Clone + PartialEq + 'static>(
     empty: String,
     #[props(default)] selectable: bool,
     on_select: Option<EventHandler<Vec<usize>>>,
+    on_row_click: Option<EventHandler<usize>>,
 ) -> Element {
     let mut selected = use_signal(HashSet::<usize>::new);
 
@@ -108,6 +123,16 @@ pub fn DataTable<T: Clone + PartialEq + 'static>(
             cb.call(v);
         }
     };
+
+    // Selection is by index, so it only means something for the rows it was made on.
+    use_effect(use_reactive(&rows, move |_| {
+        if !selected.peek().is_empty() {
+            selected.write().clear();
+            if let Some(cb) = &on_select {
+                cb.call(Vec::new());
+            }
+        }
+    }));
 
     rsx! {
         div { class: "mr-table-wrap",
@@ -148,9 +173,27 @@ pub fn DataTable<T: Clone + PartialEq + 'static>(
                         }
                     } else {
                         for (i, row) in rows.iter().enumerate() {
-                            tr { key: "{i}",
+                            tr {
+                                key: "{i}",
+                                class: if on_row_click.is_some() { "mr-table__row--link" },
+                                tabindex: if on_row_click.is_some() { "0" },
+                                onclick: move |_| {
+                                    if let Some(cb) = &on_row_click {
+                                        cb.call(i);
+                                    }
+                                },
+                                onkeydown: move |e: KeyboardEvent| {
+                                    if e.key() == Key::Enter {
+                                        if let Some(cb) = &on_row_click {
+                                            cb.call(i);
+                                        }
+                                    }
+                                },
                                 if selectable {
-                                    td { class: "mr-td--check",
+                                    td {
+                                        class: "mr-td--check",
+                                        onclick: move |e: MouseEvent| e.stop_propagation(),
+                                        onkeydown: move |e: KeyboardEvent| e.stop_propagation(),
                                         input {
                                             class: "mr-table__check",
                                             r#type: "checkbox",
@@ -169,7 +212,16 @@ pub fn DataTable<T: Clone + PartialEq + 'static>(
                                     }
                                 }
                                 for col in columns.iter() {
-                                    td { class: col.align.cls(), {(col.cell)(row)} }
+                                    if col.interactive {
+                                        td {
+                                            class: col.align.cls(),
+                                            onclick: move |e: MouseEvent| e.stop_propagation(),
+                                            onkeydown: move |e: KeyboardEvent| e.stop_propagation(),
+                                            {(col.cell)(row)}
+                                        }
+                                    } else {
+                                        td { class: col.align.cls(), {(col.cell)(row)} }
+                                    }
                                 }
                             }
                         }

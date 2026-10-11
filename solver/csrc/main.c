@@ -7,15 +7,23 @@
 // two apart when redirecting.
 //
 // Input format (plain text, so no JSON parser is needed):
-//   line 1  : how many recipes to pick
-//   then    : one "cuisine protein" pair per recipe, whitespace-separated
-// num_recipes is derived from how many pairs are read, the same way Rust will
-// set it from the number of rows it fetched.
+//   line 1 : how many recipes to pick
+//   line 2 : how many attribute columns each recipe has
+//   then   : one requirement per line, "attribute low high min max importance"
+//            (max -1 = no limit; importance 1 low .. 4 required), ended by "-"
+//   then   : one recipe per line, its attribute values in column order
+// num_recipes is derived from how many rows are read, the same way Rust sets
+// it from the number of rows it fetched.
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "solver.h"
+
+static void *grow(void *items, int *cap, size_t size) {
+    *cap = *cap ? *cap * 2 : 8;
+    return realloc(items, size * (size_t)*cap);
+}
 
 int main(int argc, char **argv) {
     const char *input_path = argc > 1 ? argv[1] : "input.txt";
@@ -27,89 +35,82 @@ int main(int argc, char **argv) {
     }
 
     int want = 0;
-    if (fscanf_s(f, "%d", &want) != 1) {
-        fprintf(stderr, "[harness] input is missing the pick count on line 1\n");
+    int num_attributes = 0;
+    if (fscanf_s(f, "%d %d", &want, &num_attributes) != 2 || num_attributes < 1) {
+        fprintf(stderr, "[harness] input needs the pick count and the column count first\n");
         fclose(f);
         return 1;
     }
 
-    CuisineRequirement *cuisine_requirements = NULL;
-    int cuisine_count = 0;
-    int cuisine_cap = 0;
-    int cuisine, num_days;
-    while (fscanf_s(f, "%d %d", &cuisine, &num_days) == 2) {
-        if (cuisine_count == cuisine_cap) {
-            cuisine_cap = cuisine_cap ? cuisine_cap * 2 : 8;
-            cuisine_requirements = realloc(cuisine_requirements, sizeof(CuisineRequirement) * (size_t)cuisine_cap);
-            if (!cuisine_requirements) {
-                fprintf(stderr, "[harness] out of memory reading cuisine requirements\n");
+    Requirement *requirements = NULL;
+    int requirement_count = 0;
+    int requirement_cap = 0;
+    Requirement r;
+    while (fscanf_s(f, "%d %d %d %d %d %d", &r.attribute, &r.low, &r.high, &r.min_count,
+               &r.max_count, &r.importance) == 6) {
+        if (requirement_count == requirement_cap) {
+            requirements = grow(requirements, &requirement_cap, sizeof(Requirement));
+            if (!requirements) {
+                fprintf(stderr, "[harness] out of memory reading requirements\n");
                 fclose(f);
                 return 1;
             }
         }
-        cuisine_requirements[cuisine_count].cuisine = cuisine;
-        cuisine_requirements[cuisine_count].num_days = num_days;
-        cuisine_count++;
+        requirements[requirement_count++] = r;
     }
+    char separator[2] = {0};
+    fscanf_s(f, " %1[-]", separator, (unsigned)sizeof(separator));
 
-    while (fscanf_s(f, "-", &cuisine) == 1) {}
-
-    ProteinRequirement *protein_requirements = NULL;
-    int protein_count = 0;
-    int protein_cap = 0;
-    int protein2, num_days2;
-    while (fscanf_s(f, "%d %d", &protein2, &num_days2) == 2) {
-        if (protein_count == protein_cap) {
-            protein_cap = protein_cap ? protein_cap * 2 : 8;
-            protein_requirements = realloc(protein_requirements, sizeof(ProteinRequirement) * (size_t)protein_cap);
-        }
-        protein_requirements[protein_count].protein = protein2;
-        protein_requirements[protein_count].num_days = num_days2;
-        protein_count++;
-    }
-
-    while (fscanf_s(f, "-", &protein2) == 1) {}
-
-    Recipe *recipes = NULL;
-    int count = 0;
-    int cap = 0;
-    int cuisine2, protein;
-    while (fscanf_s(f, "%d %d", &cuisine2, &protein) == 2) {
-        if (count == cap) {
-            cap = cap ? cap * 2 : 8;
-            recipes = realloc(recipes, sizeof(Recipe) * (size_t)cap);
-            if (!recipes) {
+    int32_t *attributes = NULL;
+    int value_count = 0;
+    int value_cap = 0;
+    int value;
+    while (fscanf_s(f, "%d", &value) == 1) {
+        if (value_count == value_cap) {
+            attributes = grow(attributes, &value_cap, sizeof(int32_t));
+            if (!attributes) {
                 fprintf(stderr, "[harness] out of memory reading recipes\n");
                 fclose(f);
                 return 1;
             }
         }
-        recipes[count].cuisine = cuisine2;
-        recipes[count].protein = protein;
-        count++;
+        attributes[value_count++] = value;
     }
     fclose(f);
+    int count = value_count / num_attributes;
 
     Input input = {
-        .recipes = recipes,
-        .cuisine_requirements = cuisine_requirements,
-        .protein_requirements = protein_requirements,
-        .num_cuisine_requirements = cuisine_count,
-        .num_protein_requirements = protein_count,
+        .attributes = attributes,
         .num_recipes = count,
+        .num_attributes = num_attributes,
+        .requirements = requirements,
+        .num_requirements = requirement_count,
         .num_recipes_to_pick = want,
         .seed = 1
     };
-    fprintf(stderr, "[harness] read %d recipes from %s\n", count, input_path);
+    fprintf(stderr, "[harness] read %d recipes and %d requirements from %s\n", count,
+        requirement_count, input_path);
 
     Output output = {
-        .recipe_indices = malloc(sizeof(int32_t) * (size_t)input.num_recipes_to_pick)
+        .recipe_indices = malloc(sizeof(int32_t) * (size_t)(want > 0 ? want : 1))
     };
 
     int status = mr_solver_roll(&input, &output);
     printf("mr_solver_roll() -> %d\n", status);
+    if (status == MR_OK) {
+        printf("Selected recipes:\n");
+        for (int i = 0; i < want; i++) {
+            int32_t index = output.recipe_indices[i];
+            printf("Index: %d  Values:", index);
+            for (int a = 0; a < num_attributes; a++) {
+                printf(" %d", attributes[(size_t)index * (size_t)num_attributes + a]);
+            }
+            printf("\n");
+        }
+    }
 
     free(output.recipe_indices);
-    free(recipes);
+    free(attributes);
+    free(requirements);
     return status;
 }

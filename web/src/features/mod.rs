@@ -1,8 +1,11 @@
 pub mod cuisine;
+pub mod history;
 pub mod ingredient;
 pub mod library;
 pub mod plan;
 pub mod protein;
 pub mod recipe;
 pub mod roll;
+pub mod shopping_list;
+pub mod tag;
 pub mod unit;

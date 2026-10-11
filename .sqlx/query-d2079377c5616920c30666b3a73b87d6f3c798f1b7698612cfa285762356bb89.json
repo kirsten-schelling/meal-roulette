@@ -1,0 +1,138 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT shopping_list_item.id, shopping_list_item.ingredient_id,\n               ingredient.name AS ingredient,\n               shopping_list_item.qty, unit.name AS unit, ingredient.purchase_size,\n               CEIL(shopping_list_item.qty / ingredient.purchase_size)::int AS \"packs!\",\n               shopping_list_item.is_purchased, shopping_list_item.note,\n               ARRAY(\n                   SELECT recipe.title\n                   FROM planned_meal\n                   JOIN recipe ON recipe.id = planned_meal.recipe_id\n                   JOIN recipe_ingredient ON recipe_ingredient.recipe_id = recipe.id\n                   WHERE planned_meal.meal_plan_id = shopping_list.meal_plan_id\n                     AND recipe_ingredient.ingredient_id = shopping_list_item.ingredient_id\n                   ORDER BY planned_meal.scheduled_date\n               ) AS \"used_in!\",\n               slept_ingredient.sleep_until AS \"sleep_until?\"\n        FROM shopping_list_item\n        JOIN shopping_list ON shopping_list.id = shopping_list_item.shopping_list_id\n        JOIN ingredient ON ingredient.id = shopping_list_item.ingredient_id\n        JOIN unit ON unit.id = shopping_list_item.unit_id\n        LEFT JOIN slept_ingredient\n               ON slept_ingredient.household_id = shopping_list.household_id\n              AND slept_ingredient.ingredient_id = shopping_list_item.ingredient_id\n              AND slept_ingredient.sleep_until >= CURRENT_DATE\n        WHERE shopping_list_item.shopping_list_id = $1\n        ORDER BY slept_ingredient.id IS NOT NULL, ingredient.name\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "ingredient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "ingredient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ingredient",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "qty",
+        "type_info": "Numeric",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "qty"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "unit",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "unit",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "purchase_size",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "purchase_size"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "packs!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "is_purchased",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "is_purchased"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "used_in!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "sleep_until?",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "slept_ingredient",
+            "name": "sleep_until"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      false,
+      true,
+      null,
+      false
+    ]
+  },
+  "hash": "d2079377c5616920c30666b3a73b87d6f3c798f1b7698612cfa285762356bb89"
+}

@@ -5,28 +5,59 @@ use crate::features::recipe::components::ingredient_line::RecipeLine;
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
 use domain::unit::UnitEntry;
+use rust_decimal::Decimal;
+
+/// A quantity as typed: `Ok` once it is a number above zero.
+pub fn parse_qty(value: &str) -> Result<Decimal, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err("Qty is required".to_string());
+    }
+    match value.parse::<Decimal>() {
+        Ok(qty) if qty > Decimal::ZERO => Ok(qty),
+        Ok(_) => Err("Qty must be more than 0".to_string()),
+        Err(_) => Err("Qty must be a number".to_string()),
+    }
+}
+
+fn parse_purchase_size(value: &str) -> Result<i32, String> {
+    match value.trim().parse::<i32>() {
+        Ok(size) if size > 0 => Ok(size),
+        Ok(_) => Err("Must be more than 0".to_string()),
+        Err(_) if value.trim().is_empty() => Err("Required for a new ingredient".to_string()),
+        Err(_) => Err("Must be a whole number".to_string()),
+    }
+}
 
 /// The tinted "add ingredient" well: search-or-create an ingredient, give a
 /// brand-new one its unit and pack size, set qty/note, then emit the finished
 /// line via `on_add`. The emitted line carries a placeholder `id` — the list
-/// owner assigns the real one.
+/// owner assigns the real one. `taken` holds the lowercased names already in
+/// the recipe, so the same ingredient can't be added twice.
 #[component]
 pub fn IngredientComposer(
     ingredient_options: Vec<ComboOption>,
     unit_options: Vec<ComboOption>,
     on_add: EventHandler<RecipeLine>,
     on_manage_units: Option<EventHandler<()>>,
+    #[props(default)] taken: Vec<String>,
+    #[props(default)] busy: bool,
 ) -> Element {
     let mut ingredient = use_signal(Picker::default);
     let mut unit = use_signal(Picker::default);
-    let mut purchase_size = use_signal(|| 0);
+    let mut purchase_size = use_signal(String::new);
     let mut qty = use_signal(String::new);
     let mut note = use_signal(String::new);
     let mut optional = use_signal(|| false);
+    // Errors show once a field has been typed in, not while it's still untouched.
+    let mut qty_touched = use_signal(|| false);
+    let mut size_touched = use_signal(|| false);
 
     let ing = ingredient();
     let creating = ing.is_new();
     let composing = ing.is_resolved();
+
+    let duplicate = ing.is_resolved() && taken.contains(&ing.query.trim().to_lowercase());
 
     let current_unit = if creating {
         let u = unit();
@@ -39,10 +70,70 @@ pub fn IngredientComposer(
         None => "Qty".to_string(),
     };
 
-    let can_add = if creating {
-        unit().is_resolved() && purchase_size() > 0 && !qty().trim().is_empty()
-    } else {
-        ing.picked.is_some() && !qty().trim().is_empty()
+    let qty_check = parse_qty(&qty());
+    let size_check = parse_purchase_size(&purchase_size());
+    let can_add = !busy
+        && !duplicate
+        && qty_check.is_ok()
+        && if creating {
+            unit().is_resolved() && size_check.is_ok()
+        } else {
+            ing.picked.is_some()
+        };
+    let qty_error = qty_touched().then(|| qty_check.clone().err()).flatten();
+    let size_error = size_touched().then(|| size_check.clone().err()).flatten();
+
+    let mut reset = move || {
+        ingredient.set(Picker::default());
+        unit.set(Picker::default());
+        purchase_size.set(String::new());
+        qty.set(String::new());
+        note.set(String::new());
+        optional.set(false);
+        qty_touched.set(false);
+        size_touched.set(false);
+    };
+
+    let submit = move |_| {
+        let ing = ingredient();
+        let (name, unit_label, entry) = match (&ing.picked, &ing.new_name) {
+            (Some(opt), _) => (
+                opt.label.clone(),
+                opt.hint.clone(),
+                IngredientEntry::Existing(opt.id),
+            ),
+            (None, Some(name)) => {
+                let u = unit();
+                let (unit_label, unit_entry) = match (&u.new_name, &u.picked) {
+                    (Some(new_unit), _) => (new_unit.clone(), UnitEntry::New(new_unit.clone())),
+                    (None, Some(picked)) => (picked.label.clone(), UnitEntry::Existing(picked.id)),
+                    (None, None) => return,
+                };
+                let Ok(size) = parse_purchase_size(&purchase_size()) else {
+                    return;
+                };
+                (
+                    name.clone(),
+                    unit_label,
+                    IngredientEntry::New {
+                        name: name.clone(),
+                        purchase_size: size,
+                        unit: unit_entry,
+                    },
+                )
+            }
+            (None, None) => return,
+        };
+        on_add.call(RecipeLine {
+            id: 0,
+            name,
+            unit: unit_label,
+            qty: qty().trim().to_string(),
+            note: note().trim().to_string(),
+            optional: optional(),
+            ingredient: entry,
+        });
+        reset();
     };
 
     rsx! {
@@ -55,11 +146,16 @@ pub fn IngredientComposer(
                 // A fresh create starts the unit/pack-size sub-form clean.
                 on_create: move |_| {
                     unit.set(Picker::default());
-                    purchase_size.set(0);
+                    purchase_size.set(String::new());
+                    size_touched.set(false);
                 },
             }
 
-            if creating {
+            if duplicate {
+                Text { small: true, "That ingredient is already in this recipe. Edit its line instead." }
+            }
+
+            if creating && !duplicate {
                 Text { muted: true, small: true, "New ingredient: give it a unit and pack size." }
                 div { class: "mr-form-grid",
                     Combobox {
@@ -67,6 +163,7 @@ pub fn IngredientComposer(
                         placeholder: "Search, or type + Enter…".to_string(),
                         options: unit_options.clone(),
                         picker: unit,
+                        required: true,
                         manage_label: "Manage units…".to_string(),
                         on_manage: on_manage_units,
                     }
@@ -74,20 +171,32 @@ pub fn IngredientComposer(
                         label: "Purchase size".to_string(),
                         kind: "number".to_string(),
                         value: purchase_size(),
-                        oninput: move |e: FormEvent| purchase_size.set(e.value().parse().unwrap()),
+                        required: true,
+                        oninput: move |e: FormEvent| {
+                            purchase_size.set(e.value());
+                            size_touched.set(true);
+                        },
+                        onblur: move |_| size_touched.set(true),
+                        error: size_error,
                         placeholder: "e.g. 500".to_string(),
                     }
                 }
             }
 
-            if composing {
+            if composing && !duplicate {
                 div { class: "mr-inline-add",
                     div { class: "mr-qty",
                         Input {
                             label: qty_label.clone(),
                             kind: "number".to_string(),
                             value: qty(),
-                            oninput: move |e: FormEvent| qty.set(e.value()),
+                            required: true,
+                            oninput: move |e: FormEvent| {
+                                qty.set(e.value());
+                                qty_touched.set(true);
+                            },
+                            onblur: move |_| qty_touched.set(true),
+                            error: qty_error,
                         }
                     }
                     Input {
@@ -107,55 +216,12 @@ pub fn IngredientComposer(
                         variant: ButtonVariant::Solid,
                         size: Size::Sm,
                         disabled: !can_add,
-                        onclick: move |_| {
-                            let ing = ingredient();
-                            let (name_output, unit_output, ingredient_output) = match (
-                                &ing.picked,
-                                &ing.new_name,
-                            ) {
-                                (Some(opt), _) => {
-                                    (opt.label.clone(), opt.hint.clone(), IngredientEntry::Existing(opt.id))
-                                }
-                                (None, Some(name)) => {
-                                    let u = unit();
-                                    let (unit_label, unit_entry) = match (&u.new_name, &u.picked) {
-                                        (Some(nu), _) => (nu.clone(), UnitEntry::New(nu.clone())),
-                                        (None, Some(po)) => (po.label.clone(), UnitEntry::Existing(po.id)),
-                                        (None, None) => return,
-                                    };
-                                    (
-                                        name.clone(),
-                                        unit_label,
-                                        IngredientEntry::New {
-                                            name: name.clone(),
-                                            purchase_size: purchase_size(),
-                                            unit: unit_entry,
-                                        },
-                                    )
-                                }
-                                (None, None) => return,
-                            };
-                            on_add
-                                .call(RecipeLine {
-                                    id: 0,
-                                    name: name_output,
-                                    unit: unit_output,
-                                    qty: qty().trim().to_string(),
-                                    note: note().trim().to_string(),
-                                    optional: optional(),
-                                    ingredient: ingredient_output,
-                                });
-                            ingredient.set(Picker::default());
-                            unit.set(Picker::default());
-                            purchase_size.set(0);
-                            qty.set(String::new());
-                            note.set(String::new());
-                            optional.set(false);
-                        },
+                        loading: busy,
+                        onclick: submit,
                         "Add to recipe"
                     }
                 }
-            } else {
+            } else if !composing {
                 Text { muted: true, small: true,
                     "Pick one from the list, or type a new name and press Enter to create it."
                 }

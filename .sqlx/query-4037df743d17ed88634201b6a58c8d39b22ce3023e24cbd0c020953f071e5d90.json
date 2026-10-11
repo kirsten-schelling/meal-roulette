@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, name, created_at, updated_at\n        FROM tag\n        WHERE id = $1\n        ",
+  "query": "\n        INSERT INTO recipe_tag (recipe_id, tag_id)\n        SELECT $1, tag_id FROM unnest($2::uuid[]) AS tag_id\n        ON CONFLICT ON CONSTRAINT uq_recipe_tag DO NOTHING\n        RETURNING id, recipe_id, tag_id, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -9,30 +9,30 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "tag",
+            "table": "recipe_tag",
             "name": "id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "household_id",
+        "name": "recipe_id",
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "tag",
-            "name": "household_id"
+            "table": "recipe_tag",
+            "name": "recipe_id"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "name",
-        "type_info": "Text",
+        "name": "tag_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "tag",
-            "name": "name"
+            "table": "recipe_tag",
+            "name": "tag_id"
           }
         }
       },
@@ -42,7 +42,7 @@
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "tag",
+            "table": "recipe_tag",
             "name": "created_at"
           }
         }
@@ -53,7 +53,7 @@
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "tag",
+            "table": "recipe_tag",
             "name": "updated_at"
           }
         }
@@ -61,16 +61,17 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "UuidArray"
       ]
     },
     "nullable": [
       false,
-      true,
+      false,
       false,
       false,
       false
     ]
   },
-  "hash": "16bc0460a8132e48df4cea41210876af41e49d1792722a77f626fc801ae5bb2e"
+  "hash": "4037df743d17ed88634201b6a58c8d39b22ce3023e24cbd0c020953f071e5d90"
 }

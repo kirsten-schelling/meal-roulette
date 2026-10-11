@@ -3,7 +3,7 @@
 
 use crate::components::ui::*;
 use crate::features::plan::hooks::use_plan::use_get_latest_plan;
-use crate::models::day_label;
+use crate::models::{day_label, error_message};
 use crate::router::Route;
 use dioxus::prelude::*;
 
@@ -16,7 +16,9 @@ pub fn Home() -> Element {
             header { class: "mr-page__head",
                 Heading { level: 1, "What's for dinner?" }
                 Text { muted: true,
-                    "Your week at a glance. Roll a plan, then turn it into a shopping list."
+                    "Your week at a glance. Roll a plan, then turn it into a "
+                    Link { to: Route::ShoppingList {}, class: "mr-textlink", "shopping list" }
+                    "."
                 }
             }
 
@@ -27,7 +29,7 @@ pub fn Home() -> Element {
                             div { class: "mr-tablestate", Spinner {} }
                         },
                         Some(Err(e)) => rsx! {
-                            Alert { tone: Tone::Red, title: "Couldn't load this week", "{e}" }
+                            Alert { tone: Tone::Red, title: "Couldn't load this week", "{error_message(&e)}" }
                         },
                         Some(Ok(None)) => rsx! {
                             div { class: "mr-empty",
@@ -46,7 +48,15 @@ pub fn Home() -> Element {
                                     }
                                 }
                             }
-                            Link { to: Route::PlannedMeals {}, class: "mr-btn mr-btn--outline mr-btn--md", "Open planned meals" }
+                            div { class: "mr-week__actions",
+                                Link { to: Route::PlannedMeals {}, class: "mr-btn mr-btn--outline mr-btn--md", "Open planned meals" }
+                                Link {
+                                    to: Route::PlanShoppingList { plan_id: detail.plan.id },
+                                    class: "mr-btn mr-btn--outline mr-btn--md",
+                                    Icon { name: IconName::Checklist }
+                                    "Shopping list"
+                                }
+                            }
                         },
                     }
                 }
@@ -68,7 +78,13 @@ pub fn Home() -> Element {
                         to: Route::ShoppingList {},
                         icon: IconName::Checklist,
                         label: "Shopping List",
-                        hint: "What to buy this week",
+                        hint: "What to buy for this week's dinners",
+                    }
+                    DashLink {
+                        to: Route::History {},
+                        icon: IconName::Archive,
+                        label: "History",
+                        hint: "Past weeks, favourites, archive",
                     }
                     DashLink {
                         to: Route::Library {},

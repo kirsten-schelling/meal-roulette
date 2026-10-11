@@ -19,6 +19,7 @@ pub mod input;
 pub mod modal;
 pub mod popover;
 pub mod rating;
+pub mod reason_tip;
 pub mod search_bar;
 pub mod select;
 pub mod separator;
@@ -49,6 +50,7 @@ pub use input::Input;
 pub use modal::Modal;
 pub use popover::Popover;
 pub use rating::{Rating, RatingScale};
+pub use reason_tip::ReasonTip;
 pub use search_bar::{FilterField, SearchBar};
 pub use select::{Select, SelectOption};
 #[expect(unused_imports)]

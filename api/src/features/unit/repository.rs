@@ -1,6 +1,6 @@
 use domain::unit::{NewUnit, Unit, UnitEntry, UnitWithIngredientList, UpdateUnit};
 use domain::usage::UsageRef;
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 struct UnitRow {
@@ -98,25 +98,35 @@ where
     Ok(unit)
 }
 
-pub async fn resolve<'e, E>(executor: E, entry: UnitEntry) -> Result<Uuid, sqlx::Error>
-where
-    E: sqlx::PgExecutor<'e>,
-{
-    match entry {
-        UnitEntry::Existing(id) => Ok(id),
-        UnitEntry::New(name) => {
-            let unit = create(
-                executor,
-                NewUnit {
-                    household_id: None,
-                    name,
-                    description: None,
-                },
-            )
-            .await?;
-            Ok(unit.id)
-        }
+/// A unit typed as new reuses one that already has that name, so two new ingredients
+/// measured in the same new unit (or a name differing only in case) share one row.
+pub async fn resolve(conn: &mut PgConnection, entry: UnitEntry) -> Result<Uuid, sqlx::Error> {
+    let name = match entry {
+        UnitEntry::Existing(id) => return Ok(id),
+        UnitEntry::New(name) => name.trim().to_string(),
+    };
+    let existing = sqlx::query_scalar!(
+        r#"
+        SELECT id FROM unit
+        WHERE household_id IS NULL AND lower(name) = lower($1)
+        "#,
+        name,
+    )
+    .fetch_optional(&mut *conn)
+    .await?;
+    if let Some(id) = existing {
+        return Ok(id);
     }
+    let unit = create(
+        conn,
+        NewUnit {
+            household_id: None,
+            name,
+            description: None,
+        },
+    )
+    .await?;
+    Ok(unit.id)
 }
 
 pub async fn update(pool: &PgPool, id: Uuid, unit: UpdateUnit) -> Result<Unit, sqlx::Error> {

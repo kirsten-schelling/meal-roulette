@@ -45,12 +45,13 @@ pub struct NewRecipeIngredientDraft {
     pub is_optional: bool,
 }
 
-/// Partial update body for `PUT /recipes/{id}/ingredients/{ingredient_id}`.
-#[derive(Debug, Deserialize)]
+/// Body for `PUT /recipes/{id}/ingredients/{ingredient_id}`: the whole line, so the note can
+/// also be cleared.
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct UpdateRecipeIngredient {
-    pub qty: Option<Decimal>,
+    pub qty: Decimal,
     pub note: Option<String>,
-    pub is_optional: Option<bool>,
+    pub is_optional: bool,
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]

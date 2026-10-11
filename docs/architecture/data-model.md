@@ -107,6 +107,8 @@ erDiagram
         bigint seed "nullable"
         text name "nullable"
         jsonb roll_constraints "rules the plan was rolled under"
+        bool is_favourite
+        timestamptz archived_at "nullable"
     }
     planned_meal {
         uuid meal_plan_id FK
@@ -271,9 +273,15 @@ recipe amounts and the ingredient are entered in the same unit, so no conversion
 
 **`meal_plan`** — one rolled week (the header). `household_id` (`NOT NULL`), `start_date`,
 `seed` (nullable — stored so a roll is reproducible, per the roadmap's seeded-rolls feature),
-`name` (nullable label), `roll_constraints` (`JSONB`, default `{}` — the cuisine and protein
-day-count rules the plan was rolled under, in the shape of `domain::roll::RollConstraints`; kept
-so a single day can be re-rolled against the same rules).
+`name` (nullable label), `roll_constraints` (`JSONB`, default `{}`: the rules the plan was
+rolled under, in the shape of `domain::roll::RollConstraints`, i.e. cuisine, protein,
+must-use-ingredient and difficulty-band counts, each at least or at most, each Required or a
+High / Medium / Low preference; kept so a single day can be re-rolled against the same rules.
+Fields added later default when an older plan is read), `is_favourite` (default `false`),
+`archived_at` (nullable; `NULL` = active). An archived plan keeps its days but drops out of the
+active history and is never the "latest" plan the home and plan pages show. Deleting a plan
+cascades to its days and frees their recipes to be deleted; its shopping list and cook-log
+entries stay, unlinked (`SET NULL`).
 
 **`planned_meal`** — one dinner slot in a plan. `meal_plan_id` (`ON DELETE CASCADE`),
 `recipe_id` (`ON DELETE RESTRICT`), `scheduled_date`, `is_pinned` (the pin/keep feature),
@@ -294,6 +302,8 @@ insights dashboard (most/least cooked).
 **`shopping_list`** — a generated list (the header). `household_id` (`NOT NULL`),
 `meal_plan_id` (nullable FK, `ON DELETE SET NULL` — the plan it was generated from; nullable
 so a list can be ad-hoc or outlive its plan), `name` (nullable).
+`uq_shopping_list_meal_plan (meal_plan_id)`: a plan has at most one list, which regenerating
+updates in place. Ad-hoc lists (`meal_plan_id` `NULL`) never collide.
 
 **`shopping_list_item`** — one aggregated line. `shopping_list_id` (`ON DELETE CASCADE`),
 `ingredient_id` (`ON DELETE RESTRICT`), `qty` (`> 0`), `unit_id` (a **snapshot** of the

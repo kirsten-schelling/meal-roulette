@@ -1,5 +1,5 @@
 use domain::recipe_tag::{NewRecipeTag, RecipeTag};
-use sqlx::PgPool;
+use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
 pub async fn list(pool: &PgPool) -> Result<Vec<RecipeTag>, sqlx::Error> {
@@ -60,4 +60,38 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<RecipeTag, sqlx::Error> {
     .fetch_one(pool)
     .await?;
     Ok(link)
+}
+
+/// Makes `tag_ids` the recipe's whole tag set: links not listed are removed, missing ones
+/// added. Returns the links that were added.
+pub async fn replace_for_recipe(
+    conn: &mut PgConnection,
+    recipe_id: Uuid,
+    tag_ids: &[Uuid],
+) -> Result<Vec<RecipeTag>, sqlx::Error> {
+    sqlx::query_as!(
+        RecipeTag,
+        r#"
+        DELETE FROM recipe_tag
+        WHERE recipe_id = $1 AND tag_id <> ALL($2)
+        RETURNING id, recipe_id, tag_id, created_at, updated_at
+        "#,
+        recipe_id,
+        tag_ids,
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    sqlx::query_as!(
+        RecipeTag,
+        r#"
+        INSERT INTO recipe_tag (recipe_id, tag_id)
+        SELECT $1, tag_id FROM unnest($2::uuid[]) AS tag_id
+        ON CONFLICT ON CONSTRAINT uq_recipe_tag DO NOTHING
+        RETURNING id, recipe_id, tag_id, created_at, updated_at
+        "#,
+        recipe_id,
+        tag_ids,
+    )
+    .fetch_all(conn)
+    .await
 }

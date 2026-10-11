@@ -1,67 +1,184 @@
 use crate::components::difficulty_badge::DifficultyBadge;
 use crate::components::ui::{
-    Alert, Badge, Button, ButtonVariant, CellAlign, Column, DataTable, FilterField, Heading, Icon,
-    IconButton, IconName, SearchBar, Size, Spinner, Text, Tone,
+    Alert, Badge, Button, ButtonVariant, CellAlign, Column, ConfirmDialog, DataTable, FilterField,
+    Heading, Icon, IconButton, IconName, SearchBar, Size, Spinner, Text, Tone,
 };
 use crate::features::recipe::components::AddRecipeDialog;
-use crate::features::recipe::hooks::use_recipe::use_get_recipes;
+use crate::features::recipe::filter::{
+    matching, CUISINE, DIFFICULTY, HEALTHINESS, MAX_TIME, PROTEIN, SERVINGS, TAG,
+};
+use crate::features::recipe::hooks::use_recipe::{delete_recipe, use_get_recipe_overviews};
+use crate::hooks::use_toast::use_toast;
+use crate::models::error_message;
+use crate::router::Route;
 use dioxus::prelude::*;
-use domain::recipe::Recipe;
+use domain::recipe::{Recipe, RecipeOverview};
+
+/// How many tags a table row shows before summarising the rest as "+N".
+const TAGS_SHOWN: usize = 3;
+
+pub fn healthiness_badge(healthiness: Option<i16>) -> Element {
+    match healthiness {
+        Some(h) => {
+            let tone = match h {
+                1 | 2 => Tone::Red,
+                3 => Tone::Amber,
+                _ => Tone::Green,
+            };
+            rsx! {
+                Badge { tone, "{h}/5" }
+            }
+        }
+        None => rsx! {
+            span { class: "mr-text--muted", "Not rated" }
+        },
+    }
+}
+
+fn muted_or(value: &Option<String>) -> Element {
+    match value {
+        Some(v) => rsx! { "{v}" },
+        None => rsx! {
+            span { class: "mr-text--muted", "None" }
+        },
+    }
+}
 
 #[component]
 pub fn Recipes() -> Element {
-    let mut recipes: Resource<Result<Vec<Recipe>, ServerFnError>> = use_get_recipes();
+    let mut recipes = use_get_recipe_overviews();
     let mut adding = use_signal(|| false);
-    // Row indexes ticked in the table. Display-only for now — the bulk Delete
-    // button isn't wired to anything yet.
+    let mut query = use_signal(String::new);
+    let mut chips = use_signal(Vec::<String>::new);
     let mut selected_rows = use_signal(Vec::<usize>::new);
+    let toast = use_toast();
+    let navigator = use_navigator();
+    // The recipes waiting on the delete confirmation; empty = no dialog.
+    let mut deleting = use_signal(Vec::<Recipe>::new);
+    let mut delete_busy = use_signal(|| false);
 
-    // The table's shape: each column says how to render its own cell from a
-    // `&Recipe`. Nothing recipe-specific lives inside `DataTable` itself.
-    let columns: Vec<Column<Recipe>> = vec![
-        Column::new("Title", |r: &Recipe| {
-            rsx! {
-                span { class: "mr-cell-strong", "{r.title}" }
-            }
-        }),
-        Column::new("Difficulty", |r: &Recipe| {
-            rsx! {
-                DifficultyBadge { difficulty: r.difficulty }
-            }
-        }),
-        Column::new("Healthiness", |r: &Recipe| match r.healthiness {
-            Some(h) => {
-                let tone = match h {
-                    1 | 2 => Tone::Red,
-                    3 => Tone::Amber,
-                    _ => Tone::Green,
-                };
-                rsx! {
-                    Badge { tone, "{h}/5" }
+    // The rows actually on screen; selection indexes and row clicks refer to these.
+    let visible = use_memo(move || match &*recipes.read() {
+        Some(Ok(list)) => matching(list, &query(), &chips()),
+        _ => Vec::new(),
+    });
+
+    let mut confirm_selected = move || {
+        let shown = visible.read();
+        let chosen: Vec<Recipe> = selected_rows()
+            .iter()
+            .filter_map(|&i| shown.get(i).map(|o| o.recipe.clone()))
+            .collect();
+        deleting.set(chosen);
+    };
+
+    let open_row = move |i: usize| {
+        if let Some(found) = visible.read().get(i) {
+            navigator.push(Route::RecipePage {
+                id: found.recipe.id,
+            });
+        }
+    };
+
+    let mut delete_confirmed = move || {
+        if delete_busy() {
+            return;
+        }
+        delete_busy.set(true);
+        spawn(async move {
+            let targets = deleting();
+            let mut refused = Vec::new();
+            for recipe in &targets {
+                if let Err(e) = delete_recipe(recipe.id).await {
+                    refused.push(format!("{}: {}", recipe.title, error_message(&e)));
                 }
             }
-            None => rsx! {
-                span { class: "mr-text--muted", "—" }
-            },
+            let deleted = targets.len() - refused.len();
+            if deleted > 0 {
+                recipes.restart();
+            }
+            if refused.is_empty() {
+                let message = match targets.as_slice() {
+                    [only] => format!("“{}” was deleted.", only.title),
+                    _ => format!("{deleted} recipes were deleted."),
+                };
+                toast.show(Some("Deleted".to_string()), message, Tone::Green);
+            } else {
+                let mut message = refused.join(" ");
+                if deleted > 0 {
+                    message = format!("Deleted {deleted}. {message}");
+                }
+                toast.show(Some("Couldn't delete".to_string()), message, Tone::Red);
+            }
+            deleting.set(Vec::new());
+            delete_busy.set(false);
+        });
+    };
+
+    // The table's shape: each column says how to render its own cell from a
+    // `&RecipeOverview`. Nothing recipe-specific lives inside `DataTable` itself.
+    let columns: Vec<Column<RecipeOverview>> = vec![
+        Column::new("Title", |r: &RecipeOverview| {
+            rsx! {
+                span { class: "mr-cell-strong", "{r.recipe.title}" }
+            }
         }),
-        Column::new("Time", |r: &Recipe| rsx! { "{r.time_mins} min" }).align(CellAlign::End),
-        Column::new("Servings", |r: &Recipe| rsx! { "{r.servings}" }).align(CellAlign::End),
-        // Per-row actions — display-only until editing/deleting is wired up.
-        Column::new("", |_r: &Recipe| {
+        Column::new("Cuisine", |r: &RecipeOverview| muted_or(&r.cuisine)),
+        Column::new("Protein", |r: &RecipeOverview| muted_or(&r.protein)),
+        Column::new("Tags", |r: &RecipeOverview| {
+            let extra = r.tags.len().saturating_sub(TAGS_SHOWN);
+            rsx! {
+                div { class: "mr-tagcell",
+                    for tag in r.tags.iter().take(TAGS_SHOWN) {
+                        Badge { key: "{tag.id}", "{tag.name}" }
+                    }
+                    if extra > 0 {
+                        span { class: "mr-text--muted", "+{extra}" }
+                    }
+                }
+            }
+        }),
+        Column::new("Difficulty", |r: &RecipeOverview| {
+            rsx! {
+                DifficultyBadge { difficulty: r.recipe.difficulty }
+            }
+        }),
+        Column::new("Healthiness", |r: &RecipeOverview| {
+            healthiness_badge(r.recipe.healthiness)
+        }),
+        Column::new(
+            "Time",
+            |r: &RecipeOverview| rsx! { "{r.recipe.time_mins} min" },
+        )
+        .align(CellAlign::End),
+        Column::new(
+            "Servings",
+            |r: &RecipeOverview| rsx! { "{r.recipe.servings}" },
+        )
+        .align(CellAlign::End),
+        Column::new("", move |r: &RecipeOverview| {
+            let recipe = r.recipe.clone();
             rsx! {
                 div { class: "mr-rowactions",
-                    IconButton { label: "Edit recipe".to_string(), onclick: move |_| {}, Icon { name: IconName::Edit } }
                     IconButton {
                         label: "Delete recipe".to_string(),
                         danger: true,
-                        onclick: move |_| {},
+                        onclick: move |_| deleting.set(vec![recipe.clone()]),
                         Icon { name: IconName::X }
                     }
                 }
             }
         })
-        .align(CellAlign::End),
+        .align(CellAlign::End)
+        .interactive(),
     ];
+
+    let filtering = !query().trim().is_empty() || !chips().is_empty();
+    let empty = if filtering {
+        "No recipes match your search."
+    } else {
+        "No recipes yet. Add your first one."
+    };
 
     rsx! {
         div { class: "mr-page",
@@ -91,45 +208,74 @@ pub fn Recipes() -> Element {
 
             // ── Combined search + filter bar. Free text plus filter chips added
             //    from the "+" menu. The generic SearchBar owns the interaction;
-            //    the page just supplies the recipe-specific filter types.
+            //    the page supplies the recipe-specific filter types and applies them.
             div { class: "mr-page__filters",
                 SearchBar {
                     placeholder: "Search recipes…",
                     filters: vec![
-                        FilterField::new("Tag", "e.g. Vegetarian"),
-                        FilterField::new("Cuisine", "e.g. Thai"),
-                        FilterField::new("Protein", "e.g. Chicken"),
-                        FilterField::new("Difficulty", "1–5"),
-                        FilterField::new("Max time", "minutes"),
-                        FilterField::new("Servings", "e.g. 4"),
-                        FilterField::new("Healthiness", "1–5"),
+                        FilterField::new(TAG, "e.g. Vegetarian"),
+                        FilterField::new(CUISINE, "e.g. Thai"),
+                        FilterField::new(PROTEIN, "e.g. Chicken"),
+                        FilterField::new(DIFFICULTY, "1–5, or a range like 2-4"),
+                        FilterField::new(MAX_TIME, "minutes"),
+                        FilterField::new(SERVINGS, "e.g. 4"),
+                        FilterField::new(HEALTHINESS, "1–5, or a range like 3-5"),
                     ],
+                    onquery: move |q: String| query.set(q),
+                    onfilters: move |list: Vec<String>| chips.set(list),
                 }
             }
 
             if !selected_rows().is_empty() {
                 div { class: "mr-bulkbar",
                     Text { small: true, "{selected_rows().len()} selected" }
-                    Button { variant: ButtonVariant::Danger, size: Size::Sm, "Delete selected" }
+                    Button {
+                        variant: ButtonVariant::Danger,
+                        size: Size::Sm,
+                        onclick: move |_| confirm_selected(),
+                        "Delete selected"
+                    }
+                }
+            }
+
+            if !deleting().is_empty() {
+                ConfirmDialog {
+                    title: match deleting().as_slice() {
+                        [only] => format!("Delete “{}”?", only.title),
+                        many => format!("Delete {} recipes?", many.len()),
+                    },
+                    confirm_label: "Delete".to_string(),
+                    danger: true,
+                    loading: delete_busy(),
+                    on_confirm: move |_| delete_confirmed(),
+                    on_cancel: move |_| {
+                        if !delete_busy() {
+                            deleting.set(Vec::new());
+                        }
+                    },
+                    Text {
+                        "This removes it for good, along with its ingredient lines and tags. A recipe that is on a meal plan or in the cooking log can't be deleted."
+                    }
                 }
             }
 
             // ── The table, driven by the resource's three states.
-            match recipes() {
+            match &*recipes.read() {
                 None => rsx! {
                     div { class: "mr-tablepanel mr-tablestate", Spinner {} }
                 },
                 Some(Err(e)) => rsx! {
-                    Alert { tone: Tone::Red, title: "Couldn't load recipes", "{e}" }
+                    Alert { tone: Tone::Red, title: "Couldn't load recipes", "{error_message(e)}" }
                 },
-                Some(Ok(list)) => rsx! {
+                Some(Ok(_)) => rsx! {
                     div { class: "mr-tablepanel",
-                        DataTable::<Recipe> {
+                        DataTable::<RecipeOverview> {
                             columns: columns.clone(),
-                            rows: list,
-                            empty: "No recipes yet. Add your first one.".to_string(),
+                            rows: visible(),
+                            empty: empty.to_string(),
                             selectable: true,
                             on_select: move |v: Vec<usize>| selected_rows.set(v),
+                            on_row_click: open_row,
                         }
                     }
                 },

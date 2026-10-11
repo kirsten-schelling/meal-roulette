@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, start_date, seed, name,\n               roll_constraints AS \"roll_constraints: Json<RollConstraints>\",\n               created_at, updated_at\n        FROM meal_plan\n        WHERE id = $1\n        ",
+  "query": "\n        INSERT INTO meal_plan (household_id, start_date, seed, name, roll_constraints)\n        VALUES ($1, $2, $3, $4, $5)\n        RETURNING id, household_id, start_date, seed, name,\n                  roll_constraints AS \"roll_constraints: Json<RollConstraints>\",\n                  is_favourite, archived_at, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,28 @@
       },
       {
         "ordinal": 6,
+        "name": "is_favourite",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "is_favourite"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "archived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "archived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,7 +103,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -94,7 +116,11 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Uuid",
+        "Date",
+        "Int8",
+        "Text",
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -105,8 +131,10 @@
       true,
       false,
       false,
+      true,
+      false,
       false
     ]
   },
-  "hash": "fdf07fd699906dc0c72f9c28b70d806c83176eb715cfed3c8d4f1e14b9532bf9"
+  "hash": "2757c3a7ba10fa8593b2dd182d460c434f025f4537bf0d7c049b36d1badce9a8"
 }

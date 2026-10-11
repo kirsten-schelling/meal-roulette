@@ -1,5 +1,5 @@
 use crate::features::planned_meal;
-use domain::meal_plan::{MealPlan, MealPlanDetail, NewMealPlan, UpdateMealPlan};
+use domain::meal_plan::{MealPlan, MealPlanDetail, MealPlanSummary, NewMealPlan, UpdateMealPlan};
 use domain::roll::RollConstraints;
 use sqlx::types::Json;
 use sqlx::PgPool;
@@ -12,6 +12,8 @@ struct MealPlanRow {
     seed: Option<i64>,
     name: Option<String>,
     roll_constraints: Json<RollConstraints>,
+    is_favourite: bool,
+    archived_at: Option<time::OffsetDateTime>,
     created_at: time::OffsetDateTime,
     updated_at: time::OffsetDateTime,
 }
@@ -25,6 +27,8 @@ impl From<MealPlanRow> for MealPlan {
             seed: row.seed,
             name: row.name,
             constraints: row.roll_constraints.0,
+            is_favourite: row.is_favourite,
+            archived_at: row.archived_at,
             created_at: row.created_at,
             updated_at: row.updated_at,
         }
@@ -37,7 +41,7 @@ pub async fn list(pool: &PgPool) -> Result<Vec<MealPlan>, sqlx::Error> {
         r#"
         SELECT id, household_id, start_date, seed, name,
                roll_constraints AS "roll_constraints: Json<RollConstraints>",
-               created_at, updated_at
+               is_favourite, archived_at, created_at, updated_at
         FROM meal_plan
         ORDER BY start_date DESC
         "#,
@@ -53,7 +57,7 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<MealPlan, sqlx::Error> {
         r#"
         SELECT id, household_id, start_date, seed, name,
                roll_constraints AS "roll_constraints: Json<RollConstraints>",
-               created_at, updated_at
+               is_favourite, archived_at, created_at, updated_at
         FROM meal_plan
         WHERE id = $1
         "#,
@@ -64,15 +68,16 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<MealPlan, sqlx::Error> {
     Ok(row.into())
 }
 
-/// The most recently rolled plan, if any plan exists at all.
+/// The most recently rolled plan that is not archived, if there is one.
 pub async fn latest(pool: &PgPool) -> Result<Option<MealPlan>, sqlx::Error> {
     let row = sqlx::query_as!(
         MealPlanRow,
         r#"
         SELECT id, household_id, start_date, seed, name,
                roll_constraints AS "roll_constraints: Json<RollConstraints>",
-               created_at, updated_at
+               is_favourite, archived_at, created_at, updated_at
         FROM meal_plan
+        WHERE archived_at IS NULL
         ORDER BY created_at DESC
         LIMIT 1
         "#,
@@ -96,6 +101,56 @@ pub async fn latest_detail(pool: &PgPool) -> Result<Option<MealPlanDetail>, sqlx
     Ok(Some(MealPlanDetail { plan, meals }))
 }
 
+/// Every plan, newest roll first, with its week and dinner titles.
+pub async fn list_summaries(pool: &PgPool) -> Result<Vec<MealPlanSummary>, sqlx::Error> {
+    sqlx::query_as!(
+        MealPlanSummary,
+        r#"
+        SELECT meal_plan.id, meal_plan.household_id, meal_plan.created_at, meal_plan.start_date,
+               MAX(planned_meal.scheduled_date) AS end_date,
+               COUNT(planned_meal.id) AS "num_days!",
+               meal_plan.seed, meal_plan.is_favourite, meal_plan.archived_at,
+               COALESCE(
+                   ARRAY_AGG(recipe.title ORDER BY planned_meal.scheduled_date)
+                       FILTER (WHERE planned_meal.id IS NOT NULL),
+                   ARRAY[]::text[]
+               ) AS "dinners!"
+        FROM meal_plan
+        LEFT JOIN planned_meal ON planned_meal.meal_plan_id = meal_plan.id
+        LEFT JOIN recipe ON recipe.id = planned_meal.recipe_id
+        GROUP BY meal_plan.id
+        ORDER BY meal_plan.created_at DESC
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn get_summary(pool: &PgPool, id: Uuid) -> Result<MealPlanSummary, sqlx::Error> {
+    sqlx::query_as!(
+        MealPlanSummary,
+        r#"
+        SELECT meal_plan.id, meal_plan.household_id, meal_plan.created_at, meal_plan.start_date,
+               MAX(planned_meal.scheduled_date) AS end_date,
+               COUNT(planned_meal.id) AS "num_days!",
+               meal_plan.seed, meal_plan.is_favourite, meal_plan.archived_at,
+               COALESCE(
+                   ARRAY_AGG(recipe.title ORDER BY planned_meal.scheduled_date)
+                       FILTER (WHERE planned_meal.id IS NOT NULL),
+                   ARRAY[]::text[]
+               ) AS "dinners!"
+        FROM meal_plan
+        LEFT JOIN planned_meal ON planned_meal.meal_plan_id = meal_plan.id
+        LEFT JOIN recipe ON recipe.id = planned_meal.recipe_id
+        WHERE meal_plan.id = $1
+        GROUP BY meal_plan.id
+        "#,
+        id,
+    )
+    .fetch_one(pool)
+    .await
+}
+
 pub async fn create<'e, E>(executor: E, new_plan: NewMealPlan) -> Result<MealPlan, sqlx::Error>
 where
     E: sqlx::PgExecutor<'e>,
@@ -107,7 +162,7 @@ where
         VALUES ($1, $2, $3, $4, $5)
         RETURNING id, household_id, start_date, seed, name,
                   roll_constraints AS "roll_constraints: Json<RollConstraints>",
-                  created_at, updated_at
+                  is_favourite, archived_at, created_at, updated_at
         "#,
         new_plan.household_id,
         new_plan.start_date,
@@ -135,7 +190,7 @@ pub async fn update(
         WHERE id = $4
         RETURNING id, household_id, start_date, seed, name,
                   roll_constraints AS "roll_constraints: Json<RollConstraints>",
-                  created_at, updated_at
+                  is_favourite, archived_at, created_at, updated_at
         "#,
         plan.start_date,
         plan.seed,
@@ -147,6 +202,56 @@ pub async fn update(
     Ok(row.into())
 }
 
+pub async fn set_favourite(
+    pool: &PgPool,
+    id: Uuid,
+    is_favourite: bool,
+) -> Result<MealPlan, sqlx::Error> {
+    let row = sqlx::query_as!(
+        MealPlanRow,
+        r#"
+        UPDATE meal_plan
+        SET is_favourite = $1
+        WHERE id = $2
+        RETURNING id, household_id, start_date, seed, name,
+                  roll_constraints AS "roll_constraints: Json<RollConstraints>",
+                  is_favourite, archived_at, created_at, updated_at
+        "#,
+        is_favourite,
+        id,
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(row.into())
+}
+
+/// Archive or restore a plan. Archiving an already archived plan keeps its
+/// original archive time.
+pub async fn set_archived(
+    pool: &PgPool,
+    id: Uuid,
+    archived: bool,
+) -> Result<MealPlan, sqlx::Error> {
+    let row = sqlx::query_as!(
+        MealPlanRow,
+        r#"
+        UPDATE meal_plan
+        SET archived_at = CASE WHEN $1 THEN COALESCE(archived_at, now()) END
+        WHERE id = $2
+        RETURNING id, household_id, start_date, seed, name,
+                  roll_constraints AS "roll_constraints: Json<RollConstraints>",
+                  is_favourite, archived_at, created_at, updated_at
+        "#,
+        archived,
+        id,
+    )
+    .fetch_one(pool)
+    .await?;
+    Ok(row.into())
+}
+
+/// Delete a plan. Its days go with it; its shopping list and any cooking-log
+/// entries stay, detached from the plan by their foreign keys.
 pub async fn delete(pool: &PgPool, id: Uuid) -> Result<MealPlan, sqlx::Error> {
     let row = sqlx::query_as!(
         MealPlanRow,
@@ -155,7 +260,7 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<MealPlan, sqlx::Error> {
         WHERE id = $1
         RETURNING id, household_id, start_date, seed, name,
                   roll_constraints AS "roll_constraints: Json<RollConstraints>",
-                  created_at, updated_at
+                  is_favourite, archived_at, created_at, updated_at
         "#,
         id,
     )

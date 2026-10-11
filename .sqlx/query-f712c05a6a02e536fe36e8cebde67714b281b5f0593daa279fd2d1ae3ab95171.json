@@ -1,0 +1,155 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE recipe\n        SET title = $1,\n            difficulty = $2,\n            time_mins = $3,\n            servings = $4,\n            healthiness = $5,\n            main_protein_id = $6,\n            cuisine_id = $7\n        WHERE id = $8\n        RETURNING id, household_id, title, difficulty, time_mins, servings,\n                  healthiness, main_protein_id, cuisine_id, created_at, updated_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "household_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "household_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "difficulty",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "difficulty"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "time_mins",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "time_mins"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "servings",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "servings"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "healthiness",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "healthiness"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "main_protein_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "main_protein_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "cuisine_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "cuisine_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int2",
+        "Int2",
+        "Int2",
+        "Int2",
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "f712c05a6a02e536fe36e8cebde67714b281b5f0593daa279fd2d1ae3ab95171"
+}

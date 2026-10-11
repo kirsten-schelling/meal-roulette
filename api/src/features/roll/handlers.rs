@@ -8,16 +8,15 @@ use uuid::Uuid;
 use super::service;
 use crate::error::AppError;
 use crate::state::AppState;
-use domain::meal_plan::MealPlanDetail;
 use domain::planned_meal::PlannedMealDetail;
-use domain::roll::RollRequest;
+use domain::roll::{RollOutcome, RollRequest};
 
 pub async fn roll(
     State(state): State<AppState>,
     Json(request): Json<RollRequest>,
-) -> Result<(StatusCode, Json<MealPlanDetail>), AppError> {
-    let plan = service::roll_week(&state.db, request).await?;
-    Ok((StatusCode::CREATED, Json(plan)))
+) -> Result<(StatusCode, Json<RollOutcome>), AppError> {
+    let outcome = service::roll_week(&state.db, request).await?;
+    Ok((StatusCode::CREATED, Json(outcome)))
 }
 
 pub async fn reroll(

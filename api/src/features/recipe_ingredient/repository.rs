@@ -1,4 +1,7 @@
-use domain::recipe_ingredient::{NewRecipeIngredient, RecipeIngredient, UpdateRecipeIngredient};
+use crate::features::ingredient;
+use domain::recipe_ingredient::{
+    NewRecipeIngredient, RecipeIngredient, RecipeIngredientEntry, UpdateRecipeIngredient,
+};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -118,9 +121,9 @@ pub async fn update(
         r#"
         WITH updated AS (
             UPDATE recipe_ingredient
-            SET qty = COALESCE($3, qty),
-                note = COALESCE($4, note),
-                is_optional = COALESCE($5, is_optional)
+            SET qty = $3,
+                note = $4,
+                is_optional = $5
             WHERE recipe_id = $1 AND ingredient_id = $2
             RETURNING id, created_at, updated_at, recipe_id, ingredient_id, qty, note, is_optional
         )
@@ -148,6 +151,29 @@ pub async fn update(
     .fetch_one(pool)
     .await?;
     Ok(item)
+}
+
+/// Adds a line to an existing recipe, creating its ingredient first when it is a new one.
+pub async fn add(
+    pool: &PgPool,
+    recipe_id: Uuid,
+    entry: RecipeIngredientEntry,
+) -> Result<RecipeIngredient, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    let ingredient_id = ingredient::repository::resolve(&mut tx, entry.ingredient).await?;
+    let line = create(
+        &mut *tx,
+        recipe_id,
+        NewRecipeIngredient {
+            ingredient_id,
+            qty: entry.qty,
+            note: entry.note,
+            is_optional: entry.is_optional,
+        },
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(line)
 }
 
 pub async fn delete(
@@ -184,4 +210,28 @@ pub async fn delete(
     .fetch_one(pool)
     .await?;
     Ok(item)
+}
+
+/// One recipe using one ingredient.
+pub struct IngredientUse {
+    pub recipe_id: Uuid,
+    pub ingredient_id: Uuid,
+}
+
+/// Which recipes use any of `ingredient_ids`.
+pub async fn uses_of(
+    pool: &PgPool,
+    ingredient_ids: &[Uuid],
+) -> Result<Vec<IngredientUse>, sqlx::Error> {
+    sqlx::query_as!(
+        IngredientUse,
+        r#"
+        SELECT recipe_id, ingredient_id
+        FROM recipe_ingredient
+        WHERE ingredient_id = ANY($1)
+        "#,
+        ingredient_ids,
+    )
+    .fetch_all(pool)
+    .await
 }

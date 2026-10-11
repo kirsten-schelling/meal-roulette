@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        with updated_ingredient as (\n            UPDATE ingredient SET name = COALESCE($1, name), purchase_size = COALESCE($2, purchase_size), unit_id = COALESCE($3, unit_id) WHERE id = $4 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT updated_ingredient.id, updated_ingredient.household_id, updated_ingredient.name, updated_ingredient.purchase_size, unit.name as unit, updated_ingredient.unit_id, updated_ingredient.created_at, updated_ingredient.updated_at\n        FROM updated_ingredient\n        JOIN unit ON updated_ingredient.unit_id = unit.id\n        ",
+  "query": "\n        with updated_ingredient as (\n            UPDATE ingredient SET name = $1, purchase_size = $2, unit_id = $3 WHERE id = $4 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT updated_ingredient.id, updated_ingredient.household_id, updated_ingredient.name, updated_ingredient.purchase_size, unit.name as unit, updated_ingredient.unit_id, updated_ingredient.created_at, updated_ingredient.updated_at\n        FROM updated_ingredient\n        JOIN unit ON updated_ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -111,5 +111,5 @@
       false
     ]
   },
-  "hash": "cd0d48f66cc72fedac12b193d5287d16d0e43f7e03dff7ddc507a9ba90d0ec8a"
+  "hash": "9aeee18acf8219382e4b42089f5634928604e62c594a49b84e6f176734dc56ea"
 }

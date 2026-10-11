@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, household_id, meal_plan_id, name, created_at, updated_at\n        FROM shopping_list\n        WHERE meal_plan_id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "household_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list",
+            "name": "household_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "meal_plan_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list",
+            "name": "meal_plan_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "shopping_list",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "shopping_list",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "shopping_list",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "62db48f5c05c9fd7ef9ccb51725b74728c6aac7af852e40b0f980f894db1d338"
+}

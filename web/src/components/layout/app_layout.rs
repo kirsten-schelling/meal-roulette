@@ -67,5 +67,10 @@ fn nav_entries() -> Vec<NavEntry> {
             label: "Planned Meals",
             to: Route::PlannedMeals {},
         },
+        NavEntry {
+            icon: IconName::Archive,
+            label: "History",
+            to: Route::History {},
+        },
     ]
 }

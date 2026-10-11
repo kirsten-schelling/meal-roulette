@@ -1,5 +1,15 @@
+use dioxus::prelude::ServerFnError;
 use time::macros::format_description;
 use time::Date;
+
+/// The server's own message, without the "error running server function: … (details: None)"
+/// wrapper `ServerFnError` adds when displayed.
+pub fn error_message(error: &ServerFnError) -> String {
+    match error {
+        ServerFnError::ServerError { message, .. } => message.clone(),
+        other => other.to_string(),
+    }
+}
 
 pub fn difficulty_label(d: i32) -> &'static str {
     match d {

@@ -1,8 +1,11 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Longest sleep the shopping list offers, in weeks.
+pub const MAX_SLEEP_WEEKS: i32 = 52;
+
 /// A row from `slept_ingredient` — an ingredient kept off the list until a wake date.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct SleptIngredient {
     pub id: Uuid,
     pub household_id: Uuid,

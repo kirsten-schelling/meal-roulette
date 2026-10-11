@@ -1,6 +1,6 @@
 //! The roll setup page: pick a preset (or build fresh), choose how many days
-//! and the constraints, then hit Roll. Rolling sends the cuisine and protein
-//! rules to the solver and lands on the planned-meals page. Presets save the
+//! and the constraints, then hit Roll. Rolling sends every rule to the solver
+//! and lands on the planned-meals page. Presets save the
 //! whole form as a JSON payload through the roll_preset API.
 
 use crate::components::ui::*;
@@ -12,21 +12,19 @@ use crate::features::roll::hooks::use_roll_preset::{
     add_roll_preset, delete_roll_preset, set_default_roll_preset, update_roll_preset,
     use_get_roll_presets,
 };
-use crate::features::roll::settings::{DifficultyDays, LookupRule, RollSettings, SavedIngredient};
+use crate::features::roll::settings::{
+    band_label, bound_label, importance_label, LookupRule, RollSettings, IMPORTANCE_LEVELS,
+};
 use crate::hooks::use_toast::use_toast;
-use crate::models::{difficulty_label, parse_iso_date};
+use crate::models::{error_message, parse_iso_date};
 use crate::router::Route;
 use dioxus::prelude::*;
-use domain::roll::{CountRule, RollConstraints, RollRequest};
+use domain::roll::{
+    Bound, CountRule, DifficultyBand, DifficultyRule, Importance, RollConstraints, RollOutcome,
+    RollRequest, RuleFamily,
+};
 use domain::roll_preset::{NewRollPreset, UpdateRollPreset};
 use uuid::Uuid;
-
-/// A fresh, empty difficulty mix: one row per level (1..5), zero days each.
-fn default_difficulty_mix() -> Vec<DifficultyDays> {
-    (1..=5)
-        .map(|level: i16| DifficultyDays { level, days: 0 })
-        .collect()
-}
 
 /// Build combobox rows from a fetched list, mapping each item to (id, name).
 fn lookup_options<T>(
@@ -54,10 +52,8 @@ pub fn Roll() -> Element {
     let mut seed = use_signal(String::new);
     let mut rolling = use_signal(|| false);
 
-    // Difficulty: a simple lean, or an exact per-level day mix when toggled on.
-    let mut difficulty = use_signal(|| "any".to_string());
-    let mut difficulty_exact = use_signal(|| false);
-    let mut difficulty_mix = use_signal(default_difficulty_mix);
+    // Difficulty: how many dinners land in each band.
+    let mut difficulty_rules = use_signal(Vec::<DifficultyRule>::new);
 
     // Required proteins: add one, then set how many times it should appear.
     let mut protein_picker = use_signal(Picker::default);
@@ -81,29 +77,70 @@ pub fn Roll() -> Element {
         }
     });
 
-    // Ingredients the roll must use: a search field that appends to a chip list.
+    // Ingredients the roll must use: same add-and-count pattern, counting the
+    // dinners whose recipe uses the ingredient.
     let mut ing_picker = use_signal(Picker::default);
-    let mut chosen_ingredients = use_signal(Vec::<SavedIngredient>::new);
+    let ingredient_rules = use_signal(Vec::<LookupRule>::new);
     use_effect(move || {
         let picked = ing_picker.read().picked.clone();
         if let Some(opt) = picked {
-            let is_dupe = chosen_ingredients.read().iter().any(|o| o.id == opt.id);
-            if !is_dupe {
-                chosen_ingredients.with_mut(|v| {
-                    v.push(SavedIngredient {
-                        id: opt.id,
-                        label: opt.label.clone(),
-                    })
-                });
-            }
+            append_rule(ingredient_rules, opt);
             ing_picker.with_mut(|p| p.type_text(String::new()));
         }
     });
+
+    let form = RollForm {
+        num_days,
+        difficulties: difficulty_rules,
+        proteins: protein_rules,
+        cuisines: cuisine_rules,
+        ingredients: ingredient_rules,
+    };
 
     // Presets: the current selection and the "save as" name.
     let mut preset_name = use_signal(String::new);
     let mut selected_preset = use_signal(String::new);
     let mut applied_default = use_signal(|| false);
+    // The preset awaiting delete confirmation: its id and name.
+    let mut confirm_preset_delete = use_signal(|| None as Option<(Uuid, String)>);
+
+    let mut ask_delete_preset = move || {
+        let Ok(uid) = Uuid::parse_str(selected_preset().as_str()) else {
+            return;
+        };
+        let name = match presets() {
+            Some(Ok(list)) => list
+                .iter()
+                .find(|p| p.id == uid)
+                .map(|p| p.name.clone())
+                .unwrap_or_default(),
+            _ => String::new(),
+        };
+        confirm_preset_delete.set(Some((uid, name)));
+    };
+
+    let delete_preset = move |uid: Uuid| {
+        let mut presets = presets;
+        spawn(async move {
+            match delete_roll_preset(uid).await {
+                Ok(_) => {
+                    selected_preset.set(String::new());
+                    presets.restart();
+                    toast.show(
+                        Some("Deleted".to_string()),
+                        "Preset removed.".to_string(),
+                        Tone::Green,
+                    );
+                }
+                Err(e) => toast.show(
+                    Some("Delete failed".to_string()),
+                    error_message(&e),
+                    Tone::Red,
+                ),
+            }
+            confirm_preset_delete.set(None);
+        });
+    };
 
     // On first load, apply the household's default preset if one exists.
     use_effect(move || {
@@ -113,16 +150,7 @@ pub fn Roll() -> Element {
         if let Some(Ok(list)) = presets() {
             if let Some(p) = list.iter().find(|p| p.is_default) {
                 if let Ok(s) = serde_json::from_value::<RollSettings>(p.settings.clone()) {
-                    apply_settings(
-                        s,
-                        num_days,
-                        difficulty,
-                        difficulty_exact,
-                        difficulty_mix,
-                        protein_rules,
-                        cuisine_rules,
-                        chosen_ingredients,
-                    );
+                    apply_settings(s, form);
                     selected_preset.set(p.id.to_string());
                 }
             }
@@ -142,10 +170,19 @@ pub fn Roll() -> Element {
 
     let day_count = num_days().trim().parse::<usize>().unwrap_or(0);
     let plural = if day_count == 1 { "" } else { "s" };
-    let assigned_days: u32 = difficulty_mix.read().iter().map(|d| d.days).sum();
 
     rsx! {
         div { class: "mr-page",
+            if let Some((uid, name)) = confirm_preset_delete() {
+                ConfirmDialog {
+                    title: format!("Delete the preset “{name}”?"),
+                    confirm_label: "Delete".to_string(),
+                    danger: true,
+                    on_confirm: move |_| delete_preset(uid),
+                    on_cancel: move |_| confirm_preset_delete.set(None),
+                    Text { "Your saved rolls are not affected." }
+                }
+            }
             header { class: "mr-page__head",
                 Heading { level: 1, "Roll a week" }
                 Text { muted: true,
@@ -163,7 +200,7 @@ pub fn Roll() -> Element {
                                     Text { small: true, muted: true, "Loading presets…" }
                                 },
                                 Some(Err(e)) => rsx! {
-                                    Alert { tone: Tone::Red, title: "Couldn't load presets", "{e}" }
+                                    Alert { tone: Tone::Red, title: "Couldn't load presets", "{error_message(&e)}" }
                                 },
                                 Some(Ok(list)) => {
                                     let mut preset_options =
@@ -202,16 +239,7 @@ pub fn Roll() -> Element {
                                                             >(p.settings)
                                                             {
                                                                 Ok(s) => {
-                                                                    apply_settings(
-                                                                        s,
-                                                                        num_days,
-                                                                        difficulty,
-                                                                        difficulty_exact,
-                                                                        difficulty_mix,
-                                                                        protein_rules,
-                                                                        cuisine_rules,
-                                                                        chosen_ingredients,
-                                                                    )
+                                                                    apply_settings(s, form)
                                                                 }
                                                                 Err(_) => {
                                                                     toast
@@ -236,15 +264,7 @@ pub fn Roll() -> Element {
                                                     else {
                                                         return;
                                                     };
-                                                    let settings = current_settings(
-                                                        num_days,
-                                                        difficulty,
-                                                        difficulty_exact,
-                                                        difficulty_mix,
-                                                        protein_rules,
-                                                        cuisine_rules,
-                                                        chosen_ingredients,
-                                                    );
+                                                    let settings = current_settings(form);
                                                     let Ok(payload) = serde_json::to_value(&settings)
                                                     else {
                                                         toast
@@ -279,7 +299,7 @@ pub fn Roll() -> Element {
                                                                 toast
                                                                     .show(
                                                                         Some("Update failed".to_string()),
-                                                                        e.to_string(),
+                                                                        error_message(&e),
                                                                         Tone::Red,
                                                                     )
                                                             }
@@ -313,7 +333,7 @@ pub fn Roll() -> Element {
                                                                 toast
                                                                     .show(
                                                                         Some("Couldn't set default".to_string()),
-                                                                        e.to_string(),
+                                                                        error_message(&e),
                                                                         Tone::Red,
                                                                     )
                                                             }
@@ -325,37 +345,7 @@ pub fn Roll() -> Element {
                                             Button {
                                                 variant: ButtonVariant::Danger,
                                                 disabled: !has_selection,
-                                                onclick: move |_| {
-                                                    let Ok(uid) =
-                                                        Uuid::parse_str(selected_preset().as_str())
-                                                    else {
-                                                        return;
-                                                    };
-                                                    let mut presets = presets;
-                                                    let mut selected_preset = selected_preset;
-                                                    spawn(async move {
-                                                        match delete_roll_preset(uid).await {
-                                                            Ok(_) => {
-                                                                selected_preset.set(String::new());
-                                                                presets.restart();
-                                                                toast
-                                                                    .show(
-                                                                        Some("Deleted".to_string()),
-                                                                        "Preset removed.".to_string(),
-                                                                        Tone::Green,
-                                                                    );
-                                                            }
-                                                            Err(e) => {
-                                                                toast
-                                                                    .show(
-                                                                        Some("Delete failed".to_string()),
-                                                                        e.to_string(),
-                                                                        Tone::Red,
-                                                                    )
-                                                            }
-                                                        }
-                                                    });
-                                                },
+                                                onclick: move |_| ask_delete_preset(),
                                                 "Delete"
                                             }
                                         }
@@ -380,15 +370,7 @@ pub fn Roll() -> Element {
                                     if name.is_empty() {
                                         return;
                                     }
-                                    let settings = current_settings(
-                                        num_days,
-                                        difficulty,
-                                        difficulty_exact,
-                                        difficulty_mix,
-                                        protein_rules,
-                                        cuisine_rules,
-                                        chosen_ingredients,
-                                    );
+                                    let settings = current_settings(form);
                                     let Ok(payload) = serde_json::to_value(&settings) else {
                                         toast
                                             .show(
@@ -419,7 +401,7 @@ pub fn Roll() -> Element {
                                                     );
                                             }
                                             Err(e) => {
-                                                toast.show(Some("Save failed".to_string()), e.to_string(), Tone::Red)
+                                                toast.show(Some("Save failed".to_string()), error_message(&e), Tone::Red)
                                             }
                                         }
                                     });
@@ -468,54 +450,36 @@ pub fn Roll() -> Element {
                 Card { header: "Difficulty".to_string(),
                     VStack { gap: 0.75,
                         Text { small: true, muted: true,
-                            "Saved with presets. The roller doesn't apply difficulty yet."
+                            "Count dinners by difficulty, e.g. at least 3 easy and at most 1 hard. Every rule is Required unless you lower it: High, Medium and Low rules are preferences, kept most important first as far as your recipes allow."
                         }
-                        Switch {
-                            checked: difficulty_exact(),
-                            onchange: move |v| difficulty_exact.set(v),
-                            label: "Set an exact day mix".to_string(),
+                        Select {
+                            label: "Add a difficulty rule".to_string(),
+                            value: String::new(),
+                            placeholder: "Choose a band…".to_string(),
+                            options: DifficultyBand::ALL
+                                .into_iter()
+                                .filter(|band| !difficulty_rules.read().iter().any(|r| r.band == *band))
+                                .map(|band| SelectOption::new(format!("{band:?}"), band_label(band)))
+                                .collect::<Vec<_>>(),
+                            onchange: move |value: String| add_difficulty_rule(difficulty_rules, &value),
                         }
-                        if difficulty_exact() {
-                            div { style: "display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end;",
-                                for (i, dd) in difficulty_mix.read().clone().into_iter().enumerate() {
-                                    {
-                                        let idx = i;
-                                        rsx! {
-                                            div { style: "width:6.5rem;",
-                                                Input {
-                                                    label: difficulty_label(dd.level.into())
-                                                                                                            .to_string(),
-                                                    kind: "number".to_string(),
-                                                    value: "{dd.days}",
-                                                    oninput: move |e: FormEvent| {
-                                                        let v = e.value().parse::<u32>().unwrap_or(0);
-                                                        difficulty_mix
-                                                            .with_mut(|m| {
-                                                                if let Some(x) = m.get_mut(idx) {
-                                                                    x.days = v;
-                                                                }
-                                                            });
-                                                    },
-                                                }
-                                            }
-                                        }
+                        for (index, rule) in difficulty_rules.read().clone().into_iter().enumerate() {
+                            RuleRow {
+                                key: "{rule.band:?}",
+                                name: band_label(rule.band).to_string(),
+                                times: rule.times,
+                                bound: rule.bound,
+                                importance: rule.importance,
+                                on_change: move |(times, bound, importance): (u32, Bound, Importance)| {
+                                    if let Some(r) = difficulty_rules.write().get_mut(index) {
+                                        r.times = times;
+                                        r.bound = bound;
+                                        r.importance = importance;
                                     }
-                                }
-                            }
-                            Text { small: true, muted: true,
-                                "{assigned_days} of {day_count} day{plural} set. Any unassigned days roll at any difficulty."
-                            }
-                        } else {
-                            Select {
-                                label: "Overall lean".to_string(),
-                                value: difficulty(),
-                                options: vec![
-                                    SelectOption::new("any", "No preference"),
-                                    SelectOption::new("easy", "Easier meals"),
-                                    SelectOption::new("balanced", "Balanced"),
-                                    SelectOption::new("ambitious", "More ambitious"),
-                                ],
-                                onchange: move |v| difficulty.set(v),
+                                },
+                                on_remove: move |_| {
+                                    difficulty_rules.write().remove(index);
+                                },
                             }
                         }
                     }
@@ -524,7 +488,7 @@ pub fn Roll() -> Element {
                 Card { header: "Proteins".to_string(),
                     VStack { gap: 0.75,
                         Text { small: true, muted: true,
-                            "Add a protein to require it, then set how many times it should appear."
+                            "Add a protein, then set how often it should (or may) appear."
                         }
                         {
                             match proteins() {
@@ -538,27 +502,21 @@ pub fn Roll() -> Element {
                                     }
                                 },
                                 Some(Err(e)) => rsx! {
-                                    Alert { tone: Tone::Red, title: "Couldn't load proteins", "{e}" }
+                                    Alert { tone: Tone::Red, title: "Couldn't load proteins", "{error_message(&e)}" }
                                 },
                                 None => rsx! {
                                     Text { small: true, muted: true, "Loading proteins…" }
                                 },
                             }
                         }
-                        for rule in protein_rules.read().clone() {
-                            RuleRow {
-                                key: "{rule.id}",
-                                rule: rule.clone(),
-                                rules: protein_rules,
-                            }
-                        }
+                        LookupRules { rules: protein_rules }
                     }
                 }
 
                 Card { header: "Cuisines".to_string(),
                     VStack { gap: 0.75,
                         Text { small: true, muted: true,
-                            "Add a cuisine to require it, then set how many times it should appear."
+                            "Add a cuisine, then set how often it should (or may) appear."
                         }
                         {
                             match cuisines() {
@@ -572,27 +530,21 @@ pub fn Roll() -> Element {
                                     }
                                 },
                                 Some(Err(e)) => rsx! {
-                                    Alert { tone: Tone::Red, title: "Couldn't load cuisines", "{e}" }
+                                    Alert { tone: Tone::Red, title: "Couldn't load cuisines", "{error_message(&e)}" }
                                 },
                                 None => rsx! {
                                     Text { small: true, muted: true, "Loading cuisines…" }
                                 },
                             }
                         }
-                        for rule in cuisine_rules.read().clone() {
-                            RuleRow {
-                                key: "{rule.id}",
-                                rule: rule.clone(),
-                                rules: cuisine_rules,
-                            }
-                        }
+                        LookupRules { rules: cuisine_rules }
                     }
                 }
 
                 Card { header: "Must-use ingredients".to_string(),
                     VStack { gap: 0.75,
                         Text { small: true, muted: true,
-                            "Guarantee the week includes a recipe using each of these. Saved with presets; the roller doesn't apply ingredients yet."
+                            "Count dinners whose recipe uses an ingredient, e.g. at least 1 that uses up the spinach."
                         }
                         {
                             match ingredients() {
@@ -606,29 +558,14 @@ pub fn Roll() -> Element {
                                     }
                                 },
                                 Some(Err(e)) => rsx! {
-                                    Alert { tone: Tone::Red, title: "Couldn't load ingredients", "{e}" }
+                                    Alert { tone: Tone::Red, title: "Couldn't load ingredients", "{error_message(&e)}" }
                                 },
                                 None => rsx! {
                                     Text { small: true, muted: true, "Loading ingredients…" }
                                 },
                             }
                         }
-                        if !chosen_ingredients.read().is_empty() {
-                            div { style: "display:flex; flex-wrap:wrap; gap:.5rem;",
-                                for opt in chosen_ingredients.read().clone() {
-                                    {
-                                        let iid = opt.id;
-                                        rsx! {
-                                            Chip {
-                                                key: "{opt.id}",
-                                                label: opt.label.clone(),
-                                                onremove: move |_| { chosen_ingredients.with_mut(|v| v.retain(|o| o.id != iid)) },
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        LookupRules { rules: ingredient_rules }
                     }
                 }
 
@@ -648,7 +585,10 @@ pub fn Roll() -> Element {
                             let constraints = RollConstraints {
                                 cuisines: count_rules(&cuisine_rules.read()),
                                 proteins: count_rules(&protein_rules.read()),
+                                ingredients: count_rules(&ingredient_rules.read()),
+                                difficulties: difficulty_rules(),
                             };
+                            let names = RuleNames::of(form);
                             let seed = seed().trim().parse::<i64>().ok();
                             let typed_date = start_date();
                             rolling.set(true);
@@ -679,20 +619,16 @@ pub fn Roll() -> Element {
                                     constraints,
                                 };
                                 match roll_week(request).await {
-                                    Ok(plan) => {
-                                        toast
-                                            .show(
-                                                Some("Rolled".to_string()),
-                                                format!("{} dinners planned.", plan.meals.len()),
-                                                Tone::Green,
-                                            );
+                                    Ok(outcome) => {
+                                        let (title, message, tone) = names.summary(&outcome);
+                                        toast.show(Some(title), message, tone);
                                         navigator.push(Route::PlannedMeals {});
                                     }
                                     Err(e) => {
                                         toast
                                             .show(
                                                 Some("Couldn't roll".to_string()),
-                                                e.to_string(),
+                                                error_message(&e),
                                                 Tone::Red,
                                             )
                                     }
@@ -711,15 +647,76 @@ pub fn Roll() -> Element {
     }
 }
 
-/// The rules as the solver wants them: ids and day counts, no display names.
+/// The rules as the solver wants them: ids and counts, no display names.
 fn count_rules(rules: &[LookupRule]) -> Vec<CountRule> {
     rules
         .iter()
         .map(|rule| CountRule {
             id: rule.id,
             times: rule.times,
+            bound: rule.bound,
+            importance: rule.importance,
         })
         .collect()
+}
+
+/// Each rule list's display names, captured at roll time so the result can
+/// name the preferences it had to loosen.
+struct RuleNames {
+    difficulties: Vec<String>,
+    proteins: Vec<String>,
+    cuisines: Vec<String>,
+    ingredients: Vec<String>,
+}
+
+impl RuleNames {
+    fn of(form: RollForm) -> Self {
+        let names =
+            |rules: Signal<Vec<LookupRule>>| rules.read().iter().map(|r| r.name.clone()).collect();
+        RuleNames {
+            difficulties: form
+                .difficulties
+                .read()
+                .iter()
+                .map(|r| band_label(r.band).to_string())
+                .collect(),
+            proteins: names(form.proteins),
+            cuisines: names(form.cuisines),
+            ingredients: names(form.ingredients),
+        }
+    }
+
+    /// The toast after a roll: plain success, or which preferences fell short.
+    fn summary(&self, outcome: &RollOutcome) -> (String, String, Tone) {
+        let planned = format!("{} dinners planned.", outcome.plan.meals.len());
+        if outcome.unmet.is_empty() {
+            return ("Rolled".to_string(), planned, Tone::Green);
+        }
+        let short: Vec<String> = outcome
+            .unmet
+            .iter()
+            .map(|u| {
+                let list = match u.family {
+                    RuleFamily::Difficulty => &self.difficulties,
+                    RuleFamily::Protein => &self.proteins,
+                    RuleFamily::Cuisine => &self.cuisines,
+                    RuleFamily::Ingredient => &self.ingredients,
+                };
+                let name = list.get(u.index).map_or("A rule", String::as_str);
+                format!(
+                    "{name}: wanted {} {}, got {}",
+                    bound_label(u.bound).to_lowercase(),
+                    u.times,
+                    u.got
+                )
+            })
+            .collect();
+        (
+            "Rolled, with some preferences loosened".to_string(),
+            format!("{planned} {}.", short.join("; ")),
+            Tone::Amber,
+        )
+    }
 }
 
 /// The browser's local date, so a plan starts on the user's today rather than
@@ -731,7 +728,7 @@ async fn today() -> Option<time::Date> {
     parse_iso_date(value.as_str()?)
 }
 
-/// Append a picked lookup option as a rule (count 1), skipping duplicates.
+/// Append a picked lookup option as a rule (at least once, required), skipping duplicates.
 fn append_rule(mut rules: Signal<Vec<LookupRule>>, opt: ComboOption) {
     if rules.read().iter().any(|r| r.id == opt.id) {
         return;
@@ -741,40 +738,140 @@ fn append_rule(mut rules: Signal<Vec<LookupRule>>, opt: ComboOption) {
             id: opt.id,
             name: opt.label.clone(),
             times: 1,
+            bound: Bound::AtLeast,
+            importance: Importance::Required,
         })
     });
 }
 
-/// One required protein/cuisine row: the name, a target count, and a remove
-/// control. Edits write back into the shared `rules` list.
+fn add_difficulty_rule(mut rules: Signal<Vec<DifficultyRule>>, value: &str) {
+    let Some(band) = DifficultyBand::ALL
+        .into_iter()
+        .find(|band| format!("{band:?}") == value)
+    else {
+        return;
+    };
+    if rules.read().iter().any(|r| r.band == band) {
+        return;
+    }
+    rules.write().push(DifficultyRule {
+        band,
+        times: 1,
+        bound: Bound::AtLeast,
+        importance: Importance::Required,
+    });
+}
+
+/// Every rule list on the page, so presets read and write them in one go.
+#[derive(Clone, Copy)]
+struct RollForm {
+    num_days: Signal<String>,
+    difficulties: Signal<Vec<DifficultyRule>>,
+    proteins: Signal<Vec<LookupRule>>,
+    cuisines: Signal<Vec<LookupRule>>,
+    ingredients: Signal<Vec<LookupRule>>,
+}
+
+/// The rows for one protein / cuisine / ingredient list; edits write back into it.
 #[component]
-fn RuleRow(rule: LookupRule, mut rules: Signal<Vec<LookupRule>>) -> Element {
-    let rid = rule.id;
+fn LookupRules(mut rules: Signal<Vec<LookupRule>>) -> Element {
+    rsx! {
+        for rule in rules.read().clone() {
+            {
+                let rid = rule.id;
+                rsx! {
+                    RuleRow {
+                        key: "{rule.id}",
+                        name: rule.name.clone(),
+                        times: rule.times,
+                        bound: rule.bound,
+                        importance: rule.importance,
+                        on_change: move |(times, bound, importance): (u32, Bound, Importance)| {
+                            if let Some(r) = rules.write().iter_mut().find(|r| r.id == rid) {
+                                r.times = times;
+                                r.bound = bound;
+                                r.importance = importance;
+                            }
+                        },
+                        on_remove: move |_| rules.write().retain(|r| r.id != rid),
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// One rule: its name, at least / at most, a count, how much it matters, and a
+/// remove control. Every edit reports the whole (count, bound, importance) triple.
+#[component]
+fn RuleRow(
+    name: String,
+    times: u32,
+    bound: Bound,
+    importance: Importance,
+    on_change: EventHandler<(u32, Bound, Importance)>,
+    on_remove: EventHandler<()>,
+) -> Element {
+    let bound_options = vec![
+        SelectOption::new("AtLeast", bound_label(Bound::AtLeast)),
+        SelectOption::new("AtMost", bound_label(Bound::AtMost)),
+    ];
+    let importance_options: Vec<SelectOption> = IMPORTANCE_LEVELS
+        .into_iter()
+        .map(|level| SelectOption::new(format!("{level:?}"), importance_label(level)))
+        .collect();
+    // "At most 0" means "none of these"; "at least 0" would ask for nothing.
+    let floor = match bound {
+        Bound::AtLeast => 1,
+        Bound::AtMost => 0,
+    };
+
     rsx! {
         div { style: "display:flex; align-items:flex-end; gap:.6rem; flex-wrap:wrap;",
             span { style: "min-width:6rem; padding-bottom:.55rem; font-weight:600;",
-                "{rule.name}"
+                "{name}"
+            }
+            div { style: "width:8rem;",
+                Select {
+                    label: "Count".to_string(),
+                    value: format!("{bound:?}"),
+                    options: bound_options,
+                    onchange: move |value: String| {
+                        let bound = if value == "AtMost" { Bound::AtMost } else { Bound::AtLeast };
+                        let floor = if bound == Bound::AtMost { 0 } else { 1 };
+                        on_change.call((times.max(floor), bound, importance));
+                    },
+                }
             }
             div { style: "width:5.5rem;",
                 Input {
                     label: "Times".to_string(),
                     kind: "number".to_string(),
-                    value: "{rule.times}",
+                    value: "{times}",
                     oninput: move |e: FormEvent| {
-                        let v = e.value().parse::<u32>().unwrap_or(1).max(1);
-                        rules
-                            .with_mut(|list| {
-                                if let Some(r) = list.iter_mut().find(|r| r.id == rid) {
-                                    r.times = v;
-                                }
-                            });
+                        let v = e.value().parse::<u32>().unwrap_or(floor).max(floor);
+                        on_change.call((v, bound, importance));
+                    },
+                }
+            }
+            div { style: "width:8.5rem;",
+                Select {
+                    label: "Importance".to_string(),
+                    value: format!("{importance:?}"),
+                    options: importance_options,
+                    onchange: move |value: String| {
+                        let level = IMPORTANCE_LEVELS
+                            .into_iter()
+                            .find(|level| format!("{level:?}") == value)
+                            .unwrap_or_default();
+                        on_change.call((times, bound, level));
                     },
                 }
             }
             Button {
                 variant: ButtonVariant::Ghost,
                 size: Size::Sm,
-                onclick: move |_| rules.with_mut(|list| list.retain(|r| r.id != rid)),
+                onclick: move |_| on_remove.call(()),
                 "Remove"
             }
         }
@@ -782,47 +879,22 @@ fn RuleRow(rule: LookupRule, mut rules: Signal<Vec<LookupRule>>) -> Element {
 }
 
 /// Read the whole page state into a `RollSettings` for saving.
-fn current_settings(
-    num_days: Signal<String>,
-    difficulty: Signal<String>,
-    difficulty_exact: Signal<bool>,
-    difficulty_mix: Signal<Vec<DifficultyDays>>,
-    protein_rules: Signal<Vec<LookupRule>>,
-    cuisine_rules: Signal<Vec<LookupRule>>,
-    chosen_ingredients: Signal<Vec<SavedIngredient>>,
-) -> RollSettings {
+fn current_settings(form: RollForm) -> RollSettings {
     RollSettings {
-        num_days: num_days(),
-        difficulty: difficulty(),
-        difficulty_exact: difficulty_exact(),
-        difficulty_mix: difficulty_mix(),
-        proteins: protein_rules(),
-        cuisines: cuisine_rules(),
-        ingredients: chosen_ingredients(),
+        num_days: (form.num_days)(),
+        difficulties: (form.difficulties)(),
+        proteins: (form.proteins)(),
+        cuisines: (form.cuisines)(),
+        ingredients: (form.ingredients)(),
+        ..RollSettings::default()
     }
 }
 
 /// Load a `RollSettings` back into the page's signals.
-#[allow(clippy::too_many_arguments)]
-fn apply_settings(
-    s: RollSettings,
-    mut num_days: Signal<String>,
-    mut difficulty: Signal<String>,
-    mut difficulty_exact: Signal<bool>,
-    mut difficulty_mix: Signal<Vec<DifficultyDays>>,
-    mut protein_rules: Signal<Vec<LookupRule>>,
-    mut cuisine_rules: Signal<Vec<LookupRule>>,
-    mut chosen_ingredients: Signal<Vec<SavedIngredient>>,
-) {
-    num_days.set(s.num_days);
-    difficulty.set(s.difficulty);
-    difficulty_exact.set(s.difficulty_exact);
-    difficulty_mix.set(if s.difficulty_mix.is_empty() {
-        default_difficulty_mix()
-    } else {
-        s.difficulty_mix
-    });
-    protein_rules.set(s.proteins);
-    cuisine_rules.set(s.cuisines);
-    chosen_ingredients.set(s.ingredients);
+fn apply_settings(s: RollSettings, mut form: RollForm) {
+    form.difficulties.set(s.difficulty_rules());
+    form.num_days.set(s.num_days);
+    form.proteins.set(s.proteins);
+    form.cuisines.set(s.cuisines);
+    form.ingredients.set(s.ingredients);
 }

@@ -15,9 +15,10 @@ pub fn Input(
     #[props(optional)]
     error: Option<String>,
     #[props(optional)] onblur: Option<EventHandler<FocusEvent>>,
+    #[props(default)] required: bool,
 ) -> Element {
     rsx! {
-        Field { label, error,
+        Field { label, error, required,
             input {
                 class: "mr-input",
                 r#type: "{kind}",

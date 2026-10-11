@@ -8,12 +8,17 @@ use crate::features::cuisine::hooks::use_cuisine::{
 use crate::features::protein::hooks::use_protein::{
     use_add_protein, use_delete_protein, use_edit_protein, use_get_proteins,
 };
+use crate::features::tag::hooks::use_tag::{
+    use_add_tag, use_delete_tag, use_edit_tag, use_get_tags,
+};
 use crate::features::unit::hooks::use_unit::{
     use_add_unit, use_delete_unit, use_edit_unit, use_get_units,
 };
+use crate::models::error_message;
 use dioxus::prelude::*;
 use domain::cuisine::{NewCuisine, UpdateCuisine};
 use domain::protein::{NewProtein, UpdateProtein};
+use domain::tag::{NewTag, UpdateTag};
 use domain::unit::{NewUnit, UpdateUnit};
 use domain::usage::UsageRef;
 use uuid::Uuid;
@@ -25,6 +30,7 @@ pub enum ManageTab {
     Cuisines,
     Proteins,
     Units,
+    Tags,
 }
 
 impl ManageTab {
@@ -33,6 +39,7 @@ impl ManageTab {
             ManageTab::Cuisines => 0,
             ManageTab::Proteins => 1,
             ManageTab::Units => 2,
+            ManageTab::Tags => 3,
         }
     }
 
@@ -40,6 +47,7 @@ impl ManageTab {
         match i {
             1 => ManageTab::Proteins,
             2 => ManageTab::Units,
+            3 => ManageTab::Tags,
             _ => ManageTab::Cuisines,
         }
     }
@@ -69,14 +77,14 @@ fn rows_from<T>(
     match fetched {
         None => None,
         Some(Ok(items)) => Some(Ok(items.iter().map(to_row).collect())),
-        Some(Err(e)) => Some(Err(e.to_string())),
+        Some(Err(e)) => Some(Err(error_message(e))),
     }
 }
 
 /// The error side of a mutation result, as a plain message for an `Alert`.
 fn error_of<T>(result: &Option<Result<T, ServerFnError>>) -> Option<String> {
     match result {
-        Some(Err(e)) => Some(e.to_string()),
+        Some(Err(e)) => Some(error_message(e)),
         _ => None,
     }
 }
@@ -94,7 +102,7 @@ fn use_on_success<T: 'static>(
     });
 }
 
-/// The tabbed manager for the tiny lookup lists (cuisines / proteins / units):
+/// The tabbed manager for the tiny lookup lists (cuisines / proteins / units / tags):
 /// add, rename, delete. Mount it conditionally, like `Modal`.
 #[component]
 pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> Element {
@@ -103,6 +111,7 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
     let mut cuisines = use_get_cuisines();
     let mut proteins = use_get_proteins();
     let mut units = use_get_units();
+    let mut tags = use_get_tags();
 
     let add_cuisine = use_add_cuisine();
     let edit_cuisine = use_edit_cuisine();
@@ -113,6 +122,9 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
     let add_unit = use_add_unit();
     let edit_unit = use_edit_unit();
     let delete_unit = use_delete_unit();
+    let add_tag = use_add_tag();
+    let edit_tag = use_edit_tag();
+    let delete_tag = use_delete_tag();
 
     // The add row's draft; cleared on tab switch and on a successful add.
     let mut new_name = use_signal(String::new);
@@ -151,6 +163,15 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
         units.restart();
     });
     use_on_success(delete_unit.result, move || units.restart());
+    use_on_success(add_tag.result, move || {
+        new_name.set(String::new());
+        tags.restart();
+    });
+    use_on_success(edit_tag.result, move || {
+        editing.set(None);
+        tags.restart();
+    });
+    use_on_success(delete_tag.result, move || tags.restart());
 
     // A mutation result outlives the action that produced it; drop them all
     // when the user moves to another tab or starts a new action, so a stale
@@ -178,6 +199,10 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
         results.0.set(None);
         results.1.set(None);
         results.2.set(None);
+        let mut results = (add_tag.result, edit_tag.result, delete_tag.result);
+        results.0.set(None);
+        results.1.set(None);
+        results.2.set(None);
     };
 
     let current = ManageTab::from_index(tab());
@@ -201,12 +226,19 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
             hint: u.unit.description.clone().unwrap_or_default(),
             used_by: Some(usage_names(&u.used_by)),
         }),
+        ManageTab::Tags => rows_from(&tags(), |t| Row {
+            id: t.tag.id,
+            name: t.tag.name.clone(),
+            hint: String::new(),
+            used_by: Some(usage_names(&t.used_by)),
+        }),
     };
 
     let adding = match current {
         ManageTab::Cuisines => (add_cuisine.loading)(),
         ManageTab::Proteins => (add_protein.loading)(),
         ManageTab::Units => (add_unit.loading)(),
+        ManageTab::Tags => (add_tag.loading)(),
     };
     let (add_error, rename_error, delete_error) = match current {
         ManageTab::Cuisines => (
@@ -224,14 +256,20 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
             error_of(&edit_unit.result.read()),
             error_of(&delete_unit.result.read()),
         ),
+        ManageTab::Tags => (
+            error_of(&add_tag.result.read()),
+            error_of(&edit_tag.result.read()),
+            error_of(&delete_tag.result.read()),
+        ),
     };
     let add_placeholder = match current {
         ManageTab::Cuisines => "Add a cuisine…",
         ManageTab::Proteins => "Add a protein…",
         ManageTab::Units => "Add a unit…",
+        ManageTab::Tags => "Add a tag…",
     };
     let used_by_noun = match current {
-        ManageTab::Cuisines | ManageTab::Proteins => "recipe",
+        ManageTab::Cuisines | ManageTab::Proteins | ManageTab::Tags => "recipe",
         ManageTab::Units => "ingredient",
     };
 
@@ -254,6 +292,10 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
                 name,
                 description: None,
             }),
+            ManageTab::Tags => add_tag.submit(NewTag {
+                household_id: None,
+                name,
+            }),
         }
     };
 
@@ -267,12 +309,14 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
                 description: None,
             },
         ),
+        ManageTab::Tags => edit_tag.submit(id, UpdateTag { name: Some(name) }),
     };
 
     let submit_delete = move |id: Uuid| match ManageTab::from_index(tab()) {
         ManageTab::Cuisines => delete_cuisine.submit(id),
         ManageTab::Proteins => delete_protein.submit(id),
         ManageTab::Units => delete_unit.submit(id),
+        ManageTab::Tags => delete_tag.submit(id),
     };
 
     rsx! {
@@ -282,7 +326,12 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
 
             div { class: "mr-manage",
                 Tabs {
-                    labels: vec!["Cuisines".to_string(), "Proteins".to_string(), "Units".to_string()],
+                    labels: vec![
+                        "Cuisines".to_string(),
+                        "Proteins".to_string(),
+                        "Units".to_string(),
+                        "Tags".to_string(),
+                    ],
                     selected: tab(),
                     on_select: move |i: usize| {
                         tab.set(i);
@@ -350,8 +399,8 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
                                         row: row.clone(),
                                         used_by_noun: used_by_noun.to_string(),
                                         editing_draft: editing()
-                                                                                                                                                                                                            .filter(|(id, _)| *id == row.id)
-                                                                                                                                                                                                            .map(|(_, draft)| draft),
+                                            .filter(|(id, _)| *id == row.id)
+                                            .map(|(_, draft)| draft),
                                         on_edit: move |(id, name): (Uuid, String)| {
                                             clear_results();
                                             editing.set(Some((id, name)));
@@ -377,6 +426,7 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
         if let Some((id, name)) = confirming() {
             ConfirmDeleteRow {
                 name,
+                used_by_noun: used_by_noun.to_string(),
                 on_cancel: move |_| confirming.set(None),
                 on_confirm: move |_| {
                     confirming.set(None);
@@ -509,6 +559,7 @@ fn UsagePopover(used_by: Option<Vec<String>>, noun: String) -> Element {
 #[component]
 fn ConfirmDeleteRow(
     name: String,
+    used_by_noun: String,
     on_confirm: EventHandler<()>,
     on_cancel: EventHandler<()>,
 ) -> Element {
@@ -519,7 +570,9 @@ fn ConfirmDeleteRow(
             danger: true,
             on_confirm: move |_| on_confirm.call(()),
             on_cancel: move |_| on_cancel.call(()),
-            Text { "This removes it for good. If a recipe still uses it, the delete is refused." }
+            Text {
+                "This removes it for good. If any {used_by_noun} still uses it, the delete is refused."
+            }
         }
     }
 }
