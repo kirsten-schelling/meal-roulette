@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// A row from `shopping_list_item` — one aggregated line on a list.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct ShoppingListItem {
     pub id: Uuid,
     pub shopping_list_id: Uuid,
@@ -15,6 +15,29 @@ pub struct ShoppingListItem {
     pub note: Option<String>,
     pub created_at: time::OffsetDateTime,
     pub updated_at: time::OffsetDateTime,
+}
+
+/// One list line joined with what the page shows beside it: the ingredient's
+/// name and pack size, the snapshot unit's name, the recipes on the plan that
+/// use it, and whether the household has it asleep.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct ShoppingListLine {
+    /// The `shopping_list_item` id.
+    pub id: Uuid,
+    pub ingredient_id: Uuid,
+    pub ingredient: String,
+    pub qty: Decimal,
+    pub unit: String,
+    pub purchase_size: i32,
+    /// Whole packs of `purchase_size` needed to cover `qty`.
+    pub packs: i32,
+    pub is_purchased: bool,
+    pub note: Option<String>,
+    /// Titles of the plan's recipes that call for it, in date order.
+    pub used_in: Vec<String>,
+    /// Wake date of an active sleep. `None` = not asleep, so it goes on the list.
+    #[serde(default, with = "crate::date_format::iso_date::option")]
+    pub sleep_until: Option<time::Date>,
 }
 
 /// Incoming body for `POST /shopping-list-items`.

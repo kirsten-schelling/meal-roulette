@@ -593,6 +593,8 @@ body { margin: 0; }
 .mr-table tbody td { padding: .6rem .75rem; border-bottom: 1px solid var(--mr-border); color: var(--mr-text); }
 .mr-table tbody tr:last-child td { border-bottom: none; }
 .mr-table tbody tr:hover { background: var(--mr-surface-2); }
+.mr-table tbody tr.mr-table__row--link { cursor: pointer; }
+.mr-table tbody tr.mr-table__row--link:focus-visible { outline: 2px solid var(--mr-accent); outline-offset: -2px; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    TABS
@@ -1208,3 +1210,125 @@ body { margin: 0; }
 }
 /* Chips parked in the search bar aren't clickable as a whole — no glow. */
 .mr-fsearch .mr-chip:hover { filter: none; }
+
+/* History and shopping list */
+.mr-nowrap { white-space: nowrap; }
+.mr-textlink {
+  color: var(--mr-accent); font-weight: 600; text-decoration: none;
+}
+.mr-textlink:hover { text-decoration: underline; }
+.mr-textlink:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); border-radius: 4px; }
+
+.mr-history__tabs { margin-bottom: 1.1rem; }
+
+/* favourite toggle: a muted outline star that fills amber when on */
+.mr-star { font-size: 1.2rem; }
+.mr-star--on, .mr-star--on:hover { color: var(--mr-warn); }
+.mr-star:disabled { opacity: .5; cursor: progress; }
+
+/* dinner count over a one-line, truncated list of titles */
+.mr-dinners { display: flex; flex-direction: column; gap: .1rem; min-width: 0; max-width: 20rem; }
+.mr-dinners__count { font-weight: 600; color: var(--mr-text); }
+.mr-dinners__titles {
+  color: var(--mr-text-muted); font-size: .82rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* plan page: roll date, archived badge, star and history link under the subtitle */
+.mr-planmeta {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .5rem .7rem;
+  color: var(--mr-text-muted); font-size: .85rem;
+}
+.mr-empty__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; margin-top: .25rem; }
+.mr-week__actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+
+/* shopping list */
+.mr-stale { margin-bottom: 1rem; }
+.mr-stale__body {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem;
+}
+.mr-listsummary { margin: 0 0 .75rem; color: var(--mr-text-muted); font-size: .9rem; font-weight: 600; }
+.mr-dim { opacity: .5; }
+.mr-struck { text-decoration: line-through; color: var(--mr-text-muted); }
+.mr-linenote {
+  margin-left: .45rem; padding: .12rem .45rem; border-radius: var(--mr-radius-pill);
+  background: var(--mr-neutral-bg); color: var(--mr-neutral-fg);
+  font-size: .72rem; font-weight: 600; white-space: nowrap;
+}
+.mr-usedin { color: var(--mr-text-muted); font-size: .85rem; }
+.mr-linestatus { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .35rem; }
+
+/* the "bought" tick: round, so it reads apart from the square row-select box */
+.mr-buycheck {
+  appearance: none; -webkit-appearance: none; margin: 0; display: block;
+  width: 1.3rem; height: 1.3rem; border-radius: 50%; cursor: pointer;
+  border: 2px solid var(--mr-border); background: var(--mr-surface);
+  transition: background-color .15s, border-color .15s;
+}
+.mr-buycheck:hover { border-color: var(--mr-accent); }
+.mr-buycheck:checked {
+  border-color: var(--mr-accent);
+  background: var(--mr-accent) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path d='M4.2 8.4 L6.8 11 L11.8 5.6' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / 80% no-repeat;
+}
+.mr-buycheck:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+
+/* "Sleep for [N] weeks" inside the floating selection bar */
+.mr-sleepbar { display: inline-flex; align-items: center; gap: .45rem; font-size: .88rem; color: var(--mr-text); }
+.mr-sleepbar .mr-input.mr-sleepbar__weeks {
+  width: 4.2rem; padding: .3rem .5rem; box-shadow: none; text-align: center;
+}
+
+/* Recipe pages, tags and form hints */
+.mr-label__required {
+  margin-left: .45rem; font-size: .68rem; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--mr-text-muted);
+}
+.mr-combo__flag--inline { position: static; transform: none; margin-left: auto; }
+.mr-sel__opt:has(.mr-combo__flag--inline) { display: flex; align-items: center; gap: .5rem; }
+
+/* Explains a disabled button on hover or focus. */
+.mr-reasontip { position: relative; display: inline-flex; border-radius: var(--mr-radius-sm); }
+.mr-reasontip:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+.mr-reasontip__bubble {
+  display: none; position: absolute; right: 0; bottom: calc(100% + .45rem); z-index: 46;
+  min-width: 13rem; max-width: 18rem; padding: .6rem .75rem;
+  background: var(--mr-surface); color: var(--mr-text);
+  border: 1px solid var(--mr-border); border-radius: var(--mr-radius);
+  box-shadow: var(--mr-shadow-lg); font-size: .85rem; text-align: left;
+}
+.mr-reasontip:hover .mr-reasontip__bubble,
+.mr-reasontip:focus-within .mr-reasontip__bubble,
+.mr-reasontip:focus .mr-reasontip__bubble { display: block; }
+.mr-reasontip__title { display: block; font-weight: 600; margin-bottom: .25rem; }
+.mr-reasontip__bubble ul { margin: 0; padding-left: 1.1rem; }
+
+.mr-tagpicker { display: flex; flex-direction: column; gap: .5rem; }
+.mr-tagpicker__chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.mr-tagcell { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+
+.mr-backlink {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: .3rem;
+  font-size: .85rem; font-weight: 600;
+  color: var(--mr-accent); text-decoration: none;
+}
+.mr-backlink:hover { text-decoration: underline; }
+
+.mr-recipe-page {
+  display: grid; grid-template-columns: minmax(16rem, 22rem) 1fr; gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 860px) { .mr-recipe-page { grid-template-columns: 1fr; } }
+.mr-recipe-page__ingredients .mr-card__body { display: flex; flex-direction: column; gap: .9rem; }
+.mr-recipe-page__composer { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; }
+.mr-recipe-page__composer > .mr-subpanel { align-self: stretch; }
+
+.mr-summary {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .9rem 1rem; margin: 0;
+}
+.mr-summary__item { display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+.mr-summary__item--wide { grid-column: 1 / -1; }
+.mr-summary__label {
+  font-size: .75rem; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--mr-text-muted);
+}
+.mr-summary__value { margin: 0; color: var(--mr-text); }

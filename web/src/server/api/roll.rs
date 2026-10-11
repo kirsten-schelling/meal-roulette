@@ -1,9 +1,8 @@
 use dioxus::prelude::*;
-use domain::meal_plan::MealPlanDetail;
-use domain::roll::RollRequest;
+use domain::roll::{RollOutcome, RollRequest};
 
 #[server]
-pub async fn roll_week(request: RollRequest) -> Result<MealPlanDetail, ServerFnError> {
+pub async fn roll_week(request: RollRequest) -> Result<RollOutcome, ServerFnError> {
     use crate::server::{app_state, server_fn_error};
     use api::features::roll::service;
 

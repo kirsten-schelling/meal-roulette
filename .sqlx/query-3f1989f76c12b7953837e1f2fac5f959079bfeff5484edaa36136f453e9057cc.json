@@ -1,0 +1,119 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT meal_plan.id, meal_plan.household_id, meal_plan.created_at, meal_plan.start_date,\n               MAX(planned_meal.scheduled_date) AS end_date,\n               COUNT(planned_meal.id) AS \"num_days!\",\n               meal_plan.seed, meal_plan.is_favourite, meal_plan.archived_at,\n               COALESCE(\n                   ARRAY_AGG(recipe.title ORDER BY planned_meal.scheduled_date)\n                       FILTER (WHERE planned_meal.id IS NOT NULL),\n                   ARRAY[]::text[]\n               ) AS \"dinners!\"\n        FROM meal_plan\n        LEFT JOIN planned_meal ON planned_meal.meal_plan_id = meal_plan.id\n        LEFT JOIN recipe ON recipe.id = planned_meal.recipe_id\n        GROUP BY meal_plan.id\n        ORDER BY meal_plan.created_at DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "household_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "household_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "start_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "start_date"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "end_date",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "num_days!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "seed",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "seed"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "is_favourite",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "is_favourite"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "archived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "archived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "dinners!",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      true,
+      false,
+      true,
+      null
+    ]
+  },
+  "hash": "3f1989f76c12b7953837e1f2fac5f959079bfeff5484edaa36136f453e9057cc"
+}

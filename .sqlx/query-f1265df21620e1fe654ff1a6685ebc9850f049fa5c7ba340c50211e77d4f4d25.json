@@ -1,0 +1,90 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO slept_ingredient (household_id, ingredient_id, sleep_until)\n        SELECT DISTINCT $1::uuid, picked.ingredient_id, CURRENT_DATE + 7 * $3::int\n        FROM UNNEST($2::uuid[]) AS picked(ingredient_id)\n        ON CONFLICT ON CONSTRAINT uq_slept_ingredient\n        DO UPDATE SET sleep_until = EXCLUDED.sleep_until\n        RETURNING id, household_id, ingredient_id, sleep_until, created_at, updated_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "slept_ingredient",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "household_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "slept_ingredient",
+            "name": "household_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ingredient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "slept_ingredient",
+            "name": "ingredient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "sleep_until",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "slept_ingredient",
+            "name": "sleep_until"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "slept_ingredient",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "slept_ingredient",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "UuidArray",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "f1265df21620e1fe654ff1a6685ebc9850f049fa5c7ba340c50211e77d4f4d25"
+}

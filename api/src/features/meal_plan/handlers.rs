@@ -4,10 +4,10 @@ use axum::{
 };
 use uuid::Uuid;
 
-use super::repository::{create, delete, get, latest_detail, list, update};
+use super::repository::{create, delete, get, latest_detail, list, list_summaries, update};
 use crate::error::AppError;
 use crate::state::AppState;
-use domain::meal_plan::{MealPlan, MealPlanDetail, NewMealPlan, UpdateMealPlan};
+use domain::meal_plan::{MealPlan, MealPlanDetail, MealPlanSummary, NewMealPlan, UpdateMealPlan};
 
 pub async fn get_meal_plans(
     State(state): State<AppState>,
@@ -21,8 +21,15 @@ pub async fn get_latest_meal_plan(
 ) -> Result<Json<MealPlanDetail>, AppError> {
     let plan = latest_detail(&state.db)
         .await?
-        .ok_or_else(|| AppError::NotFound("No plan has been rolled yet".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("No active plan: roll a week first".to_string()))?;
     Ok(Json(plan))
+}
+
+pub async fn get_meal_plan_history(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<MealPlanSummary>>, AppError> {
+    let plans = list_summaries(&state.db).await?;
+    Ok(Json(plans))
 }
 
 pub async fn get_meal_plan(

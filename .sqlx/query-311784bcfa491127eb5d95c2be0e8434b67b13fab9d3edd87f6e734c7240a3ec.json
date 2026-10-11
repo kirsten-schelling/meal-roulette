@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        DELETE FROM meal_plan\n        WHERE id = $1\n        RETURNING id, household_id, start_date, seed, name,\n                  roll_constraints AS \"roll_constraints: Json<RollConstraints>\",\n                  created_at, updated_at\n        ",
+  "query": "\n        UPDATE meal_plan\n        SET start_date = COALESCE($1, start_date),\n            seed = COALESCE($2, seed),\n            name = COALESCE($3, name)\n        WHERE id = $4\n        RETURNING id, household_id, start_date, seed, name,\n                  roll_constraints AS \"roll_constraints: Json<RollConstraints>\",\n                  is_favourite, archived_at, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,28 @@
       },
       {
         "ordinal": 6,
+        "name": "is_favourite",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "is_favourite"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "archived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "meal_plan",
+            "name": "archived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,7 +103,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -94,6 +116,9 @@
     ],
     "parameters": {
       "Left": [
+        "Date",
+        "Int8",
+        "Text",
         "Uuid"
       ]
     },
@@ -105,8 +130,10 @@
       true,
       false,
       false,
+      true,
+      false,
       false
     ]
   },
-  "hash": "e39e0221251ec8bdf477c91854fe8696b8c92e07bca9f73322dc057cb0727cea"
+  "hash": "311784bcfa491127eb5d95c2be0e8434b67b13fab9d3edd87f6e734c7240a3ec"
 }

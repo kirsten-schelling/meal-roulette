@@ -1,20 +1,24 @@
 use std::collections::{HashMap, HashSet};
 
-use domain::meal_plan::{MealPlanDetail, NewMealPlan};
+use domain::meal_plan::NewMealPlan;
 use domain::planned_meal::{NewPlannedMeal, PlannedMealDetail};
 use domain::recipe::Recipe;
-use domain::roll::{CountRule, RollConstraints, RollRequest};
-use solver::{CuisineRequirement, Problem, ProteinRequirement, SolveError};
+use domain::roll::{
+    Bound, CountRule, DifficultyRule, Importance, RollConstraints, RollOutcome, RollRequest,
+    RuleFamily, UnmetRule,
+};
+use solver::{Problem, Requirement, SolveError};
 use sqlx::PgPool;
 use time::Duration;
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::features::{household, meal_plan, planned_meal, recipe};
+use crate::features::{household, meal_plan, planned_meal, recipe, recipe_ingredient};
 
 /// Roll a new plan: pick `num_days` recipes under the request's constraints,
-/// then store the plan and one dinner per day starting at `start_date`.
-pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<MealPlanDetail, AppError> {
+/// then store the plan and one dinner per day starting at `start_date`. The
+/// outcome lists the preferences the recipes could not fully meet.
+pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcome, AppError> {
     let num_days = usize::from(request.num_days);
     if num_days == 0 {
         return Err(AppError::BadRequest(
@@ -26,8 +30,16 @@ pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<MealPlanDe
         None => household::repository::default_household(pool).await?.id,
     };
     let recipes = recipe::repository::list(pool).await?;
+    let grid = Grid::build(pool, &recipes, &request.constraints).await?;
     let seed = request.seed.unwrap_or_else(fresh_seed);
-    let picks = solve(&recipes, &request.constraints, num_days, seed)?;
+    let solution = solver::roll(&Problem {
+        recipes: grid.rows.clone(),
+        requirements: grid.requirements(),
+        num_to_pick: num_days,
+        seed: seed as u64,
+    })
+    .map_err(solver_error)?;
+    let unmet = grid.unmet(&solution.achieved);
     let start_date = request
         .start_date
         .unwrap_or_else(|| time::OffsetDateTime::now_utc().date());
@@ -44,7 +56,7 @@ pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<MealPlanDe
         },
     )
     .await?;
-    for (offset, &index) in picks.iter().enumerate() {
+    for (offset, &index) in solution.picks.iter().enumerate() {
         planned_meal::repository::create(
             &mut *tx,
             NewPlannedMeal {
@@ -59,109 +71,236 @@ pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<MealPlanDe
     }
     tx.commit().await?;
 
-    Ok(meal_plan::repository::get_detail(pool, plan.id).await?)
+    Ok(RollOutcome {
+        plan: meal_plan::repository::get_detail(pool, plan.id).await?,
+        unmet,
+    })
 }
 
 /// Replace one dinner with a fresh pick that keeps the rest of the plan valid:
 /// the other days stay fixed, the candidate pool excludes every recipe already
-/// on the plan, and only the part of each rule those days leave unmet is asked
+/// on the plan, and only the part of each rule those days leave open is asked
 /// of the new pick.
 pub async fn reroll(pool: &PgPool, planned_meal_id: Uuid) -> Result<PlannedMealDetail, AppError> {
     let meal = planned_meal::repository::get_detail(pool, planned_meal_id).await?;
     let plan = meal_plan::repository::get(pool, meal.meal_plan_id).await?;
-    let kept: Vec<PlannedMealDetail> = planned_meal::repository::list_detail(pool, plan.id)
+    let kept: HashSet<Uuid> = planned_meal::repository::list_detail(pool, plan.id)
         .await?
         .into_iter()
         .filter(|other| other.id != meal.id)
-        .collect();
-
-    let taken: HashSet<Uuid> = kept
-        .iter()
         .map(|other| other.recipe_id)
-        .chain(std::iter::once(meal.recipe_id))
-        .collect();
-    let candidates: Vec<Recipe> = recipe::repository::list(pool)
-        .await?
-        .into_iter()
-        .filter(|candidate| !taken.contains(&candidate.id))
         .collect();
 
-    let picks = solve(
-        &candidates,
-        &residual(&plan.constraints, &kept),
-        1,
-        fresh_seed(),
-    )?;
-    let replacement = candidates[picks[0]].id;
+    let recipes = recipe::repository::list(pool).await?;
+    let grid = Grid::build(pool, &recipes, &plan.constraints).await?;
+    let kept_rows: Vec<&Vec<i32>> = recipes
+        .iter()
+        .zip(&grid.rows)
+        .filter(|(r, _)| kept.contains(&r.id))
+        .map(|(_, row)| row)
+        .collect();
+    let candidates: Vec<usize> = recipes
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| !kept.contains(&r.id) && r.id != meal.recipe_id)
+        .map(|(i, _)| i)
+        .collect();
+
+    let solution = solver::roll(&Problem {
+        recipes: candidates.iter().map(|&i| grid.rows[i].clone()).collect(),
+        requirements: residual(&grid.requirements(), &kept_rows),
+        num_to_pick: 1,
+        seed: fresh_seed() as u64,
+    })
+    .map_err(solver_error)?;
+    let replacement = recipes[candidates[solution.picks[0]]].id;
     Ok(planned_meal::repository::set_recipe(pool, meal.id, replacement).await?)
 }
 
-/// What the rules still demand once the kept days are counted: a rule for two
-/// Thai nights with one Thai dinner already in place becomes a rule for one.
-fn residual(constraints: &RollConstraints, kept: &[PlannedMealDetail]) -> RollConstraints {
-    let remaining = |rules: &[CountRule], matches: fn(&PlannedMealDetail, Uuid) -> bool| {
-        rules
+/// What the rules still ask of the open day once the kept days are counted: at
+/// least two Thai nights with one Thai dinner kept becomes at least one; at
+/// most two chicken with two kept becomes none.
+fn residual(requirements: &[Requirement], kept: &[&Vec<i32>]) -> Vec<Requirement> {
+    requirements
+        .iter()
+        .map(|r| {
+            let matched = kept.iter().filter(|row| r.matches(row)).count();
+            let matched = u32::try_from(matched).unwrap_or(u32::MAX);
+            Requirement {
+                at_least: r.at_least.saturating_sub(matched),
+                at_most: r.at_most.map(|max| max.saturating_sub(matched)),
+                ..*r
+            }
+        })
+        .collect()
+}
+
+// The solver's columns. Must-use ingredients take one 0/1 column each, after these.
+const CUISINE: usize = 0;
+const PROTEIN: usize = 1;
+const DIFFICULTY: usize = 2;
+const FIRST_INGREDIENT: usize = 3;
+
+/// The recipes flattened into the solver's integer grid, plus each rule as a
+/// requirement over it, remembering which rule each requirement came from.
+struct Grid {
+    rows: Vec<Vec<i32>>,
+    rules: Vec<(RuleFamily, usize, Requirement)>,
+}
+
+impl Grid {
+    async fn build(
+        pool: &PgPool,
+        recipes: &[Recipe],
+        constraints: &RollConstraints,
+    ) -> Result<Grid, AppError> {
+        let ingredient_ids: Vec<Uuid> = constraints.ingredients.iter().map(|r| r.id).collect();
+        let uses: HashSet<(Uuid, Uuid)> =
+            recipe_ingredient::repository::uses_of(pool, &ingredient_ids)
+                .await?
+                .into_iter()
+                .map(|u| (u.recipe_id, u.ingredient_id))
+                .collect();
+        Ok(Grid::new(recipes, &uses, constraints))
+    }
+
+    /// `uses` holds (recipe id, ingredient id) for every recipe using a must-use ingredient.
+    fn new(
+        recipes: &[Recipe],
+        uses: &HashSet<(Uuid, Uuid)>,
+        constraints: &RollConstraints,
+    ) -> Grid {
+        let ingredient_ids: Vec<Uuid> = constraints.ingredients.iter().map(|r| r.id).collect();
+        let mut codes = Codes::default();
+        let rows = recipes
             .iter()
-            .filter_map(|rule| {
-                let satisfied = kept.iter().filter(|meal| matches(meal, rule.id)).count();
-                let times = rule
-                    .times
-                    .saturating_sub(u32::try_from(satisfied).unwrap_or(u32::MAX));
-                (times > 0).then_some(CountRule { id: rule.id, times })
+            .map(|r| {
+                let mut row = vec![
+                    codes.of(r.cuisine_id),
+                    codes.of(r.main_protein_id),
+                    i32::from(r.difficulty),
+                ];
+                row.extend(
+                    ingredient_ids
+                        .iter()
+                        .map(|&ingredient| i32::from(uses.contains(&(r.id, ingredient)))),
+                );
+                row
+            })
+            .collect();
+
+        let mut rules = Vec::new();
+        let mut lookup = |family, attribute, list: &[CountRule], codes: &mut Codes| {
+            for (index, rule) in list.iter().enumerate() {
+                let value = codes.of(Some(rule.id));
+                let requirement = counted(
+                    attribute,
+                    value,
+                    value,
+                    rule.times,
+                    rule.bound,
+                    rule.importance,
+                );
+                rules.push((family, index, requirement));
+            }
+        };
+        lookup(
+            RuleFamily::Cuisine,
+            CUISINE,
+            &constraints.cuisines,
+            &mut codes,
+        );
+        lookup(
+            RuleFamily::Protein,
+            PROTEIN,
+            &constraints.proteins,
+            &mut codes,
+        );
+        for (index, rule) in constraints.ingredients.iter().enumerate() {
+            let requirement = counted(
+                FIRST_INGREDIENT + index,
+                1,
+                1,
+                rule.times,
+                rule.bound,
+                rule.importance,
+            );
+            rules.push((RuleFamily::Ingredient, index, requirement));
+        }
+        for (index, rule) in constraints.difficulties.iter().enumerate() {
+            rules.push((RuleFamily::Difficulty, index, difficulty(rule)));
+        }
+        Grid { rows, rules }
+    }
+
+    fn requirements(&self) -> Vec<Requirement> {
+        self.rules.iter().map(|(_, _, r)| *r).collect()
+    }
+
+    /// The rules the week falls short of, given how many picks matched each.
+    fn unmet(&self, achieved: &[u32]) -> Vec<UnmetRule> {
+        self.rules
+            .iter()
+            .zip(achieved)
+            .filter(|((_, _, r), &got)| !r.is_met(got))
+            .map(|(&(family, index, r), &got)| {
+                let (bound, times) = match r.at_most {
+                    Some(max) if r.at_least == 0 => (Bound::AtMost, max),
+                    _ => (Bound::AtLeast, r.at_least),
+                };
+                UnmetRule {
+                    family,
+                    index,
+                    bound,
+                    times,
+                    got,
+                }
             })
             .collect()
-    };
-    RollConstraints {
-        cuisines: remaining(&constraints.cuisines, |meal, id| {
-            meal.cuisine_id == Some(id)
-        }),
-        proteins: remaining(&constraints.proteins, |meal, id| {
-            meal.main_protein_id == Some(id)
-        }),
     }
 }
 
-/// Flatten recipes and rules into the solver's integer-only input, run it, and
-/// hand back positions into `recipes`.
-fn solve(
-    recipes: &[Recipe],
-    constraints: &RollConstraints,
-    num_to_pick: usize,
-    seed: i64,
-) -> Result<Vec<usize>, AppError> {
-    let mut codes = Codes::default();
-    let problem = Problem {
-        recipes: recipes
-            .iter()
-            .map(|recipe| solver::Recipe {
-                cuisine: codes.of(recipe.cuisine_id),
-                protein: codes.of(recipe.main_protein_id),
-            })
-            .collect(),
-        cuisine_requirements: constraints
-            .cuisines
-            .iter()
-            .map(|rule| CuisineRequirement {
-                cuisine: codes.of(Some(rule.id)),
-                num_days: days(rule.times),
-            })
-            .collect(),
-        protein_requirements: constraints
-            .proteins
-            .iter()
-            .map(|rule| ProteinRequirement {
-                protein: codes.of(Some(rule.id)),
-                num_days: days(rule.times),
-            })
-            .collect(),
-        num_to_pick,
-        seed: seed as u64,
+fn counted(
+    attribute: usize,
+    low: i32,
+    high: i32,
+    times: u32,
+    bound: Bound,
+    importance: Importance,
+) -> Requirement {
+    let (at_least, at_most) = match bound {
+        Bound::AtLeast => (times, None),
+        Bound::AtMost => (0, Some(times)),
     };
-    solver::roll(&problem).map_err(solver_error)
+    Requirement {
+        attribute,
+        low,
+        high,
+        at_least,
+        at_most,
+        importance: match importance {
+            Importance::Low => solver::Importance::Low,
+            Importance::Medium => solver::Importance::Medium,
+            Importance::High => solver::Importance::High,
+            Importance::Required => solver::Importance::Required,
+        },
+    }
+}
+
+fn difficulty(rule: &DifficultyRule) -> Requirement {
+    let (low, high) = rule.band.levels();
+    counted(
+        DIFFICULTY,
+        i32::from(low),
+        i32::from(high),
+        rule.times,
+        rule.bound,
+        rule.importance,
+    )
 }
 
 /// Hands out the small positive integers the solver works with, one per lookup
-/// id. A recipe with no value gets 0, which the solver reads as "unspecified".
+/// id. A recipe with no value gets 0, which no rule asks for.
 #[derive(Default)]
 struct Codes(HashMap<Uuid, i32>);
 
@@ -175,10 +314,6 @@ impl Codes {
     }
 }
 
-fn days(times: u32) -> i32 {
-    i32::try_from(times).unwrap_or(i32::MAX)
-}
-
 /// Seeds stay small and positive so they are easy to read off the plan and
 /// type back in to repeat a roll.
 fn fresh_seed() -> i64 {
@@ -188,12 +323,166 @@ fn fresh_seed() -> i64 {
 fn solver_error(error: SolveError) -> AppError {
     match error {
         SolveError::Unsatisfiable => AppError::Unprocessable(
-            "No combination of your recipes satisfies these constraints. Loosen a rule, roll fewer days, or add recipes."
+            "No combination of your recipes meets the required rules. Loosen a rule, make it a preference, roll fewer days, or add recipes."
+                .to_string(),
+        ),
+        SolveError::GaveUp => AppError::Unprocessable(
+            "These required rules are too tangled to settle quickly. Make one of them a preference, or loosen it."
                 .to_string(),
         ),
         SolveError::InvalidInput => AppError::BadRequest(error.to_string()),
         SolveError::Unknown(_) | SolveError::BadIndex(_) | SolveError::Duplicate(_) => {
             AppError::Internal(error.to_string())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use domain::roll::DifficultyBand;
+
+    fn recipe(cuisine: Uuid, protein: Uuid, difficulty: i16) -> Recipe {
+        Recipe {
+            id: Uuid::now_v7(),
+            household_id: None,
+            title: String::new(),
+            difficulty,
+            time_mins: 20,
+            servings: 2,
+            healthiness: None,
+            main_protein_id: Some(protein),
+            cuisine_id: Some(cuisine),
+            created_at: time::OffsetDateTime::UNIX_EPOCH,
+            updated_at: time::OffsetDateTime::UNIX_EPOCH,
+        }
+    }
+
+    fn rule(id: Uuid, times: u32, bound: Bound, importance: Importance) -> CountRule {
+        CountRule {
+            id,
+            times,
+            bound,
+            importance,
+        }
+    }
+
+    fn solve(grid: &Grid, days: usize, seed: u64) -> Result<solver::Solution, SolveError> {
+        solver::roll(&Problem {
+            recipes: grid.rows.clone(),
+            requirements: grid.requirements(),
+            num_to_pick: days,
+            seed,
+        })
+    }
+
+    #[test]
+    fn every_rule_family_reaches_the_solver() {
+        let (thai, italian, chicken, beef, tofu, spinach) = (
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+        );
+        let recipes = vec![
+            recipe(thai, chicken, 1),
+            recipe(thai, beef, 2),
+            recipe(thai, tofu, 5),
+            recipe(italian, chicken, 4),
+            recipe(italian, beef, 3),
+            recipe(italian, tofu, 1),
+            recipe(thai, chicken, 3),
+            recipe(italian, beef, 5),
+        ];
+        let uses: HashSet<(Uuid, Uuid)> = [(recipes[5].id, spinach), (recipes[1].id, spinach)]
+            .into_iter()
+            .collect();
+        let constraints = RollConstraints {
+            cuisines: vec![rule(thai, 2, Bound::AtLeast, Importance::Required)],
+            proteins: vec![rule(chicken, 1, Bound::AtMost, Importance::Required)],
+            ingredients: vec![rule(spinach, 1, Bound::AtLeast, Importance::Required)],
+            difficulties: vec![DifficultyRule {
+                band: DifficultyBand::Hard,
+                times: 1,
+                bound: Bound::AtLeast,
+                importance: Importance::Required,
+            }],
+        };
+        let grid = Grid::new(&recipes, &uses, &constraints);
+        for seed in 0..40 {
+            let solution = solve(&grid, 4, seed).expect("the rules fit together");
+            let picked: Vec<&Recipe> = solution.picks.iter().map(|&i| &recipes[i]).collect();
+            let count = |test: &dyn Fn(&Recipe) -> bool| picked.iter().filter(|r| test(r)).count();
+            assert!(count(&|r| r.cuisine_id == Some(thai)) >= 2, "seed {seed}");
+            assert!(
+                count(&|r| r.main_protein_id == Some(chicken)) <= 1,
+                "seed {seed}"
+            );
+            assert!(
+                count(&|r| uses.contains(&(r.id, spinach))) >= 1,
+                "seed {seed}"
+            );
+            assert!(count(&|r| r.difficulty >= 4) >= 1, "seed {seed}");
+            assert!(grid.unmet(&solution.achieved).is_empty(), "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn a_loosened_preference_is_reported_against_its_rule() {
+        let (thai, italian, chicken) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+        let recipes = vec![
+            recipe(thai, chicken, 2),
+            recipe(thai, chicken, 3),
+            recipe(italian, chicken, 2),
+            recipe(italian, chicken, 4),
+        ];
+        let constraints = RollConstraints {
+            proteins: vec![rule(chicken, 0, Bound::AtMost, Importance::Low)],
+            cuisines: vec![rule(thai, 3, Bound::AtLeast, Importance::High)],
+            ..RollConstraints::default()
+        };
+        let grid = Grid::new(&recipes, &HashSet::new(), &constraints);
+        let solution = solve(&grid, 3, 1).expect("preferences never fail a roll");
+        let unmet = grid.unmet(&solution.achieved);
+        assert!(unmet.contains(&UnmetRule {
+            family: RuleFamily::Cuisine,
+            index: 0,
+            bound: Bound::AtLeast,
+            times: 3,
+            got: 2,
+        }));
+        assert!(unmet.contains(&UnmetRule {
+            family: RuleFamily::Protein,
+            index: 0,
+            bound: Bound::AtMost,
+            times: 0,
+            got: 3,
+        }));
+    }
+
+    #[test]
+    fn a_required_rule_for_a_value_no_recipe_has_cannot_be_met() {
+        let (thai, chicken, korean) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+        let recipes = vec![recipe(thai, chicken, 2), recipe(thai, chicken, 3)];
+        let constraints = RollConstraints {
+            cuisines: vec![rule(korean, 1, Bound::AtLeast, Importance::Required)],
+            ..RollConstraints::default()
+        };
+        let grid = Grid::new(&recipes, &HashSet::new(), &constraints);
+        assert_eq!(solve(&grid, 1, 0), Err(SolveError::Unsatisfiable));
+    }
+
+    #[test]
+    fn the_residual_counts_the_kept_days() {
+        let at_least_two_thai = counted(CUISINE, 1, 1, 2, Bound::AtLeast, Importance::Required);
+        let at_most_one_chicken = counted(PROTEIN, 7, 7, 1, Bound::AtMost, Importance::High);
+        let kept = [vec![1, 7, 3], vec![2, 8, 3]];
+        let kept: Vec<&Vec<i32>> = kept.iter().collect();
+        let left = residual(&[at_least_two_thai, at_most_one_chicken], &kept);
+        assert_eq!((left[0].at_least, left[0].at_most), (1, None));
+        assert_eq!((left[1].at_least, left[1].at_most), (0, Some(0)));
+        assert_eq!(left[1].importance, solver::Importance::High);
     }
 }

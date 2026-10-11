@@ -12,6 +12,7 @@ domain = { path = "../domain" }
 uuid = { version = "1", features = ["v7", "serde"] }
 time = { version = "0.3", features = ["formatting", "parsing", "macros"] }
 gloo-timers = { version = "0.3", features = ["futures"] }
+rust_decimal = "1"
 
 # The data layer, called from inside #[server] bodies. Optional so that only the `server`
 # feature pulls it (and sqlx, axum, tokio) in; the wasm build never sees it.

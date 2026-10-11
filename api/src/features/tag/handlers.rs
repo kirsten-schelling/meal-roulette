@@ -7,9 +7,11 @@ use uuid::Uuid;
 use super::repository::{create, delete, get, list, update};
 use crate::error::AppError;
 use crate::state::AppState;
-use domain::tag::{NewTag, Tag, UpdateTag};
+use domain::tag::{NewTag, Tag, TagWithRecipeList, UpdateTag};
 
-pub async fn get_tags(State(state): State<AppState>) -> Result<Json<Vec<Tag>>, AppError> {
+pub async fn get_tags(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<TagWithRecipeList>>, AppError> {
     let tags = list(&state.db).await?;
     Ok(Json(tags))
 }
@@ -17,7 +19,7 @@ pub async fn get_tags(State(state): State<AppState>) -> Result<Json<Vec<Tag>>, A
 pub async fn get_tag(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<Tag>, AppError> {
+) -> Result<Json<TagWithRecipeList>, AppError> {
     let tag = get(&state.db, id).await?;
     Ok(Json(tag))
 }

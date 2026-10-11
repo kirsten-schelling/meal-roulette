@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, name, created_at, updated_at\n        FROM tag\n        ORDER BY created_at DESC\n        ",
+  "query": "\n        DELETE FROM slept_ingredient\n        WHERE household_id = $1 AND ingredient_id = $2\n        RETURNING id, household_id, ingredient_id, sleep_until, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -9,7 +9,7 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "tag",
+            "table": "slept_ingredient",
             "name": "id"
           }
         }
@@ -20,55 +20,70 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "tag",
+            "table": "slept_ingredient",
             "name": "household_id"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "name",
-        "type_info": "Text",
+        "name": "ingredient_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "tag",
-            "name": "name"
+            "table": "slept_ingredient",
+            "name": "ingredient_id"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "created_at",
-        "type_info": "Timestamptz",
+        "name": "sleep_until",
+        "type_info": "Date",
         "origin": {
           "Table": {
-            "table": "tag",
-            "name": "created_at"
+            "table": "slept_ingredient",
+            "name": "sleep_until"
           }
         }
       },
       {
         "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "slept_ingredient",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "tag",
+            "table": "slept_ingredient",
             "name": "updated_at"
           }
         }
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
-      true,
+      false,
+      false,
       false,
       false,
       false
     ]
   },
-  "hash": "19464a8d419a09192beee01e2cecf86e6cc8312cdbbd0e5afede8dab70953b5d"
+  "hash": "1540004f40a4f3c215693bf151436ebe843bcbade214229f13189cd352027c32"
 }

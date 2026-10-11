@@ -13,7 +13,7 @@ use crate::features::plan::hooks::use_plan::swap_planned_meal;
 use crate::features::protein::hooks::use_protein::use_get_proteins;
 use crate::features::recipe::hooks::use_recipe::use_get_recipes;
 use crate::hooks::use_toast::use_toast;
-use crate::models::{day_label, difficulty_label};
+use crate::models::{day_label, difficulty_label, error_message};
 use dioxus::prelude::*;
 use domain::planned_meal::PlannedMealDetail;
 use domain::recipe::Recipe;
@@ -124,7 +124,11 @@ pub fn SwapRecipeDialog(
             match swap_planned_meal(meal_id, recipe_id).await {
                 Ok(updated) => on_swapped.call(updated),
                 Err(e) => {
-                    toast.show(Some("Couldn't swap".to_string()), e.to_string(), Tone::Red);
+                    toast.show(
+                        Some("Couldn't swap".to_string()),
+                        error_message(&e),
+                        Tone::Red,
+                    );
                     saving.set(None);
                 }
             }

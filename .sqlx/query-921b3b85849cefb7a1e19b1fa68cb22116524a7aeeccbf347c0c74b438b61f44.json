@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT COALESCE(MAX(planned_meal.updated_at) > shopping_list.updated_at, false) AS \"is_stale!\"\n        FROM shopping_list\n        LEFT JOIN planned_meal ON planned_meal.meal_plan_id = shopping_list.meal_plan_id\n        WHERE shopping_list.id = $1\n        GROUP BY shopping_list.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "is_stale!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "921b3b85849cefb7a1e19b1fa68cb22116524a7aeeccbf347c0c74b438b61f44"
+}

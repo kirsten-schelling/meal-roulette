@@ -35,7 +35,8 @@ pub fn SearchBar(
     #[props(default)]
     filters: Vec<FilterField>,
     #[props(default = "Search…".to_string())] placeholder: String,
-    /// Fires with the free-text query on every keystroke.
+    /// Fires with the free-text query on every keystroke. While a filter's value is being
+    /// typed, that text is not the query, so it isn't reported.
     #[props(optional)]
     onquery: Option<EventHandler<String>>,
     /// Fires with the applied filter chip labels whenever they change.
@@ -102,8 +103,10 @@ pub fn SearchBar(
                 oninput: move |e| {
                     let v = e.value();
                     text.set(v.clone());
-                    if let Some(cb) = onquery {
-                        cb.call(v);
+                    if pending().is_none() {
+                        if let Some(cb) = onquery {
+                            cb.call(v);
+                        }
                     }
                 },
                 onkeydown: move |e: KeyboardEvent| match e.key() {
@@ -184,6 +187,9 @@ pub fn SearchBar(
                                                 pending.set(Some(field.clone()));
                                                 menu.set(false);
                                                 text.set(String::new());
+                                                if let Some(cb) = onquery {
+                                                    cb.call(String::new());
+                                                }
                                                 // focus the field so you can type the value right away
                                                 if let Some(el) = input_el() {
                                                     spawn(async move {

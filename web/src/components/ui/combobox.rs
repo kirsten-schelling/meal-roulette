@@ -3,12 +3,15 @@ use dioxus::prelude::*;
 use uuid::Uuid;
 
 /// One row offered by a `Combobox`. `hint` is optional right-aligned muted
-/// text (e.g. an ingredient's unit).
+/// text (e.g. an ingredient's unit). A `pending` option is one the form will
+/// create on save (typed as new elsewhere in it): it is tagged "New", and
+/// picking it records a create rather than an existing id.
 #[derive(Clone, PartialEq, Default)]
 pub struct ComboOption {
     pub id: Uuid,
     pub label: String,
     pub hint: String,
+    pub pending: bool,
 }
 
 impl ComboOption {
@@ -17,6 +20,15 @@ impl ComboOption {
             id: id.into(),
             label: label.into(),
             hint: String::new(),
+            pending: false,
+        }
+    }
+
+    /// A not-yet-saved name, offered so it can be reused before the form is saved.
+    pub fn pending(label: impl Into<String>) -> Self {
+        Self {
+            pending: true,
+            ..Self::new(Uuid::nil(), label)
         }
     }
 
@@ -44,6 +56,10 @@ impl Picker {
     }
 
     pub fn pick(&mut self, opt: ComboOption) {
+        if opt.pending {
+            self.create(opt.label);
+            return;
+        }
         self.query = opt.label.clone();
         self.new_name = None;
         self.picked = Some(opt);
@@ -96,6 +112,7 @@ pub fn Combobox(
     mut picker: Signal<Picker>,
     on_create: Option<EventHandler<String>>,
     #[props(default = true)] can_create: bool,
+    #[props(default)] required: bool,
     manage_label: Option<String>,
     on_manage: Option<EventHandler<()>>,
 ) -> Element {
@@ -128,7 +145,7 @@ pub fn Combobox(
     let create_trimmed = trimmed.clone();
 
     rsx! {
-        Field { label: label.clone(),
+        Field { label: label.clone(), required,
             div { class: "{combo_cls}",
                 input {
                     class: "mr-input",
@@ -187,7 +204,9 @@ pub fn Combobox(
                                                 open.set(false);
                                             },
                                             span { "{o.label}" }
-                                            if !o.hint.is_empty() {
+                                            if o.pending {
+                                                span { class: "mr-combo__flag mr-combo__flag--inline", "New" }
+                                            } else if !o.hint.is_empty() {
                                                 span { class: "mr-combo__unit", "{o.hint}" }
                                             }
                                         }

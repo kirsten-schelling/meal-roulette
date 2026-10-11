@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH updated AS (\n            UPDATE recipe_ingredient\n            SET qty = COALESCE($3, qty),\n                note = COALESCE($4, note),\n                is_optional = COALESCE($5, is_optional)\n            WHERE recipe_id = $1 AND ingredient_id = $2\n            RETURNING id, created_at, updated_at, recipe_id, ingredient_id, qty, note, is_optional\n        )\n        SELECT\n            updated.id,\n            updated.created_at,\n            updated.updated_at,\n            updated.recipe_id,\n            updated.ingredient_id,\n            ingredient.name AS ingredient_name,\n            unit.name AS unit,\n            updated.qty,\n            updated.note,\n            updated.is_optional\n        FROM updated\n        JOIN ingredient ON updated.ingredient_id = ingredient.id\n        JOIN unit ON ingredient.unit_id = unit.id\n        ",
+  "query": "\n        WITH updated AS (\n            UPDATE recipe_ingredient\n            SET qty = $3,\n                note = $4,\n                is_optional = $5\n            WHERE recipe_id = $1 AND ingredient_id = $2\n            RETURNING id, created_at, updated_at, recipe_id, ingredient_id, qty, note, is_optional\n        )\n        SELECT\n            updated.id,\n            updated.created_at,\n            updated.updated_at,\n            updated.recipe_id,\n            updated.ingredient_id,\n            ingredient.name AS ingredient_name,\n            unit.name AS unit,\n            updated.qty,\n            updated.note,\n            updated.is_optional\n        FROM updated\n        JOIN ingredient ON updated.ingredient_id = ingredient.id\n        JOIN unit ON ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -136,5 +136,5 @@
       false
     ]
   },
-  "hash": "ce5d707661a3ba51addb29c0a5b950be85210f8d3b18a1efb1997f9d68dc9181"
+  "hash": "82ba46b4d7505e3f3eec29e7077ca587602a89256105dfa66287f0996aa11b10"
 }

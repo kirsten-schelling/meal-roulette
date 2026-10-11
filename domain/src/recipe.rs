@@ -1,5 +1,8 @@
 use crate::{
-    cuisine::CuisineEntry, protein::ProteinEntry, recipe_ingredient::RecipeIngredientEntry,
+    cuisine::CuisineEntry,
+    protein::ProteinEntry,
+    recipe_ingredient::RecipeIngredientEntry,
+    tag::{TagEntry, TagRef},
 };
 
 use super::recipe_ingredient::RecipeIngredient;
@@ -43,6 +46,8 @@ pub struct NewRecipe {
     pub protein: ProteinEntry,
     pub cuisine: CuisineEntry,
     pub ingredients: Vec<RecipeIngredientEntry>,
+    #[serde(default)]
+    pub tags: Vec<TagEntry>,
 }
 
 /// The resolved columns actually written to `recipe` — built server-side after
@@ -60,16 +65,34 @@ pub struct InsertRecipe {
     pub cuisine_id: Option<Uuid>,
 }
 
-/// Partial update body for `PUT /recipes/{id}`.
-#[derive(Debug, Deserialize, Serialize)]
+/// Body for `PUT /recipes/{id}`: the recipe's details as a whole, so a field can also be
+/// cleared (`healthiness: None`). Ingredient lines are edited one at a time instead.
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UpdateRecipe {
-    pub title: Option<String>,
-    pub difficulty: Option<i16>,
-    pub time_mins: Option<i16>,
-    pub servings: Option<i16>,
+    pub title: String,
+    pub difficulty: i16,
+    pub time_mins: i16,
+    pub servings: i16,
     pub healthiness: Option<i16>,
-    pub main_protein_id: Option<Uuid>,
-    pub cuisine_id: Option<Uuid>,
+    pub protein: ProteinEntry,
+    pub cuisine: CuisineEntry,
+    pub tags: Vec<TagEntry>,
+}
+
+/// A recipe with its lookup values resolved to names, for lists and filters.
+#[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]
+pub struct RecipeOverview {
+    pub recipe: Recipe,
+    pub cuisine: Option<String>,
+    pub protein: Option<String>,
+    pub tags: Vec<TagRef>,
+}
+
+/// Everything the single-recipe page shows.
+#[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]
+pub struct RecipeDetail {
+    pub overview: RecipeOverview,
+    pub ingredients: Vec<RecipeIngredient>,
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]

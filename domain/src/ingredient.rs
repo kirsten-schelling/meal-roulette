@@ -37,11 +37,12 @@ pub struct InsertIngredient {
     pub unit_id: Uuid,
 }
 
-#[derive(Debug, Deserialize)]
+/// Body for `PUT /ingredients/{id}`. Like `NewIngredient`, the unit may be one to create.
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UpdateIngredient {
-    pub name: Option<String>,
-    pub purchase_size: Option<i32>,
-    pub unit_id: Option<Uuid>,
+    pub name: String,
+    pub purchase_size: i32,
+    pub unit: UnitEntry,
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]

@@ -11,6 +11,7 @@ pub fn routes() -> Router<AppState> {
             get(handlers::get_meal_plans).post(handlers::create_meal_plan),
         )
         .route("/meal-plans/latest", get(handlers::get_latest_meal_plan))
+        .route("/meal-plans/history", get(handlers::get_meal_plan_history))
         .route(
             "/meal-plans/{id}",
             get(handlers::get_meal_plan)

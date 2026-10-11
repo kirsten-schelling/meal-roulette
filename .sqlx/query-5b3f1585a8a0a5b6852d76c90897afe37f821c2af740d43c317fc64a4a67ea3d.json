@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE recipe\n        SET title = COALESCE($1, title),\n            difficulty = COALESCE($2, difficulty),\n            time_mins = COALESCE($3, time_mins),\n            servings = COALESCE($4, servings),\n            healthiness = COALESCE($5, healthiness),\n            main_protein_id = COALESCE($6, main_protein_id),\n            cuisine_id = COALESCE($7, cuisine_id)\n        WHERE id = $8\n        RETURNING id, household_id, title, difficulty, time_mins, servings,\n                  healthiness, main_protein_id, cuisine_id, created_at, updated_at\n        ",
+  "query": "\n        SELECT recipe.id, recipe.household_id, recipe.title, recipe.difficulty,\n               recipe.time_mins, recipe.servings, recipe.healthiness,\n               recipe.main_protein_id, recipe.cuisine_id, recipe.created_at, recipe.updated_at,\n               cuisine.name AS \"cuisine?\", protein.name AS \"protein?\",\n               COALESCE(array_agg(tag.id ORDER BY tag.name, tag.id)\n                        FILTER (WHERE tag.id IS NOT NULL), '{}') AS \"tag_ids!\",\n               COALESCE(array_agg(tag.name ORDER BY tag.name, tag.id)\n                        FILTER (WHERE tag.id IS NOT NULL), '{}') AS \"tag_names!\"\n        FROM recipe\n        LEFT JOIN cuisine ON cuisine.id = recipe.cuisine_id\n        LEFT JOIN protein ON protein.id = recipe.main_protein_id\n        LEFT JOIN recipe_tag ON recipe_tag.recipe_id = recipe.id\n        LEFT JOIN tag ON tag.id = recipe_tag.tag_id\n        WHERE $1::uuid IS NULL OR recipe.id = $1\n        GROUP BY recipe.id, cuisine.name, protein.name\n        ORDER BY recipe.created_at DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -123,17 +123,44 @@
             "name": "updated_at"
           }
         }
+      },
+      {
+        "ordinal": 11,
+        "name": "cuisine?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "cuisine",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "protein?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "protein",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "tag_ids!",
+        "type_info": "UuidArray",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "tag_names!",
+        "type_info": "TextArray",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Int2",
-        "Int2",
-        "Int2",
-        "Int2",
-        "Uuid",
-        "Uuid",
         "Uuid"
       ]
     },
@@ -148,8 +175,12 @@
       true,
       true,
       false,
-      false
+      false,
+      false,
+      false,
+      null,
+      null
     ]
   },
-  "hash": "d607e4e312d393589a2a559d6062b128128f87f6575f2564175760292e5e2dfc"
+  "hash": "5b3f1585a8a0a5b6852d76c90897afe37f821c2af740d43c317fc64a4a67ea3d"
 }

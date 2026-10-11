@@ -5,13 +5,17 @@
 //! No data or backend calls live here — this is pure navigation.
 
 use dioxus::prelude::*;
+use uuid::Uuid;
 
 use crate::components::layout::AppLayout;
+use crate::features::history::page::History;
 use crate::features::library::page::Library;
-use crate::features::plan::page::PlannedMeals;
+use crate::features::plan::page::{PlanDetail, PlannedMeals};
+use crate::features::recipe::detail_page::RecipePage;
 use crate::features::recipe::page::Recipes;
 use crate::features::roll::page::Roll;
-use crate::pages::{CookingLog, Home, ShoppingList};
+use crate::features::shopping_list::page::{PlanShoppingList, ShoppingList};
+use crate::pages::{CookingLog, Home};
 use crate::showcase::Showcase;
 
 #[derive(Routable, Clone, PartialEq)]
@@ -25,14 +29,22 @@ pub enum Route {
     Showcase {},
     #[route("/recipes")]
     Recipes {},
+    #[route("/recipes/:id")]
+    RecipePage { id: Uuid },
     #[route("/library")]
     Library {},
     #[route("/shopping-list")]
     ShoppingList {},
+    #[route("/shopping-list/:plan_id")]
+    PlanShoppingList { plan_id: Uuid },
     #[route("/cooking-log")]
     CookingLog {},
     #[route("/planned-meals")]
     PlannedMeals {},
+    #[route("/planned-meals/:id")]
+    PlanDetail { id: Uuid },
+    #[route("/history")]
+    History {},
     #[route("/roll")]
     Roll {},
 }

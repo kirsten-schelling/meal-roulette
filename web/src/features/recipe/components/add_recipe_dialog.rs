@@ -1,21 +1,22 @@
 use crate::components::ui::{
-    Button, ButtonVariant, ComboOption, Combobox, Heading, Icon, IconName, Input, Modal, Picker,
-    Rating, RatingScale, Separator, Spinner, Tone,
+    Alert, Button, ButtonVariant, ComboOption, ConfirmDialog, Heading, Icon, IconName, Modal,
+    ReasonTip, Separator, Spinner, Text, Tone,
 };
-use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
 use crate::features::library::components::{ManageListsDialog, ManageTab};
-use crate::features::protein::hooks::use_protein::use_get_proteins;
-use crate::features::recipe::components::ingredient_composer::IngredientComposer;
+use crate::features::recipe::components::ingredient_composer::{parse_qty, IngredientComposer};
 use crate::features::recipe::components::ingredient_line::{IngredientLine, RecipeLine};
+use crate::features::recipe::components::recipe_fields::{
+    options_from, use_recipe_catalogs, use_recipe_form, RecipeFields,
+};
 use crate::features::recipe::hooks::use_recipe::use_add_recipe;
 use crate::features::unit::hooks::use_unit::use_get_units;
 use crate::hooks::use_toast::use_toast;
+use crate::models::error_message;
 use dioxus::prelude::*;
-use domain::cuisine::CuisineEntry;
-use domain::protein::ProteinEntry;
-use domain::recipe::NewRecipe;
+use domain::ingredient::IngredientEntry;
 use domain::recipe_ingredient::RecipeIngredientEntry;
+use domain::unit::UnitEntry;
 
 // Recipe details are home; "Add ingredients" opens the composer. Creating an
 // ingredient happens inline in the composer, so there's no extra panel.
@@ -25,86 +26,58 @@ enum Panel {
     Ingredients,
 }
 
-#[derive(PartialEq)]
-struct NewRecipeForm {
-    title: String,
-    difficulty: i16,
-    time_mins: String,
-    servings: String,
-    healthiness: Option<i16>,
-    cuisine: Picker,
-    protein: Picker,
-    lines: Vec<RecipeLine>,
+/// Units typed as new on earlier lines, offered again (tagged "New") so the next new
+/// ingredient can be measured in them before anything is saved.
+fn pending_units(lines: &[RecipeLine], saved: &[ComboOption]) -> Vec<ComboOption> {
+    let mut pending: Vec<ComboOption> = Vec::new();
+    for line in lines {
+        let IngredientEntry::New {
+            unit: UnitEntry::New(name),
+            ..
+        } = &line.ingredient
+        else {
+            continue;
+        };
+        let known = saved
+            .iter()
+            .chain(pending.iter())
+            .any(|o| o.label.eq_ignore_ascii_case(name));
+        if !known {
+            pending.push(ComboOption::pending(name.clone()));
+        }
+    }
+    pending
 }
 
-/// Flattens a lookup fetch into combobox rows — empty while loading or on error.
-fn options_from<T>(
-    fetched: &Option<Result<Vec<T>, ServerFnError>>,
-    to_option: impl Fn(&T) -> ComboOption,
-) -> Vec<ComboOption> {
-    match fetched {
-        Some(Ok(items)) => items.iter().map(to_option).collect(),
-        _ => Vec::new(),
-    }
-}
-
-fn validate_form(
-    title: String,
-    difficulty: i16,
-    time_mins: Signal<String, UnsyncStorage>,
-    servings: Signal<String, UnsyncStorage>,
-    protein: Picker,
-    cuisine: Picker,
-) -> bool {
-    if title.trim().is_empty()
-        || number_field_error(&time_mins(), "Time").is_some()
-        || number_field_error(&servings(), "Servings").is_some()
-        || !(1..=5).contains(&difficulty)
-        || !protein.is_resolved()
-        || !cuisine.is_resolved()
-    {
-        return false;
-    }
-    true
-}
-
-fn number_field_error(value: &str, name: &str) -> Option<String> {
-    if value.is_empty() {
-        return Some(format!("{} is required", name));
-    } else if value.parse::<i16>().is_err() {
-        return Some(format!("{} is invalid", name));
-    }
-    None
+// Lines are validated as they are added or edited, so the qty always parses here.
+fn line_entries(lines: &[RecipeLine]) -> Vec<RecipeIngredientEntry> {
+    lines
+        .iter()
+        .map(|l| RecipeIngredientEntry {
+            ingredient: l.ingredient.clone(),
+            qty: parse_qty(&l.qty).unwrap_or_default(),
+            note: (!l.note.is_empty()).then(|| l.note.clone()),
+            is_optional: l.optional,
+        })
+        .collect()
 }
 
 /// The "Add recipe" dialog. Recipe details are home; a persistent link opens the
 /// ingredient composer. Mount it only while open (`if show() { AddRecipeDialog {
-/// .. } }`) so each open starts clean; `on_close` fires on the ×, the backdrop, or
-/// Cancel.
+/// .. } }`) so each open starts clean; `on_close` fires once the user has closed it
+/// (after confirming, if anything was filled in).
 #[component]
 pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -> Element {
     let mut panel = use_signal(|| Panel::Recipe);
-
-    let mut title = use_signal(String::new);
-    let mut difficulty = use_signal(|| 3i16);
-    let mut time_mins = use_signal(String::new);
-    let mut servings = use_signal(|| "2".to_string());
-    let mut healthiness = use_signal(|| None as Option<i16>);
-
-    // Lookup catalogs come from the API; each field's Picker tracks the typed
-    // text plus the resolved choice (existing id, or a name to create at submit).
-    let mut cuisines = use_get_cuisines();
-    let cuisine = use_signal(Picker::default);
-    let mut proteins = use_get_proteins();
-    let protein = use_signal(Picker::default);
+    let form = use_recipe_form(None);
+    let catalogs = use_recipe_catalogs();
     let mut units = use_get_units();
     let ingredients = use_get_ingredients();
 
-    let mut time_mins_error = use_signal(|| None as Option<String>);
-    let mut servings_error = use_signal(|| None as Option<String>);
     // The manage-lists dialog stacks over this one so an in-progress recipe
     // survives a quick rename detour. `None` = closed.
     let mut managing = use_signal(|| None as Option<ManageTab>);
+    let mut confirm_discard = use_signal(|| false);
 
     let mut lines = use_signal(Vec::<RecipeLine>::new);
     // Hands out unique ids for the in-memory recipe lines (not persisted yet).
@@ -114,36 +87,50 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
 
     // Submit handle — hooks must be created during render, not in the click handler.
     let add_recipe = use_add_recipe();
-    let use_toast = use_toast();
-    // On a successful save the page closes us and refetches; an error leaves the
-    // dialog open for now (a toast will come later).
+    let toast = use_toast();
     use_effect(move || {
         if matches!(&*add_recipe.result.read(), Some(Ok(_))) {
             on_saved.call(());
-            use_toast.show(
+            toast.show(
                 Some("Success".to_string()),
-                format!("{} added successfully!", title()),
+                format!("{} added successfully!", form.title.peek().trim()),
                 Tone::Green,
             );
         }
     });
     let saving = (add_recipe.loading)();
+    let save_error = match &*add_recipe.result.read() {
+        Some(Err(e)) => Some(error_message(e)),
+        _ => None,
+    };
 
-    let cuisine_options = options_from(&cuisines(), |c| {
-        ComboOption::new(c.cuisine.id, c.cuisine.name.clone())
-    });
-    let protein_options = options_from(&proteins(), |p| {
-        ComboOption::new(p.protein.id, p.protein.name.clone())
-    });
     let ingredient_options = options_from(&ingredients(), |i| {
         ComboOption::new(i.id, i.name.clone()).with_hint(i.unit.clone())
     });
-    let unit_options = options_from(&units(), |u| {
+    let saved_units = options_from(&units(), |u| {
         ComboOption::new(u.unit.id, u.unit.name.clone())
     });
 
     let lines_now = lines();
     let line_count = lines_now.len();
+    let mut unit_options = saved_units.clone();
+    unit_options.extend(pending_units(&lines_now, &saved_units));
+    let taken: Vec<String> = lines_now.iter().map(|l| l.name.to_lowercase()).collect();
+
+    let missing = form.missing();
+    let dirty = form.is_dirty() || !lines_now.is_empty();
+    let mut request_close = move || {
+        if dirty {
+            confirm_discard.set(true);
+        } else {
+            on_close.call(());
+        }
+    };
+    let save = move |_| {
+        if let Some(recipe) = form.new_recipe(line_entries(&lines())) {
+            add_recipe.submit(recipe);
+        }
+    };
 
     let modal_title = match panel() {
         Panel::Recipe => "Add recipe",
@@ -154,7 +141,7 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
         Modal {
             wide: true,
             overflow_visible: true,
-            on_close: move |_| on_close.call(()),
+            on_close: move |_| request_close(),
             title: modal_title.to_string(),
 
             div { class: "mr-recipe-dialog",
@@ -163,69 +150,12 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                         // ── Home: recipe details + a link into the ingredients ──
                         Panel::Recipe => rsx! {
                             div { class: "mr-recipe-dialog__content",
-                                Input {
-                                    label: "Title".to_string(),
-                                    value: title(),
-                                    oninput: move |e: FormEvent| title.set(e.value()),
-                                    placeholder: "e.g. Pad Thai".to_string(),
-                                }
-                                div { class: "mr-form-grid",
-                                    Combobox {
-                                        label: "Main protein".to_string(),
-                                        placeholder: "Search, or type a new one and press Enter…".to_string(),
-                                        options: protein_options.clone(),
-                                        picker: protein,
-                                        manage_label: "Manage proteins…".to_string(),
-                                        on_manage: move |_| managing.set(Some(ManageTab::Proteins)),
-                                    }
-                                    Combobox {
-                                        label: "Cuisine".to_string(),
-                                        placeholder: "Search, or type a new one and press Enter…".to_string(),
-                                        options: cuisine_options.clone(),
-                                        picker: cuisine,
-                                        manage_label: "Manage cuisines…".to_string(),
-                                        on_manage: move |_| managing.set(Some(ManageTab::Cuisines)),
-                                    }
-                                    Rating {
-                                        label: "Difficulty".to_string(),
-                                        value: Some(difficulty()),
-                                        scale: RatingScale::HighIsBad,
-                                        onchange: move |n: i16| difficulty.set(n),
-                                    }
-                                    Rating {
-                                        label: "Healthiness".to_string(),
-                                        value: healthiness(),
-                                        scale: RatingScale::HighIsGood,
-                                        onchange: move |n: i16| healthiness.set(Some(n)),
-                                        on_clear: move |_| healthiness.set(None),
-                                    }
-                                    Input {
-                                        label: "Time (mins)".to_string(),
-                                        kind: "number".to_string(),
-                                        value: time_mins(),
-                                        oninput: move |e: FormEvent| {
-                                            time_mins.set(e.value());
-                                            time_mins_error.set(number_field_error(&time_mins(), "Time"));
-                                        },
-                                        placeholder: "e.g. 25".to_string(),
-                                        error: time_mins_error(),
-                                        onblur: move |_| {
-                                            time_mins_error.set(number_field_error(&time_mins(), "Time"));
-                                        },
-                                    }
-                                    Input {
-                                        label: "Servings".to_string(),
-                                        kind: "number".to_string(),
-                                        value: servings(),
-                                        oninput: move |e: FormEvent| {
-                                            servings.set(e.value());
-                                            servings_error.set(number_field_error(&servings(), "Servings"));
-                                        },
-                                        error: servings_error(),
-                                        onblur: move |_| {
-                                            servings_error.set(number_field_error(&servings(), "Servings"));
-                                        },
-                                    }
+                                RecipeFields {
+                                    form,
+                                    cuisine_options: catalogs.cuisine_options(),
+                                    protein_options: catalogs.protein_options(),
+                                    tag_options: catalogs.tag_options(),
+                                    on_manage: move |tab: ManageTab| managing.set(Some(tab)),
                                 }
 
                                 if !lines_now.is_empty() {
@@ -259,44 +189,28 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                     Icon { name: IconName::Plus }
                                     "Add ingredients"
                                 }
+
+                                if let Some(msg) = save_error {
+                                    Alert { tone: Tone::Red, title: "Couldn't save the recipe", "{msg}" }
+                                }
                             }
 
                             div { class: "mr-dialog-foot",
                                 Button {
                                     variant: ButtonVariant::Ghost,
-                                    onclick: move |_| on_close.call(()),
+                                    onclick: move |_| request_close(),
                                     "Cancel"
                                 }
-                                Button {
-                                    variant: ButtonVariant::Solid,
-                                    disabled: saving
-                                        || !validate_form(
-                                            title(),
-                                            difficulty(),
-                                            time_mins,
-                                            servings,
-                                            protein(),
-                                            cuisine(),
-                                        ),
-                                    onclick: move |_| {
-                                        add_recipe
-                                            .submit(
-                                                build_new_recipe(NewRecipeForm {
-                                                    title: title(),
-                                                    difficulty: difficulty(),
-                                                    time_mins: time_mins(),
-                                                    servings: servings(),
-                                                    healthiness: healthiness(),
-                                                    cuisine: cuisine(),
-                                                    protein: protein(),
-                                                    lines: lines(),
-                                                }),
-                                            );
-                                    },
-                                    if saving {
-                                        Spinner {}
-                                    } else {
-                                        "Save recipe"
+                                ReasonTip { reasons: missing.clone(),
+                                    Button {
+                                        variant: ButtonVariant::Solid,
+                                        disabled: saving || !missing.is_empty(),
+                                        onclick: save,
+                                        if saving {
+                                            Spinner {}
+                                        } else {
+                                            "Save recipe"
+                                        }
                                     }
                                 }
                             }
@@ -306,6 +220,7 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                 IngredientComposer {
                                     ingredient_options: ingredient_options.clone(),
                                     unit_options: unit_options.clone(),
+                                    taken: taken.clone(),
                                     on_manage_units: move |_| managing.set(Some(ManageTab::Units)),
                                     on_add: move |mut line: RecipeLine| {
                                         let id = next_id();
@@ -368,49 +283,21 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                     managing.set(None);
                     // Renames may have landed while it was open — refresh the
                     // catalogs feeding the comboboxes.
-                    cuisines.restart();
-                    proteins.restart();
+                    catalogs.restart();
                     units.restart();
                 },
             }
         }
-    }
-}
 
-// Text inputs are parsed to their real types here, at the edge, so the wire
-// type carries Decimal/i16 the rest of the way.
-fn build_new_recipe(form: NewRecipeForm) -> NewRecipe {
-    let ingredients: Vec<RecipeIngredientEntry> = form
-        .lines
-        .iter()
-        .map(|l| RecipeIngredientEntry {
-            ingredient: l.ingredient.clone(),
-            qty: l.qty.parse().unwrap_or_default(),
-            note: if l.note.is_empty() {
-                None
-            } else {
-                Some(l.note.clone())
-            },
-            is_optional: l.optional,
-        })
-        .collect();
-
-    let cuisine = form
-        .cuisine
-        .resolve(CuisineEntry::Existing, CuisineEntry::New);
-    let protein = form
-        .protein
-        .resolve(ProteinEntry::Existing, ProteinEntry::New);
-
-    NewRecipe {
-        household_id: None,
-        protein,
-        cuisine,
-        ingredients,
-        title: form.title,
-        difficulty: form.difficulty,
-        time_mins: form.time_mins.parse().unwrap(),
-        servings: form.servings.parse().unwrap(),
-        healthiness: form.healthiness,
+        if confirm_discard() {
+            ConfirmDialog {
+                title: "Discard this recipe?".to_string(),
+                confirm_label: "Discard".to_string(),
+                danger: true,
+                on_confirm: move |_| on_close.call(()),
+                on_cancel: move |_| confirm_discard.set(false),
+                Text { "You've started filling it in. Closing now loses what you've entered." }
+            }
+        }
     }
 }

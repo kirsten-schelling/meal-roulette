@@ -1,0 +1,1 @@
+ALTER TABLE shopping_list DROP CONSTRAINT uq_shopping_list_meal_plan;

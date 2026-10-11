@@ -1,6 +1,7 @@
 use crate::components::ui::{
     Badge, Button, ButtonVariant, Checkbox, Icon, IconButton, IconName, Input, Size, Tone,
 };
+use crate::features::recipe::components::ingredient_composer::parse_qty;
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
 
@@ -52,6 +53,7 @@ pub fn IngredientLine(
                             kind: "number".to_string(),
                             value: draft_qty(),
                             oninput: move |e: FormEvent| draft_qty.set(e.value()),
+                            error: parse_qty(&draft_qty()).err(),
                         }
                     }
                     Input {
@@ -76,6 +78,7 @@ pub fn IngredientLine(
                         Button {
                             variant: ButtonVariant::Solid,
                             size: Size::Sm,
+                            disabled: parse_qty(&draft_qty()).is_err(),
                             onclick: move |_| {
                                 on_save
                                     .call(RecipeLine {

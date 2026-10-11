@@ -2,6 +2,8 @@ use crate::server::api::ingredient::{add_ingredient, get_ingredients};
 use dioxus::prelude::*;
 use domain::ingredient::{Ingredient, NewIngredient};
 
+pub use crate::server::api::ingredient::{delete_ingredient, update_ingredient};
+
 #[derive(Clone, Copy)]
 pub struct AddIngredient {
     pub loading: Signal<bool>,

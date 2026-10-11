@@ -1,5 +1,5 @@
 mod handlers;
-mod repository;
+pub mod repository;
 
 use crate::state::AppState;
 use axum::{routing::get, Router};
