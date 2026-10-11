@@ -31,7 +31,7 @@ pub fn Home() -> Element {
                         },
                         Some(Ok(None)) => rsx! {
                             div { class: "mr-empty",
-                                div { class: "mr-empty__icon", aria_hidden: "true", "🎲" }
+                                div { class: "mr-empty__icon", Icon { name: IconName::Dice } }
                                 Heading { level: 3, "No week rolled yet" }
                                 Text { muted: true, "Spin the roller to fill the week." }
                                 Link { to: Route::Roll {}, class: "mr-btn mr-btn--solid mr-btn--lg", "Roll a week" }
@@ -54,25 +54,25 @@ pub fn Home() -> Element {
                 div { style: "display:grid; grid-template-columns:repeat(auto-fit, minmax(12rem, 1fr)); gap:.9rem;",
                     DashLink {
                         to: Route::Recipes {},
-                        icon: "📖",
+                        icon: IconName::ChefHat,
                         label: "Recipes",
                         hint: "Browse and add recipes",
                     }
                     DashLink {
                         to: Route::PlannedMeals {},
-                        icon: "📅",
+                        icon: IconName::CalendarWeek,
                         label: "Planned Meals",
                         hint: "The week the roller picked",
                     }
                     DashLink {
                         to: Route::ShoppingList {},
-                        icon: "🛒",
+                        icon: IconName::Checklist,
                         label: "Shopping List",
                         hint: "What to buy this week",
                     }
                     DashLink {
                         to: Route::Library {},
-                        icon: "🧺",
+                        icon: IconName::Carrot,
                         label: "Library",
                         hint: "Ingredients, proteins, cuisines",
                     }
@@ -85,22 +85,20 @@ pub fn Home() -> Element {
 /// A card that navigates to a section. Renders as a link so the whole card is
 /// clickable and keyboard-focusable.
 #[component]
-fn DashLink(to: Route, icon: String, label: String, hint: String) -> Element {
+fn DashLink(to: Route, icon: IconName, label: String, hint: String) -> Element {
     rsx! {
         Link { to, class: "mr-card mr-dashlink",
             div {
                 class: "mr-card__body",
                 style: "display:flex; align-items:center; gap:.7rem;",
-                span {
-                    style: "font-size:1.5rem; line-height:1;",
-                    aria_hidden: "true",
-                    "{icon}"
+                span { style: "font-size:1.5rem; line-height:1; color:var(--mr-accent);",
+                    Icon { name: icon }
                 }
                 div {
                     div { style: "font-weight:600;", "{label}" }
                     div { style: "color:var(--mr-text-muted); font-size:.85rem;", "{hint}" }
                 }
-                span { class: "mr-dashlink__arrow", aria_hidden: "true", "›" }
+                span { class: "mr-dashlink__arrow", Icon { name: IconName::ChevronRight } }
             }
         }
     }

@@ -4,6 +4,7 @@
 
 use crate::components::layout::{Header, NavEntry, Sidebar};
 use crate::components::toast_master::ToastMaster;
+use crate::components::ui::IconName;
 use crate::router::Route;
 use dioxus::prelude::*;
 
@@ -37,32 +38,32 @@ pub fn AppLayout() -> Element {
 fn nav_entries() -> Vec<NavEntry> {
     vec![
         NavEntry {
-            icon: "🎲",
+            icon: IconName::Dice,
             label: "Roll",
             to: Route::Roll {},
         },
         NavEntry {
-            icon: "📖",
+            icon: IconName::ChefHat,
             label: "Recipes",
             to: Route::Recipes {},
         },
         NavEntry {
-            icon: "🧺",
+            icon: IconName::Carrot,
             label: "Library",
             to: Route::Library {},
         },
         NavEntry {
-            icon: "🛒",
+            icon: IconName::Checklist,
             label: "Shopping List",
             to: Route::ShoppingList {},
         },
         NavEntry {
-            icon: "📓",
+            icon: IconName::History,
             label: "Cooking Log",
             to: Route::CookingLog {},
         },
         NavEntry {
-            icon: "📅",
+            icon: IconName::CalendarWeek,
             label: "Planned Meals",
             to: Route::PlannedMeals {},
         },

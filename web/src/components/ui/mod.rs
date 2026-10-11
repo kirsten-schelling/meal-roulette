@@ -4,6 +4,7 @@
 
 pub mod alert;
 pub mod badge;
+pub mod brand_mark;
 pub mod button;
 pub mod card;
 pub mod checkbox;
@@ -12,6 +13,7 @@ pub mod combobox;
 pub mod confirm_dialog;
 pub mod data_table;
 pub mod field;
+pub mod icon;
 pub mod icon_button;
 pub mod input;
 pub mod modal;
@@ -32,6 +34,7 @@ pub mod typography;
 
 pub use alert::Alert;
 pub use badge::{Badge, Tone};
+pub use brand_mark::BrandMark;
 pub use button::{Button, ButtonVariant, Size};
 pub use card::Card;
 pub use checkbox::Checkbox;
@@ -40,6 +43,7 @@ pub use combobox::{ComboOption, Combobox, Picker};
 pub use confirm_dialog::ConfirmDialog;
 pub use data_table::{CellAlign, Column, DataTable};
 pub use field::Field;
+pub use icon::{Icon, IconName};
 pub use icon_button::IconButton;
 pub use input::Input;
 pub use modal::Modal;

@@ -58,6 +58,8 @@ body { margin: 0; }
   --mr-chevron: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2.5 4.5 L6 8 L9.5 4.5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
   /* search magnifier — same mask trick as the chevron */
   --mr-search: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='7' cy='7' r='4.5' fill='none' stroke='black' stroke-width='1.6'/><path d='M10.5 10.5 L14 14' stroke='black' stroke-width='1.6' stroke-linecap='round'/></svg>");
+  /* selected-option tick, for a pseudo-element that can't hold an Icon */
+  --mr-ic-tick: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M5 12l5 5l10 -10' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
   /* toast tone icons — same mask trick, painted in the tone color */
   --mr-ic-check: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6.4' fill='none' stroke='black' stroke-width='1.6'/><path d='M5.1 8.3 L7.2 10.4 L11 6.2' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/></svg>");
   --mr-ic-warn:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path d='M8 2.4 L14.4 13.4 H1.6 Z' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/><path d='M8 6.4 V9.4' stroke='black' stroke-width='1.7' stroke-linecap='round'/><circle cx='8' cy='11.5' r='.95' fill='black'/></svg>");
@@ -223,7 +225,12 @@ body { margin: 0; }
 .mr-btn--full { width: 100%; }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ICON BUTTON — a bare square button holding one glyph (×, ＋, ✎)
+   ICON: inline SVG sized by the surrounding font-size, stroked in its color
+   ═══════════════════════════════════════════════════════════════════════ */
+.mr-icon { display: block; flex: none; width: 1em; height: 1em; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ICON BUTTON: a bare square button holding one icon
    ═══════════════════════════════════════════════════════════════════════ */
 .mr-iconbtn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -395,7 +402,11 @@ body { margin: 0; }
 .mr-sel__opt:hover { background: var(--mr-surface-2); }
 .mr-sel__opt--active { color: var(--mr-accent); font-weight: 600; background: color-mix(in srgb, var(--mr-accent) 16%, transparent); }
 .mr-sel__opt--active:hover { background: color-mix(in srgb, var(--mr-accent) 24%, transparent); }
-.mr-sel__opt--active::after { content: "\2713"; font-size: .85rem; }
+.mr-sel__opt--active::after {
+  content: ""; flex: none; width: .9rem; height: .9rem; background-color: currentColor;
+  -webkit-mask: var(--mr-ic-tick) center / contain no-repeat;
+          mask: var(--mr-ic-tick) center / contain no-repeat;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    CHECKBOX & SWITCH
@@ -567,7 +578,7 @@ body { margin: 0; }
   box-shadow: 0 0 0 3px var(--mr-focus);
 }
 .mr-dashlink__arrow {
-  margin-left: auto; color: var(--mr-text-muted); font-size: 1.25rem; line-height: 1;
+  display: flex; margin-left: auto; color: var(--mr-text-muted); font-size: 1.1rem;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -714,7 +725,7 @@ body { margin: 0; }
 }
 .mr-combo__unit { color: var(--mr-text-muted); font-size: .82rem; }
 .mr-combo__create {
-  color: var(--mr-accent); font-weight: 600;
+  justify-content: flex-start; color: var(--mr-accent); font-weight: 600;
   border-top: 1px solid var(--mr-border); margin-top: .15rem;
 }
 /* Pinned below the (scrolling) option list: the quiet doorway to wherever the
@@ -833,7 +844,20 @@ body { margin: 0; }
   text-decoration: none; color: var(--mr-text);
   font-family: var(--mr-font-heading); font-weight: 700; font-size: 1.15rem;
 }
-.mr-brand__mark { font-size: 1.3rem; line-height: 1; }
+.mr-brand .mr-brandmark { font-size: 1.75rem; }
+
+/* ── brand mark: plate rim, roulette pockets, cutlery ───────────────────── */
+.mr-brandmark { display: block; flex: none; width: 1em; height: 1em; }
+.mr-brandmark__plate   { fill: var(--mr-surface); stroke: var(--mr-text); }
+.mr-brandmark__pockets { stroke: var(--mr-text); }
+.mr-brandmark__red     { stroke: var(--mr-danger); }
+.mr-brandmark__zero    { stroke: var(--mr-accent); }
+.mr-brandmark__frets   { stroke: var(--mr-surface); }
+.mr-brandmark__well    { fill: none; stroke: var(--mr-text-muted); }
+.mr-brandmark__ink     { fill: var(--mr-text); }
+.mr-brandmark__line {
+  fill: none; stroke: var(--mr-text); stroke-linecap: round; stroke-linejoin: round;
+}
 .mr-header__actions { display: flex; align-items: center; gap: 1rem; }
 
 /* ── sidebar ────────────────────────────────────────────────────────────── */
@@ -856,7 +880,7 @@ body { margin: 0; }
   background: color-mix(in srgb, var(--mr-accent) 16%, transparent);
   color: var(--mr-accent);
 }
-.mr-nav__icon { flex: none; width: 1.4rem; text-align: center; font-size: 1.1rem; line-height: 1; }
+.mr-nav__icon { flex: none; display: flex; justify-content: center; width: 1.4rem; font-size: 1.15rem; }
 .mr-nav__label { line-height: 1; }
 
 /* ── main content column ────────────────────────────────────────────────── */
@@ -871,7 +895,9 @@ body { margin: 0; }
   background: var(--mr-surface); border: 1px dashed var(--mr-border);
   border-radius: var(--mr-radius);
 }
-.mr-empty__icon { font-size: 2.5rem; line-height: 1; }
+.mr-empty__icon { font-size: 2.75rem; color: var(--mr-text-muted); }
+.mr-empty__icon .mr-icon { stroke-width: 1.5; }
+.mr-empty__icon--lg { font-size: 5.5rem; }
 
 /* ── home hero (welcome + roulette wheel placeholder) ───────────────────── */
 .mr-hero {
@@ -955,7 +981,7 @@ body { margin: 0; }
 .mr-chip__x {
   display: inline-flex; align-items: center; justify-content: center;
   border: none; background: none; cursor: pointer; padding: 0; margin-left: .05rem;
-  font-size: 1.05rem; line-height: 1; color: currentColor; opacity: .65;
+  font-size: .95rem; line-height: 1; color: currentColor; opacity: .65;
 }
 .mr-chip__x:hover { opacity: 1; }
 
@@ -998,7 +1024,7 @@ body { margin: 0; }
   width: 1.9rem; height: 1.9rem;
   border: 1px solid var(--mr-border); border-radius: var(--mr-radius-pill);
   background: var(--mr-surface); color: var(--mr-accent); cursor: pointer;
-  font-size: 1.2rem; line-height: 1;
+  font-size: 1.05rem; line-height: 1;
   transition: background .15s, border-color .15s;
 }
 .mr-fsearch__add:hover {

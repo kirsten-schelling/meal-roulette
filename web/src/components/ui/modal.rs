@@ -1,4 +1,4 @@
-use crate::components::ui::IconButton;
+use crate::components::ui::{Icon, IconButton, IconName};
 use dioxus::prelude::*;
 
 /// A centered dialog over a dimmed backdrop. Pressing on the backdrop or
@@ -43,7 +43,7 @@ pub fn Modal(
                         IconButton {
                             label: "Close".to_string(),
                             onclick: move |_| on_close.call(()),
-                            "\u{00d7}"
+                            Icon { name: IconName::X }
                         }
                     }
                 }

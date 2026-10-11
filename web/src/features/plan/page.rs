@@ -4,7 +4,8 @@
 
 use crate::components::difficulty_badge::DifficultyBadge;
 use crate::components::ui::{
-    Alert, Badge, CellAlign, Column, DataTable, Heading, IconButton, Size, Spinner, Text, Tone,
+    Alert, Badge, CellAlign, Column, DataTable, Heading, Icon, IconButton, IconName, Size, Spinner,
+    Text, Tone,
 };
 use crate::features::plan::components::SwapRecipeDialog;
 use crate::features::plan::hooks::use_plan::{reroll_planned_meal, use_get_latest_plan};
@@ -82,13 +83,13 @@ pub fn PlannedMeals() -> Element {
                         IconButton {
                             label: "Re-roll this day".to_string(),
                             onclick: move |_| reroll(id),
-                            "🎲"
+                            Icon { name: IconName::Dice }
                         }
                     }
                     IconButton {
                         label: "Swap for a recipe you pick".to_string(),
                         onclick: move |_| swapping.set(Some(meal.clone())),
-                        "⇄"
+                        Icon { name: IconName::Replace }
                     }
                 }
             }
@@ -154,7 +155,7 @@ pub fn PlannedMeals() -> Element {
                 },
                 Some(Ok(None)) => rsx! {
                     div { class: "mr-empty",
-                        div { class: "mr-empty__icon", aria_hidden: "true", "🎲" }
+                        div { class: "mr-empty__icon", Icon { name: IconName::Dice } }
                         Heading { level: 3, "No week rolled yet" }
                         Text { muted: true, "Spin the roller and your dinners land here." }
                         Link { to: Route::Roll {}, class: "mr-btn mr-btn--solid mr-btn--lg", "Roll a week" }
