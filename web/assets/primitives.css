@@ -1332,3 +1332,36 @@ body { margin: 0; }
   text-transform: uppercase; color: var(--mr-text-muted);
 }
 .mr-summary__value { margin: 0; color: var(--mr-text); }
+
+/* Click-to-edit values: read as plain text, hint at editing on hover/focus. */
+.mr-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.mr-editable {
+  font: inherit; color: inherit; text-align: left; background: none; border: 0;
+  display: inline-flex; align-items: center; gap: .4rem; max-width: 100%;
+  margin: -.2rem -.4rem; padding: .2rem .4rem; border-radius: var(--mr-radius-sm);
+  cursor: pointer; transition: background .15s;
+}
+.mr-editable:hover { background: var(--mr-surface-2); }
+.mr-editable:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+.mr-editable__value { min-width: 0; }
+.mr-editable__icon {
+  display: inline-flex; flex: none; font-size: .9em; color: var(--mr-text-muted);
+  opacity: 0; transition: opacity .15s;
+}
+.mr-editable:hover .mr-editable__icon,
+.mr-editable:focus-visible .mr-editable__icon { opacity: 1; }
+
+.mr-inline-editor { display: flex; flex-direction: column; gap: .45rem; min-width: 0; }
+.mr-inline-editor__actions { display: flex; align-items: center; gap: .4rem; }
+.mr-title-editor .mr-input {
+  font-family: var(--mr-font-heading); font-size: 1.4rem; font-weight: 700;
+}
+
+/* An ingredient line opened for editing in the table. */
+.mr-line-edit__name { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; }
+.mr-line-edit__qty { display: flex; align-items: flex-start; gap: .4rem; }
+.mr-line-edit__qty .mr-input { width: 6rem; text-align: right; }
+.mr-line-edit__unit { padding-top: .65rem; color: var(--mr-text-muted); white-space: nowrap; }

@@ -39,6 +39,7 @@ impl From<&TagRef> for TagChoice {
 /// clears itself, and the chosen tags sit below it as removable chips.
 #[component]
 pub fn TagPicker(
+    label: Option<String>,
     options: Vec<ComboOption>,
     mut selected: Signal<Vec<TagChoice>>,
     on_manage: EventHandler<()>,
@@ -70,7 +71,7 @@ pub fn TagPicker(
     rsx! {
         div { class: "mr-tagpicker",
             Combobox {
-                label: "Tags".to_string(),
+                label: label.clone(),
                 placeholder: "Add a tag, or type a new one and press Enter…".to_string(),
                 options: available,
                 picker,

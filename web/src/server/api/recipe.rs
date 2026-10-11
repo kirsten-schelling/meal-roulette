@@ -58,6 +58,17 @@ pub async fn update_recipe(id: Uuid, recipe: UpdateRecipe) -> Result<Recipe, Ser
 }
 
 #[server]
+pub async fn copy_recipe(id: Uuid, title: String) -> Result<Recipe, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::recipe::repository;
+
+    let state = app_state()?;
+    repository::copy(&state.db, id, &title)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
 pub async fn delete_recipe(id: Uuid) -> Result<Recipe, ServerFnError> {
     use crate::server::{app_state, server_fn_error};
     use api::features::recipe::repository;

@@ -6,7 +6,7 @@ use domain::recipe::{NewRecipe, Recipe, RecipeDetail, RecipeOverview};
 use uuid::Uuid;
 
 pub use crate::server::api::recipe::{
-    add_recipe_ingredient, delete_recipe, remove_recipe_ingredient, update_recipe,
+    add_recipe_ingredient, copy_recipe, delete_recipe, remove_recipe_ingredient, update_recipe,
     update_recipe_ingredient,
 };
 
