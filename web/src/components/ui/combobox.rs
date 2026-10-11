@@ -102,11 +102,12 @@ impl Picker {
 /// `on_create` optionally observes creates, for callers that reveal follow-up
 /// fields when one happens. `can_create: false` turns the field into a strict
 /// picker: unknown names offer no "Create" row and Enter on one does nothing.
-/// `on_manage` pins a quiet "manage this list" row to the bottom of the popup
-/// — a portal to wherever the catalog is maintained.
+/// `on_manage` pins a quiet "manage this list" row to the bottom of the popup:
+/// a portal to wherever the catalog is maintained. Without a `label` the field is
+/// announced by its placeholder, for spots where a label is already shown beside it.
 #[component]
 pub fn Combobox(
-    label: String,
+    label: Option<String>,
     placeholder: String,
     options: Vec<ComboOption>,
     mut picker: Signal<Picker>,
@@ -140,6 +141,7 @@ pub fn Combobox(
         (false, false) => "mr-combo",
     };
 
+    let aria = label.clone().unwrap_or_else(|| placeholder.clone());
     let kd_trimmed = trimmed.clone();
     let kd_exact = exact.clone();
     let create_trimmed = trimmed.clone();
@@ -152,7 +154,7 @@ pub fn Combobox(
                     r#type: "text",
                     value: "{text}",
                     placeholder: "{placeholder}",
-                    aria_label: "{label}",
+                    aria_label: "{aria}",
                     onclick: move |_| open.set(true),
                     oninput: move |e| {
                         picker.write().type_text(e.value());

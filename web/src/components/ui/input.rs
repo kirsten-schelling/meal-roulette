@@ -16,6 +16,9 @@ pub fn Input(
     error: Option<String>,
     #[props(optional)] onblur: Option<EventHandler<FocusEvent>>,
     #[props(default)] required: bool,
+    /// Takes focus when it appears, for a field the user just opened by clicking.
+    #[props(default)]
+    autofocus: bool,
 ) -> Element {
     rsx! {
         Field { label, error, required,
@@ -24,6 +27,11 @@ pub fn Input(
                 r#type: "{kind}",
                 value: "{value}",
                 placeholder: placeholder.clone().unwrap_or_default(),
+                onmounted: move |e: MountedEvent| async move {
+                    if autofocus {
+                        let _ = e.set_focus(true).await;
+                    }
+                },
                 oninput: move |e| oninput.call(e),
                 onblur: move |e| {
                     if let Some(b) = onblur {

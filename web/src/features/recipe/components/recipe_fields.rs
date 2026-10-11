@@ -162,6 +162,22 @@ pub fn use_recipe_form(initial: Option<RecipeOverview>) -> RecipeForm {
 }
 
 impl RecipeForm {
+    /// Refills every field from `overview`, so an edit starts from what is saved now.
+    pub fn load(mut self, overview: &RecipeOverview) {
+        let start = Snapshot::starting(Some(overview));
+        self.title.set(start.title.clone());
+        self.difficulty.set(start.difficulty);
+        self.time_mins.set(start.time_mins.clone());
+        self.servings.set(start.servings.clone());
+        self.healthiness.set(start.healthiness);
+        self.cuisine.set(start.cuisine.clone());
+        self.protein.set(start.protein.clone());
+        self.tags.set(start.tags.clone());
+        self.time_touched.set(false);
+        self.servings_touched.set(false);
+        self.baseline.set(start);
+    }
+
     fn snapshot(&self) -> Snapshot {
         Snapshot {
             title: (self.title)(),
@@ -356,6 +372,7 @@ pub fn RecipeFields(
             }
         }
         TagPicker {
+            label: "Tags".to_string(),
             options: tag_options.clone(),
             selected: tags,
             on_manage: move |_| on_manage.call(ManageTab::Tags),
