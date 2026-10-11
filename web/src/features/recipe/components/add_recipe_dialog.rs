@@ -1,6 +1,6 @@
 use crate::components::ui::{
-    Button, ButtonVariant, ComboOption, Combobox, Heading, Input, Modal, Picker, Rating,
-    RatingScale, Separator, Spinner, Tone,
+    Button, ButtonVariant, ComboOption, Combobox, Heading, Icon, IconName, Input, Modal, Picker,
+    Rating, RatingScale, Separator, Spinner, Tone,
 };
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
@@ -256,7 +256,8 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                     r#type: "button",
                                     class: "mr-add-link",
                                     onclick: move |_| panel.set(Panel::Ingredients),
-                                    "＋ Add ingredients"
+                                    Icon { name: IconName::Plus }
+                                    "Add ingredients"
                                 }
                             }
 
@@ -350,7 +351,8 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                 Button {
                                     variant: ButtonVariant::Solid,
                                     onclick: move |_| panel.set(Panel::Recipe),
-                                    "← Back to recipe"
+                                    Icon { name: IconName::ArrowLeft }
+                                    "Back to recipe"
                                 }
                             }
                         },

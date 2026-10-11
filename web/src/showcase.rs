@@ -213,18 +213,18 @@ pub fn Showcase() -> Element {
                                 IconButton {
                                     label: "Edit".to_string(),
                                     onclick: move |_| {},
-                                    "✎"
+                                    Icon { name: IconName::Edit }
                                 }
                                 IconButton {
                                     label: "Add".to_string(),
                                     onclick: move |_| {},
-                                    "＋"
+                                    Icon { name: IconName::Plus }
                                 }
                                 IconButton {
                                     label: "Remove".to_string(),
                                     danger: true,
                                     onclick: move |_| {},
-                                    "\u{00d7}"
+                                    Icon { name: IconName::X }
                                 }
                                 Text { muted: true, small: true, "icon buttons" }
                             }

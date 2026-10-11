@@ -1,4 +1,4 @@
-use crate::components::ui::{IconButton, Tone};
+use crate::components::ui::{Icon, IconButton, IconName, Tone};
 use dioxus::prelude::*;
 
 /// The visual toast — a floating notification card with a tone icon and a
@@ -40,7 +40,7 @@ pub fn Toast(
                 IconButton {
                     label: "Dismiss".to_string(),
                     onclick: move |_| cb.call(()),
-                    "\u{00d7}"
+                    Icon { name: IconName::X }
                 }
             }
         }

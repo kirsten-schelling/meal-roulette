@@ -1,6 +1,6 @@
 use crate::components::ui::{
-    Alert, Button, ButtonVariant, CellAlign, Column, DataTable, Heading, IconButton, Spinner, Text,
-    Tone,
+    Alert, Button, ButtonVariant, CellAlign, Column, DataTable, Heading, Icon, IconButton,
+    IconName, Spinner, Text, Tone,
 };
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
@@ -53,12 +53,12 @@ pub fn Library() -> Element {
         Column::new("", |_i: &Ingredient| {
             rsx! {
                 div { class: "mr-rowactions",
-                    IconButton { label: "Edit ingredient".to_string(), onclick: move |_| {}, "✎" }
+                    IconButton { label: "Edit ingredient".to_string(), onclick: move |_| {}, Icon { name: IconName::Edit } }
                     IconButton {
                         label: "Delete ingredient".to_string(),
                         danger: true,
                         onclick: move |_| {},
-                        "\u{00d7}"
+                        Icon { name: IconName::X }
                     }
                 }
             }
@@ -84,7 +84,8 @@ pub fn Library() -> Element {
                     Button {
                         variant: ButtonVariant::Solid,
                         onclick: move |_| adding.set(true),
-                        "＋ Add ingredient"
+                        Icon { name: IconName::Plus }
+                    "Add ingredient"
                     }
                 }
             }

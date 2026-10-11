@@ -1,3 +1,4 @@
+use crate::components::ui::{Icon, IconName};
 use dioxus::prelude::*;
 
 /// A pill-shaped filter tag. Two modes, chosen by which handler you pass:
@@ -35,7 +36,7 @@ pub fn Chip(
                     class: "mr-chip__x",
                     aria_label: "Remove",
                     onclick: move |_| remove.call(()),
-                    "×"
+                    Icon { name: IconName::X }
                 }
             }
         }

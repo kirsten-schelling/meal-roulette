@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 
-/// A small square button holding a single glyph (×, ＋, ✎). `label` is the
-/// accessible name, since the glyph alone says nothing to a screen reader.
+/// A small square button holding a single `Icon`. `label` is the accessible
+/// name, since the icon alone says nothing to a screen reader.
 /// `danger` colors the hover state for destructive actions.
 #[component]
 pub fn IconButton(

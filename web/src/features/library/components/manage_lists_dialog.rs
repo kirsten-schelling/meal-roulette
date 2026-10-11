@@ -1,6 +1,6 @@
 use crate::components::ui::{
-    Alert, Button, ButtonVariant, ConfirmDialog, IconButton, Modal, Popover, Size, Spinner, Tabs,
-    Text, Tone,
+    Alert, Button, ButtonVariant, ConfirmDialog, Icon, IconButton, IconName, Modal, Popover, Size,
+    Spinner, Tabs, Text, Tone,
 };
 use crate::features::cuisine::hooks::use_cuisine::{
     use_add_cuisine, use_delete_cuisine, use_edit_cuisine, use_get_cuisines,
@@ -433,12 +433,12 @@ fn ManageRow(
                             on_save.call((id, save_draft.trim().to_string()));
                         }
                     },
-                    "✓"
+                    Icon { name: IconName::Check }
                 }
                 IconButton {
                     label: "Cancel rename".to_string(),
                     onclick: move |_| on_cancel.call(()),
-                    "\u{00d7}"
+                    Icon { name: IconName::X }
                 }
             }
         };
@@ -460,13 +460,13 @@ fn ManageRow(
                 IconButton {
                     label: "Rename {row.name}".to_string(),
                     onclick: move |_| on_edit.call((id, edit_name.clone())),
-                    "✎"
+                    Icon { name: IconName::Edit }
                 }
                 IconButton {
                     label: "Delete {row.name}".to_string(),
                     danger: true,
                     onclick: move |_| on_delete.call((id, del_name.clone())),
-                    "\u{00d7}"
+                    Icon { name: IconName::X }
                 }
             }
         }
