@@ -16,7 +16,7 @@ The web app compiles from one source tree into **two binaries**:
   feature, which is also the only thing that pulls the `api` crate (and with it sqlx, axum and
   tokio) into the build.
 
-Every component and most modules are compiled into *both*. Server-only code is compiled into
+Every component and most modules are compiled into _both_. Server-only code is compiled into
 the server build alone, gated with `#[cfg(feature = "server")]`.
 
 ## Layout
@@ -102,11 +102,11 @@ them.
    server-only errors are mapped to it inside the function (`server_fn_error`) and must not
    appear in a hook or component type.
 3. **Server-only imports go inside the function body.** The `#[server]` macro gates only the
-   function *body* for the server build — not the `use` statements beside it. A server-only
+   function _body_ for the server build — not the `use` statements beside it. A server-only
    import (`api`, `sqlx`, `crate::server::{app_state, server_fn_error}`, ...) at module scope
    in a file that also compiles on the client will fail the client build. Put such imports
    inside the `#[server]` body, or gate them with `#[cfg(feature = "server")]`. Types that
-   appear in the function *signature* (e.g. `Recipe`, `ServerFnError`) are the exception: they
+   appear in the function _signature_ (e.g. `Recipe`, `ServerFnError`) are the exception: they
    exist in both builds and belong at module scope.
 4. **Thin server functions.** A server function takes the state, calls one repository
    or service function, and maps the error. Logic that both the REST handler and the server function

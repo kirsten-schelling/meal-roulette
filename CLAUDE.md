@@ -5,6 +5,7 @@ list. Learning-oriented — Rust backend as an on-ramp toward embedded. Feature 
 [docs/product/roadmap.md](docs/product/roadmap.md).
 
 ## Stack
+
 - Frontend: Dioxus 0.7 (Rust, fullstack — `#[server]` functions call the data layer in-process) — `web/`
 - Backend: Rust (Axum + SQLx) — `api/` is a library (state, errors, repositories, REST router)
   embedded by the web server; shared wire types in `domain/`. One root Cargo workspace: `api`,
@@ -15,19 +16,22 @@ list. Learning-oriented — Rust backend as an on-ramp toward embedded. Feature 
 - Database: Postgres (Docker locally)
 
 ## Web app
+
 `web/` follows a required module structure — features, the `#[server]` BFF surface, and the
 split between generic and feature-scoped components/hooks. Read
 [docs/architecture/web.md](docs/architecture/web.md) before adding or changing code under
 `web/`.
 
 ## Local dev
-- DB:  `docker compose up -d`, then `just migrate` (the app does not run migrations at startup)
-- Web: `cd web && dx serve`   -> http://localhost:8080 (app + `#[server]` functions + REST under `/api`)
+
+- DB: `docker compose up -d`, then `just migrate` (the app does not run migrations at startup)
+- Web: `cd web && dx serve` -> http://localhost:8080 (app + `#[server]` functions + REST under `/api`)
 - REST on its own (optional): `cargo run -p api` -> http://localhost:3000
 - Tests: `cargo test --workspace`; lint: `just lint`
 
 ## Conventions
-- **Teaching mode (learning project):** For API / web-server / non-UI logic, default to *hints*
+
+- **Teaching mode (learning project):** For API / web-server / non-UI logic, default to _hints_
   toward the fix, not finished code — until I explicitly ask for the answer or to implement. A
   question means no change by default; only edit when I say "implement". Exception: components and
   styling/UI — just build those.

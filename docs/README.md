@@ -2,12 +2,12 @@
 
 Reference and planning docs for Meal Roulette, organised by purpose.
 
-| Area | What lives here |
-| --- | --- |
-| [`architecture/`](architecture/) | How the system is built — stack decisions, data model, module structure. |
-| [`product/`](product/) | What is being built and why — the feature roadmap. |
-| [`decisions/`](decisions/) | Architecture Decision Records (ADRs): one file per significant, dated decision. |
-| [`guides/`](guides/) | How-to guides for working in the repo. |
+| Area                             | What lives here                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------- |
+| [`architecture/`](architecture/) | How the system is built — stack decisions, data model, module structure.        |
+| [`product/`](product/)           | What is being built and why — the feature roadmap.                              |
+| [`decisions/`](decisions/)       | Architecture Decision Records (ADRs): one file per significant, dated decision. |
+| [`guides/`](guides/)             | How-to guides for working in the repo.                                          |
 
 ## Index
 

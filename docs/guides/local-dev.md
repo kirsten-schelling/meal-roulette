@@ -16,11 +16,11 @@ the tooling rationale.
 
 Run the database, apply the migrations, then start the web server:
 
-| Service | Command | URL |
-| --- | --- | --- |
-| Database | `docker compose up -d` | Postgres on localhost:5432 |
-| Migrations | `just migrate` | — (first run, and after pulling new migrations) |
-| Web | `cd web && dx serve` | http://localhost:8080 |
+| Service    | Command                | URL                                             |
+| ---------- | ---------------------- | ----------------------------------------------- |
+| Database   | `docker compose up -d` | Postgres on localhost:5432                      |
+| Migrations | `just migrate`         | — (first run, and after pulling new migrations) |
+| Web        | `cd web && dx serve`   | http://localhost:8080                           |
 
 The web server is the whole backend: it renders the app, runs the `#[server]` functions, and
 serves the REST routes under http://localhost:8080/api (for curl and the device). The REST
