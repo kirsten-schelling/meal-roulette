@@ -83,13 +83,18 @@ pub fn parse_url(raw: &str) -> Result<Url, AppError> {
 /// returned addresses are what the connection must use, so a second DNS answer can't swap in
 /// an internal address after this check.
 async fn resolve(url: &Url, allow: fn(IpAddr) -> bool) -> Result<Vec<SocketAddr>, AppError> {
-    let host = url.host_str().ok_or_else(blocked)?;
     let port = url.port_or_known_default().ok_or_else(blocked)?;
     let no_such_site = || AppError::Unprocessable("Couldn't find that website.".to_string());
-    let addrs: Vec<SocketAddr> = tokio::net::lookup_host((host, port))
-        .await
-        .map_err(|_| no_such_site())?
-        .collect();
+    let host = url.host_str().ok_or_else(blocked)?;
+    // `host_str()` keeps the brackets on an IPv6 literal ("[::1]"), which `lookup_host` would
+    // treat as a DNS name and fail on, so literals are parsed here and never hit DNS.
+    let addrs: Vec<SocketAddr> = match host.trim_matches(['[', ']']).parse::<IpAddr>() {
+        Ok(ip) => vec![SocketAddr::new(ip, port)],
+        Err(_) => tokio::net::lookup_host((host, port))
+            .await
+            .map_err(|_| no_such_site())?
+            .collect(),
+    };
     if addrs.is_empty() {
         return Err(no_such_site());
     }
