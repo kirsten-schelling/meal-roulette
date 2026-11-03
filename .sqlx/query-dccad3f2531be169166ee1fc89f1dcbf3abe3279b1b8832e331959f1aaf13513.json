@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM shopping_list_item\n        WHERE shopping_list_id = $1\n          AND shopping_list_item.ingredient_id IS NOT NULL\n          AND NOT EXISTS (\n              SELECT 1\n              FROM planned_meal\n              JOIN recipe_ingredient ON recipe_ingredient.recipe_id = planned_meal.recipe_id\n              WHERE planned_meal.meal_plan_id = $2\n                AND recipe_ingredient.ingredient_id = shopping_list_item.ingredient_id\n          )\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "dccad3f2531be169166ee1fc89f1dcbf3abe3279b1b8832e331959f1aaf13513"
+}

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE shopping_list_item\n        SET ingredient_id = COALESCE($1, ingredient_id),\n            unit_id = COALESCE($2, unit_id),\n            qty = COALESCE($3, qty),\n            is_purchased = COALESCE($4, is_purchased),\n            note = COALESCE($5, note)\n        WHERE id = $6\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, created_at, updated_at\n        ",
+  "query": "\n        SELECT id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, name, created_at, updated_at\n        FROM shopping_list_item\n        ORDER BY created_at\n        ",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,17 @@
       },
       {
         "ordinal": 7,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -104,26 +115,20 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid",
-        "Uuid",
-        "Numeric",
-        "Bool",
-        "Text",
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
       false,
-      false,
-      false,
+      true,
+      true,
       true,
       false,
+      true,
       true,
       false,
       false
     ]
   },
-  "hash": "641bc34c88c7be49b433bbfc9af2e433e929c78f56ab209b58ed69f72f484470"
+  "hash": "b31dc065580e1e083d404cdf16db8fe565b2297ddfae3e26e7dc9e030afa4431"
 }

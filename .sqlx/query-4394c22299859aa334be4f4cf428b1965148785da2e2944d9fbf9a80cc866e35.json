@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE shopping_list_item\n        SET is_purchased = $1\n        WHERE id = $2\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, created_at, updated_at\n        ",
+  "query": "\n        INSERT INTO shopping_list_item (shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, name, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,17 @@
       },
       {
         "ordinal": 7,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -105,21 +116,26 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Numeric",
         "Bool",
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
       false,
       false,
-      false,
-      false,
+      true,
+      true,
       true,
       false,
+      true,
       true,
       false,
       false
     ]
   },
-  "hash": "1b4239634b4fd081aef61a86162b1ccac0d15772e2da051b2037a415810f5746"
+  "hash": "4394c22299859aa334be4f4cf428b1965148785da2e2944d9fbf9a80cc866e35"
 }

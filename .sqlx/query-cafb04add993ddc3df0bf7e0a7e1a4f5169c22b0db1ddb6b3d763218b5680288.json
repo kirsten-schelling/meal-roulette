@@ -1,0 +1,141 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE shopping_list_item\n        SET ingredient_id = COALESCE($1, ingredient_id),\n            unit_id = COALESCE($2, unit_id),\n            qty = COALESCE($3, qty),\n            is_purchased = COALESCE($4, is_purchased),\n            note = COALESCE($5, note)\n        WHERE id = $6\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, name, created_at, updated_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "shopping_list_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "shopping_list_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ingredient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "ingredient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "unit_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "unit_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "qty",
+        "type_info": "Numeric",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "qty"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "is_purchased",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "is_purchased"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "note",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "note"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Numeric",
+        "Bool",
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "cafb04add993ddc3df0bf7e0a7e1a4f5169c22b0db1ddb6b3d763218b5680288"
+}

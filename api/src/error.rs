@@ -79,6 +79,7 @@ fn constraint_message(constraint: &str) -> Option<AppError> {
             "This recipe is on a meal plan. Delete that plan from History first, or swap the recipe out of it.",
         ),
         "fk_cook_log_recipe" => conflict("This recipe is in the cooking log."),
+        "chk_shopping_list_item_kind" => invalid("Say what to add to the list."),
         "chk_recipe_difficulty_range" => invalid("Difficulty must be between 1 and 5."),
         "chk_recipe_healthiness_range" => invalid("Healthiness must be between 1 and 5."),
         "chk_recipe_time_mins_positive" => invalid("Time must be at least 1 minute."),

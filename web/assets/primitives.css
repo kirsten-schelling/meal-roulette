@@ -1248,6 +1248,8 @@ body { margin: 0; }
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem 1rem;
 }
 .mr-listsummary { margin: 0 0 .75rem; color: var(--mr-text-muted); font-size: .9rem; font-weight: 600; }
+.mr-addcustom { display: flex; gap: .5rem; margin: 0 0 .75rem; }
+.mr-addcustom .mr-input { flex: 1; min-width: 0; }
 .mr-dim { opacity: .5; }
 .mr-struck { text-decoration: line-through; color: var(--mr-text-muted); }
 .mr-linenote {

@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO planned_meal (meal_plan_id, recipe_id, scheduled_date)\n             VALUES ($1, $2, '2026-11-02'), ($1, $3, '2026-11-03')\n             RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6a7ef786fb2d47ea78bb6799fb551e2825e7c00c256a5bc10fff90a8f4654945"
+}

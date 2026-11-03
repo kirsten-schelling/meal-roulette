@@ -1,0 +1,40 @@
+use crate::components::ui::{Button, ButtonVariant, Size};
+use dioxus::prelude::*;
+
+/// A one-line form for putting something that is not an ingredient on the list.
+/// `on_add` fires with the trimmed text; the page clears the field by resetting `busy`.
+#[component]
+pub fn AddCustomItem(busy: bool, on_add: EventHandler<String>) -> Element {
+    let mut text = use_signal(String::new);
+    let trimmed = text().trim().to_string();
+    let empty = trimmed.is_empty();
+
+    rsx! {
+        form {
+            class: "mr-addcustom",
+            onsubmit: move |e: FormEvent| {
+                e.prevent_default();
+                if !empty && !busy {
+                    on_add.call(trimmed.clone());
+                    text.set(String::new());
+                }
+            },
+            input {
+                class: "mr-input",
+                r#type: "text",
+                value: "{text}",
+                placeholder: "Add your own item, e.g. bin bags",
+                aria_label: "Add your own item",
+                maxlength: "200",
+                oninput: move |e: FormEvent| text.set(e.value()),
+            }
+            Button {
+                variant: ButtonVariant::Outline,
+                size: Size::Md,
+                loading: busy,
+                disabled: empty,
+                "Add"
+            }
+        }
+    }
+}
