@@ -1,0 +1,86 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT id, household_id, ingredient_id, phrase, created_at, updated_at\n        FROM ingredient_alias\n        ORDER BY phrase\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "household_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "household_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ingredient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "ingredient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "phrase",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "phrase"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6d037acb8be6fa62ec8108681390cb0679d2684881547eb7d9a27344a5a81157"
+}

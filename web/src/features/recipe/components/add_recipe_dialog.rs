@@ -5,8 +5,11 @@ use crate::components::ui::{
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
 use crate::features::library::components::{ManageListsDialog, ManageTab};
 use crate::features::recipe::components::import_from_link::ImportFromLink;
+use crate::features::recipe::components::import_match::ImportMatch;
 use crate::features::recipe::components::ingredient_composer::{parse_qty, IngredientComposer};
-use crate::features::recipe::components::ingredient_line::{IngredientLine, RecipeLine};
+use crate::features::recipe::components::ingredient_line::{
+    ImportChoice, IngredientLine, RecipeLine,
+};
 use crate::features::recipe::components::recipe_fields::{
     options_from, use_recipe_catalogs, use_recipe_form, RecipeFields,
 };
@@ -60,6 +63,7 @@ fn line_entries(lines: &[RecipeLine]) -> Vec<RecipeIngredientEntry> {
             qty: parse_qty(&l.qty).ok().flatten(),
             note: (!l.note.is_empty()).then(|| l.note.clone()),
             is_optional: l.optional,
+            import_phrase: l.import.as_ref().map(|i| i.phrase.clone()),
         })
         .collect()
 }
@@ -149,23 +153,57 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
             .ingredients
             .into_iter()
             .enumerate()
-            .map(|(i, ing)| RecipeLine {
-                id: i + 1,
-                name: ing.name,
-                unit: ing.unit,
-                qty: ing
-                    .qty
-                    .map(|q| q.normalize().to_string())
-                    .unwrap_or_default(),
-                note: ing.note.unwrap_or_default(),
-                optional: false,
-                ingredient: ing.ingredient,
+            .map(|(i, ing)| {
+                let matched = ing.use_suggestion;
+                let chosen = match (&ing.suggestion, matched) {
+                    (Some(s), true) => s.line.clone(),
+                    _ => ing.as_new.clone(),
+                };
+                RecipeLine {
+                    id: i + 1,
+                    name: chosen.name,
+                    unit: chosen.unit,
+                    qty: chosen
+                        .qty
+                        .map(|q| q.normalize().to_string())
+                        .unwrap_or_default(),
+                    note: chosen.note.unwrap_or_default(),
+                    optional: false,
+                    ingredient: chosen.ingredient,
+                    import: Some(ImportChoice {
+                        phrase: ing.phrase,
+                        suggestion: ing.suggestion,
+                        as_new: ing.as_new,
+                        matched,
+                    }),
+                }
             })
             .collect();
         next_id.set(imported.len() + 1);
         editing_id.set(None);
         lines.set(imported);
     };
+
+    let switch_line = move |id: usize| {
+        let mut lines = lines;
+        let mut all = lines.write();
+        if let Some(line) = all.iter_mut().find(|l| l.id == id) {
+            if let Some(next) = line.switched() {
+                *line = next;
+            }
+        }
+    };
+    let blocked_ids: Vec<usize> = lines_now
+        .iter()
+        .filter(|l| {
+            l.switch_target_name().is_some_and(|target| {
+                lines_now
+                    .iter()
+                    .any(|o| o.id != l.id && o.name.eq_ignore_ascii_case(target))
+            })
+        })
+        .map(|l| l.id)
+        .collect();
 
     let modal_title = match panel() {
         Panel::Recipe => "Add recipe",
@@ -207,9 +245,16 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                                         amount
                                                     };
                                                     rsx! {
-                                                        div { key: "{line.id}", class: "mr-ings-summary__row",
-                                                            span { class: "mr-ings-summary__name", "{line.name}" }
-                                                            span { class: "mr-ings-summary__amt", "{amt}" }
+                                                        div { key: "{line.id}", class: "mr-ings-summary__item",
+                                                            div { class: "mr-ings-summary__row",
+                                                                span { class: "mr-ings-summary__name", "{line.name}" }
+                                                                span { class: "mr-ings-summary__amt", "{amt}" }
+                                                            }
+                                                            ImportMatch {
+                                                                line: line.clone(),
+                                                                on_switch: switch_line,
+                                                                blocked: blocked_ids.contains(&line.id),
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -280,6 +325,8 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                                 key: "{line.id}",
                                                 line: line.clone(),
                                                 editing: editing_id() == Some(line.id),
+                                                on_switch: switch_line,
+                                                switch_blocked: blocked_ids.contains(&line.id),
                                                 on_edit: move |id: usize| editing_id.set(Some(id)),
                                                 on_cancel: move |_| editing_id.set(None),
                                                 on_save: move |updated: RecipeLine| {

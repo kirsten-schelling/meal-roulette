@@ -1,4 +1,6 @@
-use crate::features::{cuisine, ingredient, protein, recipe_ingredient, recipe_tag, tag};
+use crate::features::{
+    cuisine, ingredient, ingredient_alias, protein, recipe_ingredient, recipe_tag, tag,
+};
 use domain::{
     cuisine::{CuisineEntry, NewCuisine},
     protein::{NewProtein, ProteinEntry},
@@ -231,6 +233,9 @@ pub async fn create_with_ingredients(
     let mut ingredients: Vec<RecipeIngredient> = Vec::new();
     for entry in recipe_ingredients {
         let ingredient_id = ingredient::repository::resolve(&mut tx, entry.ingredient).await?;
+        if let Some(phrase) = entry.import_phrase.as_deref() {
+            ingredient_alias::repository::remember(&mut tx, phrase, ingredient_id).await?;
+        }
         let ingredient = recipe_ingredient::repository::create(
             &mut *tx,
             recipe.id,

@@ -49,6 +49,7 @@ pub fn RecipePage(id: Uuid) -> Element {
             qty,
             note: (!line.note.is_empty()).then_some(line.note),
             is_optional: line.optional,
+            import_phrase: None,
         };
         adding_busy.set(true);
         spawn(async move {

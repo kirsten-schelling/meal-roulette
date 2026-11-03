@@ -867,6 +867,16 @@ body { margin: 0; }
 }
 .mr-ings-summary__amt { flex: none; color: var(--mr-text-muted); font-variant-numeric: tabular-nums; }
 
+.mr-ings-summary__item { display: flex; flex-direction: column; gap: .05rem; }
+
+/* "Matched: Eggs" under an imported line, with its switch. */
+.mr-import-match {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .1rem .35rem;
+  font-size: .78rem; color: var(--mr-text-muted);
+}
+.mr-import-match .mr-ing-line__edit { padding: .05rem .3rem; font-size: .78rem; }
+.mr-import-match .mr-ing-line__edit:disabled { opacity: .5; cursor: not-allowed; }
+
 /* Layout helper */
 .mr-stack { display: flex; }
 

@@ -64,18 +64,34 @@ pub fn canonical_unit(name: &str) -> String {
 
 /// An ingredient name reduced to a form its singular and plural share.
 pub fn match_key(name: &str) -> String {
-    singular(&collapse_whitespace(&name.to_lowercase()))
+    collapse_whitespace(&name.to_lowercase())
+        .split(' ')
+        .map(singular)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
-fn singular(word: &str) -> String {
+pub fn singular(word: &str) -> String {
+    const UNCHANGED: &[&str] = &["molasses", "hummus", "couscous", "asparagus", "swiss"];
+    if word.len() < 4 || UNCHANGED.contains(&word) {
+        return word.to_string();
+    }
+    if word == "leaves" {
+        return "leaf".to_string();
+    }
     if let Some(stem) = word.strip_suffix("ies").filter(|s| !s.is_empty()) {
         return format!("{stem}y");
     }
-    if let Some(stem) = word.strip_suffix("oes").filter(|s| !s.is_empty()) {
-        return format!("{stem}o");
+    for tail in ["oes", "ches", "shes", "sses", "xes"] {
+        if let Some(stem) = word.strip_suffix(tail) {
+            return format!("{stem}{}", &tail[..tail.len() - 2]);
+        }
+    }
+    if word.ends_with("ss") || word.ends_with("us") || word.ends_with("is") {
+        return word.to_string();
     }
     match word.strip_suffix('s') {
-        Some(stem) if !stem.is_empty() && !stem.ends_with('s') => stem.to_string(),
+        Some(stem) if !stem.is_empty() => stem.to_string(),
         _ => word.to_string(),
     }
 }
@@ -163,6 +179,26 @@ fn leading_quantity(tokens: &[&str]) -> Option<(Decimal, usize, Option<String>)>
     Some((qty, used, None))
 }
 
+/// Splits a first token like `300ml` or `2tbsp` into the number and the unit it is stuck to.
+fn split_attached_unit(main: &str) -> Vec<String> {
+    let mut tokens: Vec<String> = main.split_whitespace().map(str::to_string).collect();
+    let Some(first) = tokens.first() else {
+        return tokens;
+    };
+    let split = first
+        .char_indices()
+        .find(|(_, c)| c.is_alphabetic() && vulgar_fraction(*c).is_none());
+    if let Some((at, _)) = split.filter(|(at, _)| *at > 0) {
+        let (number_part, unit_part) = first.split_at(at);
+        if number(number_part).is_some() && known_unit(&unit_part.to_lowercase()).is_some() {
+            let (number_part, unit_part) = (number_part.to_string(), unit_part.to_string());
+            tokens[0] = number_part;
+            tokens.insert(1, unit_part);
+        }
+    }
+    tokens
+}
+
 /// Removes `( ... )` groups, returning the text without them and what they said.
 fn take_parentheses(text: &str) -> (String, Vec<String>) {
     let mut kept = String::new();
@@ -206,13 +242,20 @@ pub fn parse_line(raw: &str) -> ParsedLine {
         None => (without_parens, None),
     };
 
-    let tokens: Vec<&str> = main.split_whitespace().collect();
+    let tokens = split_attached_unit(&main);
+    let tokens: Vec<&str> = tokens.iter().map(String::as_str).collect();
     let mut at = 0;
     let mut qty = None;
     if let Some((value, used, range)) = leading_quantity(&tokens) {
         qty = Some(value.round_dp(2)).filter(|q| *q > Decimal::ZERO);
         at = used;
         notes.splice(0..0, range);
+    } else if tokens.len() > 1
+        && matches!(tokens[0].to_lowercase().as_str(), "a" | "an")
+        && known_unit(&tokens[1].to_lowercase()).is_some()
+    {
+        qty = Some(Decimal::ONE);
+        at = 1;
     }
 
     let mut unit = None;
@@ -346,6 +389,42 @@ mod tests {
     #[test]
     fn a_unit_word_without_a_quantity_stays_in_the_name() {
         assert_eq!(parse_line("cup cakes").name, "cup cakes");
+    }
+
+    #[test]
+    fn splits_a_unit_stuck_to_its_number() {
+        let p = parse_line("300ml milk");
+        assert_eq!(
+            (p.qty, p.unit.as_deref(), p.name.as_str()),
+            (dec("300"), Some("ml"), "milk")
+        );
+        let p = parse_line("1.5kg potatoes");
+        assert_eq!((p.qty, p.unit.as_deref()), (dec("1.5"), Some("kg")));
+        let p = parse_line("2tbsp honey");
+        assert_eq!((p.qty, p.unit.as_deref()), (dec("2"), Some("tbsp")));
+        assert_eq!(parse_line("3rd place cake").qty, None);
+    }
+
+    #[test]
+    fn an_article_before_a_unit_counts_as_one() {
+        let p = parse_line("a handful of parsley");
+        assert_eq!(
+            (p.qty, p.unit.as_deref(), p.name.as_str()),
+            (dec("1"), Some("handful"), "parsley")
+        );
+        assert_eq!(parse_line("a lemon").name, "a lemon");
+    }
+
+    #[test]
+    fn singular_handles_common_endings() {
+        assert_eq!(singular("tomatoes"), "tomato");
+        assert_eq!(singular("peaches"), "peach");
+        assert_eq!(singular("radishes"), "radish");
+        assert_eq!(singular("leaves"), "leaf");
+        assert_eq!(singular("cherries"), "cherry");
+        assert_eq!(singular("molasses"), "molasses");
+        assert_eq!(singular("asparagus"), "asparagus");
+        assert_eq!(singular("peas"), "pea");
     }
 
     #[test]
