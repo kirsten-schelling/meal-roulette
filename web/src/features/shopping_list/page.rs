@@ -93,6 +93,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
     // Ticks made on this page, shown before the save lands so the box never
     // lags the click. A failed save drops its entry, which puts the box back.
     let mut ticks = use_signal(HashMap::<Uuid, bool>::new);
+    let mut clearing = use_signal(|| false);
 
     let loaded = data();
     let view: Option<&ShoppingListForPlan> = match &loaded {
@@ -155,6 +156,46 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                     Tone::Red,
                 );
             }
+        });
+    };
+
+    let clear_bought = move |_: MouseEvent| {
+        if clearing() {
+            return;
+        }
+        let bought: Vec<Uuid> = lines(&data.read())
+            .iter()
+            .filter(|l| l.sleep_until.is_none() && purchased(l))
+            .map(|l| l.id)
+            .collect();
+        clearing.set(true);
+        spawn(async move {
+            let mut failed = None;
+            for id in bought {
+                match set_item_purchased(id, false).await {
+                    Ok(_) => {
+                        ticks.write().insert(id, false);
+                    }
+                    Err(e) => {
+                        failed = Some(error_message(&e));
+                        break;
+                    }
+                }
+            }
+            data.restart();
+            match failed {
+                None => toast.show(
+                    Some("Bought items cleared".to_string()),
+                    "Everything is back on the to-buy list.".to_string(),
+                    Tone::Green,
+                ),
+                Some(message) => toast.show(
+                    Some("Couldn't clear the bought items".to_string()),
+                    message,
+                    Tone::Red,
+                ),
+            }
+            clearing.set(false);
         });
     };
 
@@ -333,6 +374,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         .filter(|l| l.sleep_until.is_none() && purchased(l))
         .count();
     let to_buy = items.len() - sleeping_count - purchased_count;
+    let all_bought = to_buy == 0 && purchased_count > 0;
 
     rsx! {
         div { class: "mr-page",
@@ -408,10 +450,25 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                             }
                         }
                     }
-                    p { class: "mr-listsummary",
+                    p { class: "mr-listsummary", role: "status", aria_live: "polite",
                         "{to_buy} to buy, {purchased_count} purchased, {sleeping_count} sleeping"
                     }
-                    div { class: "mr-tablepanel",
+                    if all_bought {
+                        div { class: "mr-empty mr-empty--inline", role: "status", aria_live: "polite",
+                            div { class: "mr-empty__icon", aria_hidden: "true", Icon { name: IconName::Check } }
+                            Heading { level: 3, "Everything's in the basket" }
+                            Text { muted: true,
+                                "All {purchased_count} items are bought. Clear them to start the next shop."
+                            }
+                            Button {
+                                variant: ButtonVariant::Outline,
+                                loading: clearing(),
+                                onclick: clear_bought,
+                                "Clear bought"
+                            }
+                        }
+                    }
+                    div { class: "mr-tablepanel", aria_live: "polite",
                         DataTable::<ShoppingListLine> {
                             columns: columns.clone(),
                             rows: items.clone(),
