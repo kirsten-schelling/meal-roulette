@@ -1,0 +1,4 @@
+[env]
+# Dioxus hashes the build folder into every server function URL unless this key is set, so
+# the phone app (built here) and the server (built in Docker) would call different URLs.
+SERVER_FN_OVERRIDE_KEY = "meal-roulette"
