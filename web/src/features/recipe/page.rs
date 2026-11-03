@@ -3,11 +3,12 @@ use crate::components::ui::{
     Alert, Badge, Button, ButtonVariant, CellAlign, Column, ConfirmDialog, DataTable, FilterField,
     Heading, Icon, IconButton, IconName, SearchBar, Size, Spinner, Text, Tone,
 };
-use crate::features::recipe::components::AddRecipeDialog;
+use crate::features::recipe::components::{AddRecipeDialog, RecipeCard, ViewToggle};
 use crate::features::recipe::filter::{
     matching, CUISINE, DIFFICULTY, HEALTHINESS, MAX_TIME, PROTEIN, SERVINGS, TAG,
 };
 use crate::features::recipe::hooks::use_recipe::{delete_recipe, use_get_recipe_overviews};
+use crate::features::recipe::hooks::use_recipe_view::{use_recipe_view, RecipeView};
 use crate::features::roll::settings::DEFAULT_NUM_DAYS;
 use crate::hooks::use_toast::use_toast;
 use crate::models::error_message;
@@ -61,6 +62,7 @@ pub fn Recipes() -> Element {
     let mut deleting = use_signal(Vec::<Recipe>::new);
     let mut delete_busy = use_signal(|| false);
     let mut search_reset = use_signal(|| 0u32);
+    let mut view = use_recipe_view();
 
     // The rows actually on screen; selection indexes and row clicks refer to these.
     let visible = use_memo(move || match &*recipes.read() {
@@ -256,6 +258,7 @@ pub fn Recipes() -> Element {
             //    from the "+" menu. The generic SearchBar owns the interaction;
             //    the page supplies the recipe-specific filter types and applies them.
             div { class: "mr-page__filters",
+                div { class: "mr-page__searchrow",
                 SearchBar {
                     placeholder: "Search recipes…",
                     filters: vec![
@@ -271,9 +274,19 @@ pub fn Recipes() -> Element {
                     onfilters: move |list: Vec<String>| chips.set(list),
                     reset: search_reset(),
                 }
+                ViewToggle {
+                    view: view.get(),
+                    on_change: move |next: RecipeView| {
+                        if next == RecipeView::Cards {
+                            selected_rows.set(Vec::new());
+                        }
+                        view.set(next);
+                    },
+                }
+                }
             }
 
-            if !selected_rows().is_empty() {
+            if view.get() == RecipeView::Table && !selected_rows().is_empty() {
                 div { class: "mr-bulkbar",
                     Text { small: true, "{selected_rows().len()} selected" }
                     Button {
@@ -327,6 +340,13 @@ pub fn Recipes() -> Element {
                                 search_reset += 1;
                             },
                             "Clear filters"
+                        }
+                    }
+                },
+                Some(Ok(_)) if view.get() == RecipeView::Cards && !visible.read().is_empty() => rsx! {
+                    div { class: "mr-recipegrid", aria_live: "polite",
+                        for overview in visible() {
+                            RecipeCard { key: "{overview.recipe.id}", overview }
                         }
                     }
                 },
