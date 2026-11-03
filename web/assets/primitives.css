@@ -1832,10 +1832,20 @@ button.mr-chip--active::before {
   padding: .6rem .75rem; background: var(--mr-bg);
   border: 1px solid var(--mr-border); border-radius: var(--mr-radius-sm);
 }
-.mr-rule__head { display: flex; flex-direction: column; min-width: 0; }
-.mr-rule__name { font-weight: 700; overflow-wrap: anywhere; }
-.mr-rule__kind { font-size: .78rem; color: var(--mr-text-muted); }
+.mr-rule__kind { font-size: .78rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--mr-text-muted); }
 .mr-rule__body { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .55rem; }
+.mr-rule__noun { font-weight: 600; overflow-wrap: anywhere; }
+.mr-rule-builder {
+  display: flex; flex-direction: column; gap: .75rem; margin-top: .75rem; padding: .75rem;
+  background: var(--mr-bg); border: 1px dashed var(--mr-border); border-radius: var(--mr-radius-sm);
+}
+.mr-rule-builder__head { display: flex; align-items: center; gap: .4rem; }
+.mr-rule-builder__title { flex: 1; font-weight: 700; }
+.mr-rule-builder__group { display: flex; flex-direction: column; gap: .4rem; }
+.mr-rule-builder__label { font-size: .85rem; color: var(--mr-text-muted); }
+.mr-rule-builder__chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.mr-rule-builder__actions { display: flex; gap: .5rem; }
+.mr-rule-builder__add { margin-top: .75rem; }
 .mr-roll__seed { max-width: 12rem; }
 
 /* results */

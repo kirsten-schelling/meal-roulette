@@ -45,21 +45,22 @@ Core sub-features:
   button (sticky at the bottom on a phone), with the rules folded under it into one line.
   A roll is a preview shown in place and saved only when kept, so rolling again does not add
   plans to History; each dinner can be re-rolled on its own, and preferences the roll could
-  not meet are listed in an amber alert. There is one Rules panel with a single "Add a
-  rule…" search; a rule reads as a sentence ("Beef, at least 2 dinners, Prefer"). Importance
-  is Must / Strongly prefer / Prefer / If possible, and a new rule starts as Prefer (saved
-  presets keep theirs). A failed roll shows a persistent error; rules that cannot all hold
-  are flagged before rolling, with a "Make these nice-to-have" fix; a live count shows how
-  many recipes fit the Must rules. Presets are a chip that applies on pick, with a menu to
-  save, update, make default and delete, and an "(edited)" marker. The seed is under Advanced.
-- **Difficulty by day**: _built._ The user sets difficulty and max cook time per day
-  number (Day 1..N) on the roll form: one default limit for all days plus per-day overrides.
-  A limit is an easiest band, a hardest band and an optional max cook time. Days are numbers,
-  never weekdays, so the roll is date-free and nothing is derived from weeknight or weekend.
-  Each limit is a hard rule in the solver, so a recipe only lands on a day it fits, and an
-  impossible combination fails the roll with a message instead of being loosened. The limits
-  are saved in roll presets by day number and on the plan, so re-rolling one day keeps that
-  day's limits. Count rules per difficulty band still work alongside.
+  not meet are listed in an amber alert. There is one Rules panel with a type-first "Add
+  rule" builder: pick Protein, Cuisine, Difficulty or Ingredient, then the value, then at
+  least / at most and a count ("At least 2 Beef dinners"); each rule is an editable row. A
+  rule has one Must toggle, off by default: off is sent as the middle importance level, on as
+  the hard one (the four levels stay in the data; saved presets with other levels load as Must
+  off). The same builder adds "Every dinner" caps on cook time and difficulty. A failed roll
+  shows a persistent error; rules that cannot all hold are flagged before rolling, with a
+  "Turn off Must for these" fix; a live count shows how many recipes fit the Must rules.
+  Presets are a chip that applies on pick, with a menu to save, update, make default and
+  delete, and an "(edited)" marker. The seed is under Advanced.
+- **Difficulty by day**: _built, then narrowed._ The solver and the plan still take
+  difficulty and max cook time limits per day number, each a hard rule. The Roll page no longer
+  sets per-day overrides: its "Every dinner" caps (cook time at most N min, difficulty at most
+  a band) are sent as one limit for all days. Presets saved with per-day limits load with the
+  all-days limit as the caps; their per-day overrides and easiest band are dropped. Count rules
+  per difficulty band still work alongside.
 - Shopping list = union of ingredients across the week's recipes.
 - **Sleep ingredients (shopping list)** — **MVP**. The list still returns _every_ ingredient
   the week needs, but you can choose **not to add specific items to the shopping list** when

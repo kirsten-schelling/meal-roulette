@@ -7,8 +7,8 @@ use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
 use crate::features::protein::hooks::use_protein::use_get_proteins;
 use crate::features::roll::components::{
-    ConflictAlert, DayLimitsCard, PresetBar, RollBar, RollErrorAlert, RollHero, RollResults,
-    RolledWeek, RuleChoice, RulesPanel,
+    ConflictAlert, PresetBar, RollBar, RollErrorAlert, RollHero, RollResults, RolledWeek,
+    RuleChoice, RulesPanel,
 };
 use crate::features::roll::hooks::use_fit_count::use_fit_count;
 use crate::features::roll::hooks::use_roll::{keep_roll, preview_roll, reroll_preview};
@@ -50,7 +50,6 @@ pub fn Roll() -> Element {
     let mut seed = use_signal(String::new);
 
     let mut rules_open = use_signal(|| false);
-    let mut limits_open = use_signal(|| false);
     let mut advanced_open = use_signal(|| false);
 
     let mut shown = use_signal(|| None as Option<Shown>);
@@ -64,7 +63,7 @@ pub fn Roll() -> Element {
         let days = days();
         (1..=MAX_ROLL_DAYS).contains(&days).then(|| FitRequest {
             num_days: days as u16,
-            constraints: settings.read().constraints(days as usize),
+            constraints: settings.read().constraints(),
         })
     });
     let fit = use_fit_count(fit_request);
@@ -82,7 +81,7 @@ pub fn Roll() -> Element {
         )),
         Some(c) if too_few => Some((
             format!(
-                "Only {} recipe{} fit your Must rules and day limits, but you are rolling {}.",
+                "Only {} recipe{} fit your Must and every-dinner rules, but you are rolling {}.",
                 c.fitting,
                 if c.fitting == 1 { "" } else { "s" },
                 days()
@@ -90,7 +89,10 @@ pub fn Roll() -> Element {
             true,
         )),
         Some(c) => Some((
-            format!("{} of {} recipes fit your Must rules.", c.fitting, c.total),
+            format!(
+                "{} of {} recipes fit your Must and every-dinner rules.",
+                c.fitting, c.total
+            ),
             false,
         )),
         None => None,
@@ -101,22 +103,20 @@ pub fn Roll() -> Element {
     let mut choices: Vec<RuleChoice> = DifficultyBand::ALL
         .into_iter()
         .map(|band| RuleChoice {
-            label: format!("{} · difficulty", band_label(band)),
+            label: band_label(band).to_string(),
             target: RuleTarget::Band(band),
         })
         .collect();
     let mut load_failed = false;
-    let mut add_lookups =
-        |family: RuleFamily, noun: &str, rows: Option<Vec<(uuid::Uuid, String)>>| match rows {
-            Some(rows) => choices.extend(rows.into_iter().map(|(id, name)| RuleChoice {
-                label: format!("{name} · {noun}"),
-                target: RuleTarget::Lookup { family, id, name },
-            })),
-            None => load_failed = true,
-        };
+    let mut add_lookups = |family: RuleFamily, rows: Option<Vec<(uuid::Uuid, String)>>| match rows {
+        Some(rows) => choices.extend(rows.into_iter().map(|(id, name)| RuleChoice {
+            label: name.clone(),
+            target: RuleTarget::Lookup { family, id, name },
+        })),
+        None => load_failed = true,
+    };
     add_lookups(
         RuleFamily::Protein,
-        "protein",
         match proteins() {
             Some(Ok(list)) => Some(
                 list.into_iter()
@@ -128,7 +128,6 @@ pub fn Roll() -> Element {
     );
     add_lookups(
         RuleFamily::Cuisine,
-        "cuisine",
         match cuisines() {
             Some(Ok(list)) => Some(
                 list.into_iter()
@@ -140,7 +139,6 @@ pub fn Roll() -> Element {
     );
     add_lookups(
         RuleFamily::Ingredient,
-        "ingredient",
         match ingredients() {
             Some(Ok(list)) => Some(list.into_iter().map(|i| (i.id, i.name)).collect()),
             _ => None,
@@ -159,7 +157,7 @@ pub fn Roll() -> Element {
         if !(1..=MAX_ROLL_DAYS).contains(&days) {
             return;
         }
-        let constraints = form.constraints(days as usize);
+        let constraints = form.constraints();
         let seed = seed().trim().parse::<i64>().ok();
         rolling.set(true);
         roll_error.set(None);
@@ -314,13 +312,6 @@ pub fn Roll() -> Element {
                     open: rules_open(),
                     ontoggle: move |open| rules_open.set(open),
                     load_error,
-                }
-                Collapsible {
-                    title: "Day limits".to_string(),
-                    summary: if settings.read().day_limits.enabled { "On".to_string() } else { "Off".to_string() },
-                    open: limits_open(),
-                    ontoggle: move |open| limits_open.set(open),
-                    DayLimitsCard { settings, day_count: days() as usize }
                 }
                 Collapsible {
                     title: "Advanced".to_string(),

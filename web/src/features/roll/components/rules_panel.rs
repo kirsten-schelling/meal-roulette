@@ -1,17 +1,13 @@
 use crate::components::ui::*;
-use crate::features::roll::components::RuleRow;
-use crate::features::roll::settings::{RollSettings, RuleTarget};
+use crate::features::roll::components::{
+    CookTimeCapRow, DifficultyCapRow, RuleBuilder, RuleChoice, RuleRow,
+};
+use crate::features::roll::settings::RollSettings;
 use dioxus::prelude::*;
 
-/// One thing the "Add a rule…" search offers.
-#[derive(Clone, PartialEq)]
-pub struct RuleChoice {
-    pub label: String,
-    pub target: RuleTarget,
-}
-
-/// Every rule of the roll in one list, with a single search to add more. Shows
-/// an empty state until there is a rule, and a line about the rules when folded.
+/// Every rule of the roll in one list: the count rules, then the caps every
+/// dinner follows, with one builder to add more. Shows a line about the rules
+/// when folded.
 #[component]
 pub fn RulesPanel(
     settings: Signal<RollSettings>,
@@ -22,11 +18,8 @@ pub fn RulesPanel(
 ) -> Element {
     let current = settings();
     let lines = current.lines();
-    let options: Vec<SelectOption> = choices
-        .iter()
-        .filter(|c| !current.has_rule(&c.target))
-        .map(|c| SelectOption::new(c.target.key(), c.label.clone()))
-        .collect();
+    let caps = current.every_dinner;
+    let empty = lines.is_empty() && caps.count() == 0;
 
     rsx! {
         Collapsible {
@@ -37,26 +30,9 @@ pub fn RulesPanel(
             if let Some(message) = load_error.clone() {
                 Alert { tone: Tone::Red, title: "Some options didn't load", "{message}" }
             }
-            Select {
-                label: "Add a rule".to_string(),
-                value: String::new(),
-                placeholder: "Add a rule…".to_string(),
-                searchable: true,
-                options,
-                onchange: {
-                    let choices = choices.clone();
-                    move |key: String| {
-                        if let Some(choice) = choices.iter().find(|c| c.target.key() == key) {
-                            settings.write().add_rule(&choice.target);
-                        }
-                    }
-                },
-            }
-            if lines.is_empty() {
+            if empty {
                 div { class: "mr-rules__empty",
-                    Text { muted: true,
-                        "No rules yet."
-                    }
+                    Text { muted: true, "No rules yet." }
                 }
             } else {
                 ul { class: "mr-rules__list", aria_label: "Rules",
@@ -75,8 +51,23 @@ pub fn RulesPanel(
                             }
                         }
                     }
+                    if let Some(minutes) = caps.max_time_mins {
+                        CookTimeCapRow {
+                            minutes,
+                            on_change: move |m| settings.write().every_dinner.max_time_mins = Some(m),
+                            on_remove: move |_| settings.write().every_dinner.max_time_mins = None,
+                        }
+                    }
+                    if let Some(band) = caps.max_difficulty {
+                        DifficultyCapRow {
+                            band,
+                            on_change: move |b| settings.write().every_dinner.max_difficulty = Some(b),
+                            on_remove: move |_| settings.write().every_dinner.max_difficulty = None,
+                        }
+                    }
                 }
             }
+            RuleBuilder { settings, choices }
         }
     }
 }
