@@ -52,14 +52,13 @@ if (dlg) {
 /// close it — only a press that begins on the backdrop does.
 ///
 /// `wide` widens the dialog for form-heavy content (the default suits short
-/// confirmations). `overflow_visible` lets descendant popups (dropdowns,
-/// comboboxes) escape the dialog box instead of being clipped by it.
+/// confirmations). The dialog is never taller than the viewport: the title stays
+/// put and the body scrolls, with a `mr-dialog-foot` action row pinned to its bottom.
 #[component]
 pub fn Modal(
     on_close: EventHandler<()>,
     #[props(optional)] title: Option<String>,
     #[props(default)] wide: bool,
-    #[props(default)] overflow_visible: bool,
     children: Element,
 ) -> Element {
     let id = use_hook(|| format!("mr-modal-{}", dioxus::core::current_scope_id().0));
@@ -73,9 +72,6 @@ pub fn Modal(
     let mut modal_cls = String::from("mr-modal");
     if wide {
         modal_cls.push_str(" mr-modal--wide");
-    }
-    if overflow_visible {
-        modal_cls.push_str(" mr-modal--overflow");
     }
 
     rsx! {

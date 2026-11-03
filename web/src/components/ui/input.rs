@@ -1,6 +1,27 @@
 use crate::components::ui::{field::error_id, field::use_control_id, Field};
 use dioxus::prelude::*;
 
+/// Focuses the text control `id` names (or the first one inside it) and puts the caret
+/// after its text, so a field opened by a tap is ready to type into. Inputs that have no
+/// text caret (`number`) reject `setSelectionRange`, hence the `try`.
+pub(crate) fn focus_at_end(id: &str) {
+    let _ = document::eval(&FOCUS_AT_END.replace("__ID__", id));
+}
+
+const FOCUS_AT_END: &str = r#"
+const root = document.getElementById("__ID__");
+if (root) {
+  const el = root.matches('input,textarea')
+    ? root
+    : root.querySelector('input:not([disabled]),textarea:not([disabled])')
+      || root.querySelector('button:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])');
+  if (el && el !== document.activeElement) {
+    el.focus();
+    try { const n = el.value.length; el.setSelectionRange(n, n); } catch (_) {}
+  }
+}
+"#;
+
 #[component]
 pub fn Input(
     #[props(optional)] label: Option<String>,
@@ -37,9 +58,12 @@ pub fn Input(
                 aria_required: required.then_some("true"),
                 aria_invalid: has_error.then_some("true"),
                 aria_describedby: has_error.then(|| error_id(&id)),
-                onmounted: move |e: MountedEvent| async move {
-                    if autofocus {
-                        let _ = e.set_focus(true).await;
+                onmounted: {
+                    let id = id.clone();
+                    move |_| {
+                        if autofocus {
+                            focus_at_end(&id);
+                        }
                     }
                 },
                 oninput: move |e| oninput.call(e),

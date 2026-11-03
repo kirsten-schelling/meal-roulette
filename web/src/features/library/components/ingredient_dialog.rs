@@ -126,7 +126,6 @@ pub fn IngredientDialog(
     rsx! {
         Modal {
             title: title.to_string(),
-            overflow_visible: true,
             on_close: move |_| on_close.call(()),
 
             div { class: "mr-dialog-form",

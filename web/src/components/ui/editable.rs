@@ -1,3 +1,4 @@
+use crate::components::ui::input::focus_at_end;
 use crate::components::ui::{Button, ButtonVariant, Icon, IconName, Size};
 use dioxus::prelude::*;
 
@@ -26,6 +27,9 @@ pub fn Editable(label: String, onclick: EventHandler<()>, children: Element) -> 
 /// out for a control that saves on its own (a rating saves on click), so only Cancel
 /// shows; turn `enter_saves` off for a control that uses Enter itself (a tag picker
 /// adds a tag on Enter).
+///
+/// It focuses its control as soon as it opens (a text field with the caret after its
+/// text), so the tap that opened it is the only one needed before typing.
 #[component]
 pub fn InlineEditor(
     on_save: Option<EventHandler<()>>,
@@ -35,9 +39,15 @@ pub fn InlineEditor(
     #[props(default = true)] enter_saves: bool,
     children: Element,
 ) -> Element {
+    let id = use_hook(|| format!("mr-inline-editor-{}", dioxus::core::current_scope_id().0));
     rsx! {
         div { class: "mr-inline-editor",
             div {
+                id: "{id}",
+                onmounted: {
+                    let id = id.clone();
+                    move |_| focus_at_end(&id)
+                },
                 onkeydown: move |e: KeyboardEvent| match e.key() {
                     Key::Enter if enter_saves => {
                         if let Some(save) = on_save {
