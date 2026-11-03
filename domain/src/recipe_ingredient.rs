@@ -60,4 +60,8 @@ pub struct RecipeIngredientEntry {
     pub qty: Option<Decimal>,
     pub note: Option<String>,
     pub is_optional: bool,
+    /// The wording an imported line was matched from; saved so the next import of the same
+    /// wording lands on this ingredient.
+    #[serde(default)]
+    pub import_phrase: Option<String>,
 }

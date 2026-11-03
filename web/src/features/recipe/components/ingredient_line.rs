@@ -1,10 +1,13 @@
 use crate::components::ui::{
-    Badge, Button, ButtonVariant, Checkbox, Icon, IconButton, IconName, Input, Size, Tone,
+    Badge, Button, ButtonVariant, Checkbox, ComboOption, Icon, IconButton, IconName, Input, Picker,
+    Size, Tone,
 };
+use crate::features::recipe::components::import_match::ImportMatch;
 use crate::features::recipe::components::ingredient_composer::parse_qty;
 use crate::models::amount_label;
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
+use domain::recipe_import::{ImportedLine, MatchSuggestion};
 
 /// One chosen ingredient in the dialog's in-memory list.
 #[derive(Clone, PartialEq)]
@@ -16,6 +19,17 @@ pub struct RecipeLine {
     pub note: String,
     pub optional: bool,
     pub ingredient: IngredientEntry,
+    pub import: Option<ImportChoice>,
+}
+
+/// What an imported line can still be switched to: the page's wording, the library ingredient
+/// it looks like, and the line each choice gives.
+#[derive(Clone, PartialEq)]
+pub struct ImportChoice {
+    pub phrase: String,
+    pub suggestion: Option<MatchSuggestion>,
+    pub as_new: ImportedLine,
+    pub matched: bool,
 }
 
 /// A single row in the "In this recipe" list: a read view with Edit/× actions,
@@ -29,6 +43,9 @@ pub fn IngredientLine(
     on_cancel: EventHandler<()>,
     on_save: EventHandler<RecipeLine>,
     on_remove: EventHandler<usize>,
+    #[props(default)] ingredient_options: Vec<ComboOption>,
+    #[props(default)] on_change: Option<EventHandler<(usize, Picker)>>,
+    #[props(default)] taken: Vec<String>,
 ) -> Element {
     let mut draft_qty = use_signal(String::new);
     let mut draft_note = use_signal(String::new);
@@ -117,6 +134,14 @@ pub fn IngredientLine(
                         }
                     }
                     span { class: "mr-ing-line__meta", "{meta}" }
+                    if let Some(on_change) = on_change {
+                        ImportMatch {
+                            line: line.clone(),
+                            ingredient_options: ingredient_options.clone(),
+                            on_change,
+                            taken: taken.clone(),
+                        }
+                    }
                 }
                 div { class: "mr-ing-line__actions",
                     button {
@@ -132,7 +157,7 @@ pub fn IngredientLine(
                         "Edit"
                     }
                     IconButton {
-                        label: "Remove ingredient".to_string(),
+                        label: format!("Remove {}", line.name),
                         danger: true,
                         onclick: move |_| on_remove.call(id),
                         Icon { name: IconName::X }

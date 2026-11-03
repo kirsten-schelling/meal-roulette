@@ -857,7 +857,6 @@ body { margin: 0; }
 .mr-ings-summary { display: flex; flex-direction: column; gap: .35rem; }
 .mr-ings-summary__list {
   display: flex; flex-direction: column; gap: .2rem;
-  max-height: 8.5rem; overflow-y: auto;
   padding: var(--mr-space-2) var(--mr-space-3);
   border-radius: var(--mr-radius-md); background: var(--mr-surface-2);
 }
@@ -870,6 +869,14 @@ body { margin: 0; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mr-ings-summary__amt { flex: none; color: var(--mr-text-muted); font-variant-numeric: tabular-nums; }
+
+.mr-ings-summary__item { display: flex; flex-direction: column; gap: .05rem; padding: .25rem 0; }
+
+/* The ingredient combobox for an imported line, with its match hint beneath. */
+.mr-import-match {
+  display: flex; flex-direction: column; align-items: stretch; gap: .2rem;
+  font-size: .78rem; color: var(--mr-text-muted);
+}
 
 /* Layout helper */
 .mr-stack { display: flex; }

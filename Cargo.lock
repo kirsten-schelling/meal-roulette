@@ -75,6 +75,7 @@ dependencies = [
  "domain",
  "dotenvy",
  "rand 0.9.5",
+ "reqwest",
  "rust_decimal",
  "serde",
  "serde_json",

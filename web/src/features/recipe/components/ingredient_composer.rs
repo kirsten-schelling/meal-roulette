@@ -125,6 +125,7 @@ pub fn IngredientComposer(
             note: note().trim().to_string(),
             optional: optional(),
             ingredient: entry,
+            import: None,
         });
         reset();
     };

@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO ingredient_alias (household_id, ingredient_id, phrase)\n        SELECT NULL, ingredient.id, $1::text\n        FROM ingredient\n        WHERE ingredient.id = $2 AND lower(btrim(ingredient.name)) <> $1::text\n        ON CONFLICT ON CONSTRAINT uq_ingredient_alias_household_phrase\n        DO UPDATE SET ingredient_id = EXCLUDED.ingredient_id\n        RETURNING id, household_id, ingredient_id, phrase, created_at, updated_at\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "household_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "household_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "ingredient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "ingredient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "phrase",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "phrase"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ingredient_alias",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "e19b69a230dee8b1de94f0538a77d126d424ca1768a836c5d8de0c533a8c5f43"
+}

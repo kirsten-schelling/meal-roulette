@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use domain::recipe::{NewRecipe, Recipe, RecipeDetail, RecipeOverview, UpdateRecipe};
+use domain::recipe_import::RecipeImport;
 use domain::recipe_ingredient::{RecipeIngredient, RecipeIngredientEntry, UpdateRecipeIngredient};
 use uuid::Uuid;
 
@@ -118,6 +119,17 @@ pub async fn remove_recipe_ingredient(
 
     let state = app_state()?;
     repository::delete(&state.db, recipe_id, ingredient_id)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
+pub async fn import_recipe_from_url(url: String) -> Result<RecipeImport, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::recipe_import::service;
+
+    let state = app_state()?;
+    service::import_from_url(&state.db, &url)
         .await
         .map_err(server_fn_error)
 }
