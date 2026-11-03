@@ -215,8 +215,8 @@ pub fn Roll() -> Element {
                                     }
                                     let has_selection = !selected_preset().is_empty();
                                     rsx! {
-                                        div { style: "display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end;",
-                                            div { style: "min-width:14rem;",
+                                        div { class: "mr-fieldrow",
+                                            div { class: "mr-fieldrow__wide",
                                                 Select {
                                                     label: "Load a preset".to_string(),
                                                     value: selected_preset(),
@@ -353,8 +353,8 @@ pub fn Roll() -> Element {
                                 }
                             }
                         }
-                        div { style: "display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end;",
-                            div { style: "min-width:14rem;",
+                        div { class: "mr-fieldrow",
+                            div { class: "mr-fieldrow__wide",
                                 Input {
                                     label: "Save current as".to_string(),
                                     value: preset_name(),
@@ -414,8 +414,8 @@ pub fn Roll() -> Element {
 
                 Card { header: "Week shape".to_string(),
                     VStack { gap: 0.5,
-                        div { style: "display:flex; flex-wrap:wrap; gap:.6rem; align-items:flex-end;",
-                            div { style: "width:8rem;",
+                        div { class: "mr-fieldrow",
+                            div { class: "mr-fieldw mr-fieldw--count",
                                 Input {
                                     label: "How many days".to_string(),
                                     kind: "number".to_string(),
@@ -423,7 +423,7 @@ pub fn Roll() -> Element {
                                     oninput: move |e: FormEvent| num_days.set(e.value()),
                                 }
                             }
-                            div { style: "width:11rem;",
+                            div { class: "mr-fieldw mr-fieldw--date",
                                 Input {
                                     label: "Start date".to_string(),
                                     kind: "date".to_string(),
@@ -431,7 +431,7 @@ pub fn Roll() -> Element {
                                     oninput: move |e: FormEvent| start_date.set(e.value()),
                                 }
                             }
-                            div { style: "width:9rem;",
+                            div { class: "mr-fieldw mr-fieldw--seed",
                                 Input {
                                     label: "Seed".to_string(),
                                     kind: "number".to_string(),
@@ -569,7 +569,7 @@ pub fn Roll() -> Element {
                     }
                 }
 
-                div { style: "display:flex; align-items:center; gap:.9rem; flex-wrap:wrap;",
+                div { class: "mr-rollactions",
                     Button {
                         variant: ButtonVariant::Solid,
                         size: Size::Lg,
@@ -827,11 +827,11 @@ fn RuleRow(
     };
 
     rsx! {
-        div { style: "display:flex; align-items:flex-end; gap:.6rem; flex-wrap:wrap;",
-            span { style: "min-width:6rem; padding-bottom:.55rem; font-weight:600;",
+        div { class: "mr-fieldrow",
+            span { class: "mr-rulename",
                 "{name}"
             }
-            div { style: "width:8rem;",
+            div { class: "mr-fieldw mr-fieldw--count",
                 Select {
                     label: "Count".to_string(),
                     value: format!("{bound:?}"),
@@ -843,7 +843,7 @@ fn RuleRow(
                     },
                 }
             }
-            div { style: "width:5.5rem;",
+            div { class: "mr-fieldw mr-fieldw--times",
                 Input {
                     label: "Times".to_string(),
                     kind: "number".to_string(),
@@ -854,7 +854,7 @@ fn RuleRow(
                     },
                 }
             }
-            div { style: "width:8.5rem;",
+            div { class: "mr-fieldw mr-fieldw--importance",
                 Select {
                     label: "Importance".to_string(),
                     value: format!("{importance:?}"),

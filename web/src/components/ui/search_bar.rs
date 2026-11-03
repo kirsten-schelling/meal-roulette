@@ -43,6 +43,9 @@ pub fn SearchBar(
     /// Fires with the applied filter chip labels whenever they change.
     #[props(optional)]
     onfilters: Option<EventHandler<Vec<String>>>,
+    /// Bump this number to empty the bar (text, chips and any half-typed filter).
+    #[props(default)]
+    reset: u32,
 ) -> Element {
     let mut chips = use_signal(Vec::<String>::new);
     let mut text = use_signal(String::new);
@@ -51,6 +54,14 @@ pub fn SearchBar(
     let mut menu = use_signal(|| false);
     // Handle to the text field so picking a filter can focus it immediately.
     let mut input_el = use_signal(|| None as Option<Rc<MountedData>>);
+
+    use_effect(use_reactive(&reset, move |reset| {
+        if reset > 0 {
+            chips.set(Vec::new());
+            text.set(String::new());
+            pending.set(None);
+        }
+    }));
 
     let has_filters = !filters.is_empty();
 

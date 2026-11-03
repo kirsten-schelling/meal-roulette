@@ -14,6 +14,9 @@ use crate::router::Route;
 use dioxus::prelude::*;
 use domain::recipe::{Recipe, RecipeOverview};
 
+/// Recipes needed to roll a first week; matches the roll page's default day count.
+const FIRST_WEEK_RECIPES: usize = 5;
+
 /// How many tags a table row shows before summarising the rest as "+N".
 const TAGS_SHOWN: usize = 3;
 
@@ -56,6 +59,7 @@ pub fn Recipes() -> Element {
     // The recipes waiting on the delete confirmation; empty = no dialog.
     let mut deleting = use_signal(Vec::<Recipe>::new);
     let mut delete_busy = use_signal(|| false);
+    let mut search_reset = use_signal(|| 0u32);
 
     // The rows actually on screen; selection indexes and row clicks refer to these.
     let visible = use_memo(move || match &*recipes.read() {
@@ -174,10 +178,19 @@ pub fn Recipes() -> Element {
     ];
 
     let filtering = !query().trim().is_empty() || !chips().is_empty();
-    let empty = if filtering {
-        "No recipes match your search."
-    } else {
-        "No recipes yet. Add your first one."
+    let empty = "No recipes yet. Add your first one.";
+    let total = match &*recipes.read() {
+        Some(Ok(list)) => list.len(),
+        _ => 0,
+    };
+    let no_matches = filtering && total > 0 && visible.read().is_empty();
+    let filter_summary = {
+        let mut parts = Vec::new();
+        if !query().trim().is_empty() {
+            parts.push(format!("“{}”", query().trim()));
+        }
+        parts.extend(chips());
+        parts.join(", ")
     };
 
     rsx! {
@@ -193,6 +206,38 @@ pub fn Recipes() -> Element {
                     onclick: move |_| adding.set(true),
                     Icon { name: IconName::Plus }
                     "Add recipe"
+                }
+            }
+
+            if matches!(&*recipes.read(), Some(Ok(_))) && total < FIRST_WEEK_RECIPES {
+                div { class: "mr-guide",
+                    div { class: "mr-guide__body",
+                        Heading { level: 3, "Add {FIRST_WEEK_RECIPES} recipes to roll your first week" }
+                        Text { muted: true,
+                            "The roulette picks each dinner from your library, so it needs enough recipes to fill the week."
+                        }
+                        div { class: "mr-guide__progress",
+                            span {
+                                class: "mr-guide__track",
+                                role: "progressbar",
+                                aria_label: "Recipes added",
+                                aria_valuemin: "0",
+                                aria_valuemax: "{FIRST_WEEK_RECIPES}",
+                                aria_valuenow: "{total}",
+                                span {
+                                    class: "mr-guide__fill",
+                                    style: "width:{total * 100 / FIRST_WEEK_RECIPES}%",
+                                }
+                            }
+                            span { class: "mr-guide__count", "{total} of {FIRST_WEEK_RECIPES}" }
+                        }
+                    }
+                    Button {
+                        variant: ButtonVariant::Solid,
+                        onclick: move |_| adding.set(true),
+                        Icon { name: IconName::Plus }
+                        "Add recipe"
+                    }
                 }
             }
 
@@ -223,6 +268,7 @@ pub fn Recipes() -> Element {
                     ],
                     onquery: move |q: String| query.set(q),
                     onfilters: move |list: Vec<String>| chips.set(list),
+                    reset: search_reset(),
                 }
             }
 
@@ -267,8 +313,24 @@ pub fn Recipes() -> Element {
                 Some(Err(e)) => rsx! {
                     Alert { tone: Tone::Red, title: "Couldn't load recipes", "{error_message(e)}" }
                 },
+                Some(Ok(_)) if no_matches => rsx! {
+                    div { class: "mr-empty", role: "status", aria_live: "polite",
+                        div { class: "mr-empty__icon", aria_hidden: "true", Icon { name: IconName::ChefHat } }
+                        Heading { level: 3, "No recipes match {filter_summary}" }
+                        Text { muted: true, "Try a different search, or clear the filters to see everything." }
+                        Button {
+                            variant: ButtonVariant::Outline,
+                            onclick: move |_| {
+                                query.set(String::new());
+                                chips.set(Vec::new());
+                                search_reset += 1;
+                            },
+                            "Clear filters"
+                        }
+                    }
+                },
                 Some(Ok(_)) => rsx! {
-                    div { class: "mr-tablepanel",
+                    div { class: "mr-tablepanel", aria_live: "polite",
                         DataTable::<RecipeOverview> {
                             columns: columns.clone(),
                             rows: visible(),
