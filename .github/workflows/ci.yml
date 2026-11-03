@@ -17,6 +17,9 @@ jobs:
         run: rustup toolchain install stable --profile minimal --component rustfmt,clippy
       - name: Install C compiler
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
       - uses: Swatinem/rust-cache@v2
       - name: Format
         run: cargo fmt --check
@@ -24,3 +27,5 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Prettier
+        run: npx prettier@3.3.3 --check .
