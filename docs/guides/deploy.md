@@ -38,6 +38,7 @@ cd infra
 npm install
 pulumi install
 pulumi stack init prod
+pulumi config set neonOrgId <org id from Neon: Organization settings>
 export NEON_API_KEY=<the Neon API key>
 pulumi preview
 pulumi up
