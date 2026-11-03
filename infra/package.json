@@ -7,6 +7,10 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@pulumi/neon": "file:sdks\\neon",
     "@pulumi/pulumi": "^3"
+  },
+  "allowScripts": {
+    "file:sdks\\neon": true
   }
 }
