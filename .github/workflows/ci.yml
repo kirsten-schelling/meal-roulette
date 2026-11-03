@@ -11,6 +11,19 @@ env:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: meal_roulette
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
@@ -27,5 +40,7 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+        env:
+          DATABASE_URL: postgres://postgres:dev@localhost:5432/meal_roulette
       - name: Prettier
         run: npx prettier@3.3.3 --check .
