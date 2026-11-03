@@ -551,7 +551,7 @@ body { margin: 0; }
    TOAST — floating notification card. This is only the look: position
    toasts with .mr-toast-stack and drive show/dismiss from the app.
    Anatomy: tone icon · body (title + muted subtitle) · optional dismiss ×.
-   A neutral raised surface; the tone shows in the icon only.
+   A neutral raised surface; the tone shows in the side stripe and icon.
    ═══════════════════════════════════════════════════════════════════════ */
 .mr-toast-stack {
   position: fixed; right: var(--mr-space-4); bottom: var(--mr-space-4); z-index: 60;
@@ -565,7 +565,12 @@ body { margin: 0; }
   border-radius: var(--mr-radius-lg); box-shadow: var(--mr-shadow-lg);
   padding: var(--mr-space-3) var(--mr-space-3) var(--mr-space-3) 14px;
   animation: mr-toast-in var(--mr-dur-slow) var(--mr-ease-out);
+  border-left-width: 4px;
 }
+.mr-toast--green { border-left-color: var(--mr-good); }
+.mr-toast--amber { border-left-color: var(--mr-star); }
+.mr-toast--red { border-left-color: var(--mr-danger); }
+.mr-toast--neutral { border-left-color: var(--mr-text-muted); }
 
 .mr-toast__icon {
   flex: none; width: var(--mr-icon-md); height: var(--mr-icon-md); margin-top: 2px;

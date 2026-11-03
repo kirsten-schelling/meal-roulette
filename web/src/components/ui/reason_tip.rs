@@ -1,8 +1,9 @@
+use super::popover::use_on_scroll;
 use dioxus::prelude::*;
 
 /// Wraps a control (usually a disabled button) and, while `reasons` is not empty, shows them
 /// in a small bubble on hover or focus. A disabled button can't explain itself; this does.
-/// Escape hides the bubble until the pointer or focus comes back.
+/// Escape or scrolling hides the bubble until the pointer or focus comes back.
 #[component]
 pub fn ReasonTip(
     reasons: Vec<String>,
@@ -11,6 +12,7 @@ pub fn ReasonTip(
 ) -> Element {
     let id = use_hook(|| format!("mr-tip-{}", dioxus::core::current_scope_id().0));
     let mut dismissed = use_signal(|| false);
+    use_on_scroll(move || dismissed.set(true));
 
     if reasons.is_empty() {
         return rsx! {
