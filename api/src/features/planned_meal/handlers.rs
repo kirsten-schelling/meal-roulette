@@ -4,10 +4,12 @@ use axum::{
 };
 use uuid::Uuid;
 
-use super::repository::{create, delete, get, list, update};
+use super::repository::{create, delete, get, list, schedule_meal, update};
 use crate::error::AppError;
 use crate::state::AppState;
-use domain::planned_meal::{NewPlannedMeal, PlannedMeal, UpdatePlannedMeal};
+use domain::planned_meal::{
+    NewPlannedMeal, PlannedMeal, PlannedMealDetail, ScheduleMeal, UpdatePlannedMeal,
+};
 
 pub async fn get_planned_meals(
     State(state): State<AppState>,
@@ -47,4 +49,13 @@ pub async fn delete_planned_meal(
 ) -> Result<Json<PlannedMeal>, AppError> {
     let meal = delete(&state.db, id).await?;
     Ok(Json(meal))
+}
+
+pub async fn schedule_planned_meal(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<ScheduleMeal>,
+) -> Result<Json<Vec<PlannedMealDetail>>, AppError> {
+    let meals = schedule_meal(&state.db, id, body.scheduled_date).await?;
+    Ok(Json(meals))
 }

@@ -55,7 +55,7 @@ pub async fn lines(
                    JOIN recipe_ingredient ON recipe_ingredient.recipe_id = recipe.id
                    WHERE planned_meal.meal_plan_id = shopping_list.meal_plan_id
                      AND recipe_ingredient.ingredient_id = shopping_list_item.ingredient_id
-                   ORDER BY planned_meal.scheduled_date
+                   ORDER BY planned_meal.scheduled_date NULLS LAST, planned_meal.day_index
                ) AS "used_in!",
                slept_ingredient.sleep_until AS "sleep_until?"
         FROM shopping_list_item

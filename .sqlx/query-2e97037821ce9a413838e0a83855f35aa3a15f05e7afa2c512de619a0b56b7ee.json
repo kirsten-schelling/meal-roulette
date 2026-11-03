@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT planned_meal.id, planned_meal.meal_plan_id, planned_meal.recipe_id,\n               planned_meal.scheduled_date, planned_meal.is_pinned, planned_meal.target_difficulty,\n               recipe.title, recipe.difficulty, recipe.time_mins, recipe.servings, recipe.healthiness,\n               recipe.cuisine_id, cuisine.name AS \"cuisine?\",\n               recipe.main_protein_id, protein.name AS \"protein?\"\n        FROM planned_meal\n        JOIN recipe ON recipe.id = planned_meal.recipe_id\n        LEFT JOIN cuisine ON cuisine.id = recipe.cuisine_id\n        LEFT JOIN protein ON protein.id = recipe.main_protein_id\n        WHERE planned_meal.meal_plan_id = $1\n        ORDER BY planned_meal.scheduled_date\n        ",
+  "query": "\n        SELECT planned_meal.id, planned_meal.meal_plan_id, planned_meal.recipe_id,\n               planned_meal.day_index, planned_meal.scheduled_date, planned_meal.is_pinned, planned_meal.target_difficulty,\n               recipe.title, recipe.difficulty, recipe.time_mins, recipe.servings, recipe.healthiness,\n               recipe.cuisine_id, cuisine.name AS \"cuisine?\",\n               recipe.main_protein_id, protein.name AS \"protein?\"\n        FROM planned_meal\n        JOIN recipe ON recipe.id = planned_meal.recipe_id\n        LEFT JOIN cuisine ON cuisine.id = recipe.cuisine_id\n        LEFT JOIN protein ON protein.id = recipe.main_protein_id\n        WHERE planned_meal.id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -38,6 +38,17 @@
       },
       {
         "ordinal": 3,
+        "name": "day_index",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "day_index"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
         "name": "scheduled_date",
         "type_info": "Date",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "is_pinned",
         "type_info": "Bool",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "target_difficulty",
         "type_info": "Int2",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "title",
         "type_info": "Text",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "difficulty",
         "type_info": "Int2",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "time_mins",
         "type_info": "Int2",
         "origin": {
@@ -103,7 +114,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "servings",
         "type_info": "Int2",
         "origin": {
@@ -114,7 +125,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "healthiness",
         "type_info": "Int2",
         "origin": {
@@ -125,7 +136,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "cuisine_id",
         "type_info": "Uuid",
         "origin": {
@@ -136,7 +147,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "cuisine?",
         "type_info": "Text",
         "origin": {
@@ -147,7 +158,7 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "main_protein_id",
         "type_info": "Uuid",
         "origin": {
@@ -158,7 +169,7 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 15,
         "name": "protein?",
         "type_info": "Text",
         "origin": {
@@ -179,18 +190,19 @@
       false,
       false,
       false,
-      false,
-      true,
-      false,
-      false,
-      false,
-      false,
-      true,
       true,
       false,
       true,
-      false
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "39773e14a032b0fbfaf05d5a3523ea0b9e14fa4f4b63dc849a995ad829541e7f"
+  "hash": "2e97037821ce9a413838e0a83855f35aa3a15f05e7afa2c512de619a0b56b7ee"
 }

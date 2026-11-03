@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, start_date, seed, name,\n               roll_constraints AS \"roll_constraints: Json<RollConstraints>\",\n               is_favourite, archived_at, created_at, updated_at\n        FROM meal_plan\n        ORDER BY start_date DESC\n        ",
+  "query": "\n        SELECT id, household_id, start_date, seed, name,\n               roll_constraints AS \"roll_constraints: Json<RollConstraints>\",\n               is_favourite, archived_at, created_at, updated_at\n        FROM meal_plan\n        ORDER BY created_at DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -120,7 +120,7 @@
     "nullable": [
       false,
       false,
-      false,
+      true,
       true,
       true,
       false,
@@ -130,5 +130,5 @@
       false
     ]
   },
-  "hash": "f655079bdfd3c193be80fb9301706cd7ae69a13ca74dc085a91169153b65eee1"
+  "hash": "99051c53f45378409b942094386cfdcd0358c6f52187b3cf9d739381a9887c5d"
 }

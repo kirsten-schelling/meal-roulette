@@ -3,7 +3,10 @@ use dioxus::prelude::*;
 use domain::meal_plan::MealPlanDetail;
 use uuid::Uuid;
 
-pub use crate::server::api::plan::{reroll_planned_meal, set_plan_favourite, swap_planned_meal};
+pub use crate::server::api::plan::{
+    reroll_planned_meal, schedule_plan, schedule_planned_meal, set_plan_favourite,
+    swap_planned_meal,
+};
 
 /// The latest active plan. `Ok(None)` when every plan is archived or none was rolled.
 pub fn use_get_latest_plan() -> Resource<Result<Option<MealPlanDetail>, ServerFnError>> {

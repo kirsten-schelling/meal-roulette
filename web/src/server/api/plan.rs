@@ -82,3 +82,31 @@ pub async fn swap_planned_meal(
         .await
         .map_err(server_fn_error)
 }
+
+#[server]
+pub async fn schedule_plan(
+    id: Uuid,
+    start_date: time::Date,
+) -> Result<MealPlanDetail, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::meal_plan::repository;
+
+    let state = app_state()?;
+    repository::schedule(&state.db, id, start_date)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
+pub async fn schedule_planned_meal(
+    id: Uuid,
+    scheduled_date: Option<time::Date>,
+) -> Result<Vec<PlannedMealDetail>, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::planned_meal::repository;
+
+    let state = app_state()?;
+    repository::schedule_meal(&state.db, id, scheduled_date)
+        .await
+        .map_err(server_fn_error)
+}

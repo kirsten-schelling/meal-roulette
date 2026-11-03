@@ -298,8 +298,8 @@ mod tests {
         .await
         .unwrap();
         sqlx::query_scalar!(
-            "INSERT INTO planned_meal (meal_plan_id, recipe_id, scheduled_date)
-             VALUES ($1, $2, '2026-11-02'), ($1, $3, '2026-11-03')
+            "INSERT INTO planned_meal (meal_plan_id, recipe_id, day_index, scheduled_date)
+             VALUES ($1, $2, 1, '2026-11-02'), ($1, $3, 2, '2026-11-03')
              RETURNING id",
             plan_id,
             recipes[0],

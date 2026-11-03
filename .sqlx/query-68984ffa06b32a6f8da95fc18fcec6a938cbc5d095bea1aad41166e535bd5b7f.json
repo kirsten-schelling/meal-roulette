@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE planned_meal\n        SET recipe_id = COALESCE($1, recipe_id),\n            scheduled_date = COALESCE($2, scheduled_date),\n            is_pinned = COALESCE($3, is_pinned),\n            target_difficulty = COALESCE($4, target_difficulty)\n        WHERE id = $5\n        RETURNING id, meal_plan_id, recipe_id, scheduled_date, is_pinned, target_difficulty, created_at, updated_at\n        ",
+  "query": "\n        INSERT INTO planned_meal (meal_plan_id, recipe_id, day_index, scheduled_date, is_pinned, target_difficulty)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        RETURNING id, meal_plan_id, recipe_id, day_index, scheduled_date, is_pinned, target_difficulty, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -38,6 +38,17 @@
       },
       {
         "ordinal": 3,
+        "name": "day_index",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "planned_meal",
+            "name": "day_index"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
         "name": "scheduled_date",
         "type_info": "Date",
         "origin": {
@@ -48,7 +59,7 @@
         }
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "is_pinned",
         "type_info": "Bool",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "target_difficulty",
         "type_info": "Int2",
         "origin": {
@@ -70,7 +81,7 @@
         }
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -81,7 +92,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -95,10 +106,11 @@
     "parameters": {
       "Left": [
         "Uuid",
+        "Uuid",
+        "Int2",
         "Date",
         "Bool",
-        "Int2",
-        "Uuid"
+        "Int2"
       ]
     },
     "nullable": [
@@ -106,11 +118,12 @@
       false,
       false,
       false,
+      true,
       false,
       true,
       false,
       false
     ]
   },
-  "hash": "07cbbb44ff6f4ee68c0302608c83a5c9ece8972bc7d9b7af6c508db9c10ba711"
+  "hash": "68984ffa06b32a6f8da95fc18fcec6a938cbc5d095bea1aad41166e535bd5b7f"
 }

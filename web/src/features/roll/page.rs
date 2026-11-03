@@ -18,7 +18,7 @@ use crate::features::roll::settings::{
     DEFAULT_NUM_DAYS, IMPORTANCE_LEVELS,
 };
 use crate::hooks::use_toast::use_toast;
-use crate::models::{error_message, parse_iso_date};
+use crate::models::error_message;
 use crate::router::Route;
 use dioxus::prelude::*;
 use domain::roll::{
@@ -48,9 +48,8 @@ pub fn Roll() -> Element {
     let toast = use_toast();
     let navigator = use_navigator();
 
-    // The shape of the week. An empty date means today; an empty seed means random.
+    // The shape of the week. An empty seed means random.
     let mut num_days = use_signal(|| DEFAULT_NUM_DAYS.to_string());
-    let mut start_date = use_signal(String::new);
     let mut seed = use_signal(String::new);
     let mut rolling = use_signal(|| false);
 
@@ -427,14 +426,6 @@ pub fn Roll() -> Element {
                                     oninput: move |e: FormEvent| num_days.set(e.value()),
                                 }
                             }
-                            div { class: "mr-fieldw mr-fieldw--date",
-                                Input {
-                                    label: "Start date".to_string(),
-                                    kind: "date".to_string(),
-                                    value: start_date(),
-                                    oninput: move |e: FormEvent| start_date.set(e.value()),
-                                }
-                            }
                             div { class: "mr-fieldw mr-fieldw--seed",
                                 Input {
                                     label: "Seed".to_string(),
@@ -446,7 +437,7 @@ pub fn Roll() -> Element {
                             }
                         }
                         Text { small: true, muted: true,
-                            "Leave the date empty to start today. Enter a plan's seed to repeat that roll."
+                            "Dinners come out in roll order; put them on days afterwards. Enter a plan's seed to repeat that roll."
                         }
                     }
                 }
@@ -597,30 +588,11 @@ pub fn Roll() -> Element {
                             };
                             let names = RuleNames::of(form);
                             let seed = seed().trim().parse::<i64>().ok();
-                            let typed_date = start_date();
                             rolling.set(true);
                             spawn(async move {
-                                let start_date = match typed_date.trim() {
-                                    "" => today().await,
-                                    typed => {
-                                        match parse_iso_date(typed) {
-                                            Some(date) => Some(date),
-                                            None => {
-                                                toast
-                                                    .show(
-                                                        Some("Check the date".to_string()),
-                                                        "The start date couldn't be read.".to_string(),
-                                                        Tone::Red,
-                                                    );
-                                                rolling.set(false);
-                                                return;
-                                            }
-                                        }
-                                    }
-                                };
                                 let request = RollRequest {
                                     household_id: None,
-                                    start_date,
+                                    start_date: None,
                                     num_days,
                                     seed,
                                     constraints,
@@ -724,15 +696,6 @@ impl RuleNames {
             Tone::Amber,
         )
     }
-}
-
-/// The browser's local date, so a plan starts on the user's today rather than
-/// the server's. `None` lets the server fall back to its own date.
-async fn today() -> Option<time::Date> {
-    let script = "const d = new Date(); \
-        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;";
-    let value = document::eval(script).await.ok()?;
-    parse_iso_date(value.as_str()?)
 }
 
 /// Append a picked lookup option as a rule (at least once, required), skipping duplicates.

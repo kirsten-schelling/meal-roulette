@@ -1425,6 +1425,12 @@ button.mr-chip--active::before {
 .mr-empty__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; margin-top: .25rem; }
 .mr-week__actions { display: flex; flex-wrap: wrap; gap: .6rem; }
 
+/* plan page: the "put on days" card, and the drop target on a day card */
+.mr-schedule { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem; margin-bottom: .5rem; }
+.mr-schedule__field { width: 12rem; }
+.mr-daycard--over { outline: 2px dashed var(--mr-accent); outline-offset: 2px; }
+.mr-datepick { width: 9.5rem; padding: .35rem .5rem; }
+
 /* shopping list */
 .mr-stale { margin-bottom: 1rem; }
 .mr-stale__body {
@@ -1640,7 +1646,6 @@ button.mr-chip--active::before {
 .mr-fieldrow { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem; }
 .mr-fieldrow__wide { min-width: 14rem; }
 .mr-fieldw--count { width: 8rem; }
-.mr-fieldw--date { width: 11rem; }
 .mr-fieldw--seed { width: 9rem; }
 .mr-fieldw--times { width: 5.5rem; }
 .mr-fieldw--importance { width: 8.5rem; }

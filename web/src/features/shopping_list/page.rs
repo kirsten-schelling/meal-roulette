@@ -10,7 +10,8 @@ use crate::components::ui::{
     ActionMenu, ActionMenuItem, Alert, Badge, Button, ButtonVariant, ConfirmDialog, Heading, Icon,
     IconName, Size, Spinner, Text, Tone,
 };
-use crate::features::history::format::{dinner_count, week_label};
+use crate::features::history::format::{dinner_count, plan_title};
+use crate::features::history::hooks::use_local_offset::use_local_offset;
 use crate::features::shopping_list::components::{AddCustomItem, LineRow, SleepBar};
 use crate::features::shopping_list::hooks::use_shopping_list::{
     add_custom_item, clear_bought_items, generate_shopping_list, remove_custom_item,
@@ -22,6 +23,7 @@ use crate::router::Route;
 use dioxus::prelude::*;
 use domain::shopping_list::ShoppingListForPlan;
 use domain::shopping_list_item::ShoppingListLine;
+use time::UtcOffset;
 use uuid::Uuid;
 
 type Loaded = Option<Result<Option<ShoppingListForPlan>, ServerFnError>>;
@@ -52,7 +54,7 @@ fn lines(loaded: &Loaded) -> Vec<ShoppingListLine> {
     }
 }
 
-fn page_subtitle(view: Option<&ShoppingListForPlan>) -> String {
+fn page_subtitle(view: Option<&ShoppingListForPlan>, offset: UtcOffset) -> String {
     match view {
         Some(view) => {
             let plan = &view.plan;
@@ -62,8 +64,8 @@ fn page_subtitle(view: Option<&ShoppingListForPlan>) -> String {
                 ""
             };
             format!(
-                "For the week of {}, {}.{archived}",
-                week_label(plan.start_date, plan.end_date),
+                "For {}, {}.{archived}",
+                plan_title(plan.name.as_deref(), plan.created_at, offset),
                 dinner_count(plan.num_days)
             )
         }
@@ -74,6 +76,7 @@ fn page_subtitle(view: Option<&ShoppingListForPlan>) -> String {
 #[component]
 fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
     let mut data = use_get_shopping_list(plan_id);
+    let offset = use_local_offset();
     let toast = use_toast();
     let mut generating = use_signal(|| false);
     let mut selected = use_signal(Vec::<Uuid>::new);
@@ -104,7 +107,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         .and_then(|v| v.list.as_ref())
         .is_some_and(|detail| detail.is_stale);
     let items = lines(&loaded);
-    let subtitle = page_subtitle(view);
+    let subtitle = page_subtitle(view, offset());
 
     let purchased = move |line: &ShoppingListLine| {
         ticks

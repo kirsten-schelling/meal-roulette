@@ -13,7 +13,7 @@ use crate::features::plan::hooks::use_plan::swap_planned_meal;
 use crate::features::protein::hooks::use_protein::use_get_proteins;
 use crate::features::recipe::hooks::use_recipe::use_get_recipes;
 use crate::hooks::use_toast::use_toast;
-use crate::models::{day_label, difficulty_label, error_message};
+use crate::models::{difficulty_label, dinner_day_label, error_message};
 use dioxus::prelude::*;
 use domain::planned_meal::PlannedMealDetail;
 use domain::recipe::Recipe;
@@ -139,7 +139,7 @@ pub fn SwapRecipeDialog(
         Modal {
             wide: true,
             overflow_visible: true,
-            title: format!("Swap {}", day_label(meal.scheduled_date)),
+            title: format!("Swap {}", dinner_day_label(meal.day_index, meal.scheduled_date)),
             on_close: move |_| on_close.call(()),
 
             div { class: "mr-recipe-dialog__content",

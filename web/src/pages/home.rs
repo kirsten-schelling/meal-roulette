@@ -1,36 +1,38 @@
-//! Landing dashboard: this week's dinners from the latest rolled plan, plus
-//! shortcuts into the app.
+//! Landing dashboard: the dinner scheduled for today in the latest rolled plan, or a
+//! prompt to put the plan on days, plus shortcuts into the app.
 
 use crate::components::ui::*;
 use crate::features::housekeeping::components::HousekeepingCard;
 use crate::features::plan::hooks::use_plan::use_get_latest_plan;
-use crate::models::{day_label, error_message};
+use crate::hooks::use_today::use_today;
+use crate::models::error_message;
 use crate::router::Route;
 use dioxus::prelude::*;
 
 #[component]
 pub fn Home() -> Element {
     let plan = use_get_latest_plan();
+    let today = use_today();
 
     rsx! {
         div { class: "mr-page",
             header { class: "mr-page__head",
                 Heading { level: 1, "What's for dinner?" }
                 Text { muted: true,
-                    "Your week at a glance. Roll a plan, then turn it into a "
+                    "Tonight's dinner at a glance. Roll a plan, put it on days, then turn it into a "
                     Link { to: Route::ShoppingList {}, class: "mr-textlink", "shopping list" }
                     "."
                 }
             }
 
             VStack { gap: 1.25,
-                Card { header: "This week".to_string(),
+                Card { header: "Today".to_string(),
                     match plan() {
                         None => rsx! {
                             div { class: "mr-tablestate", Spinner {} }
                         },
                         Some(Err(e)) => rsx! {
-                            Alert { tone: Tone::Red, title: "Couldn't load this week", "{error_message(&e)}" }
+                            Alert { tone: Tone::Red, title: "Couldn't load today's dinner", "{error_message(&e)}" }
                         },
                         Some(Ok(None)) => rsx! {
                             div { class: "mr-empty",
@@ -41,16 +43,38 @@ pub fn Home() -> Element {
                             }
                         },
                         Some(Ok(Some(detail))) => rsx! {
-                            div { class: "mr-week",
-                                for m in detail.meals.iter() {
-                                    div { key: "{m.id}", class: "mr-week__row",
-                                        span { class: "mr-week__day", "{day_label(m.scheduled_date)}" }
-                                        span { class: "mr-cell-strong", "{m.title}" }
-                                    }
+                            {
+                                let tonight = today()
+                                    .and_then(|date| {
+                                        detail.meals.iter().find(|m| m.scheduled_date == Some(date))
+                                    });
+                                match (tonight, today()) {
+                                    (Some(meal), _) => rsx! {
+                                        div { class: "mr-week",
+                                            div { class: "mr-week__row",
+                                                span { class: "mr-week__day", "Tonight" }
+                                                span { class: "mr-cell-strong", "{meal.title}" }
+                                            }
+                                        }
+                                    },
+                                    (None, Some(_)) => rsx! {
+                                        Text { muted: true, "Nothing is scheduled for today. Put the week on days to see tonight's dinner here." }
+                                    },
+                                    (None, None) => rsx! {
+                                        div { class: "mr-tablestate", Spinner {} }
+                                    },
                                 }
                             }
                             div { class: "mr-week__actions",
-                                Link { to: Route::PlannedMeals {}, class: "mr-btn mr-btn--outline mr-btn--md", "Open planned meals" }
+                                Link {
+                                    to: Route::PlannedMeals {},
+                                    class: "mr-btn mr-btn--outline mr-btn--md",
+                                    if detail.meals.iter().any(|m| m.scheduled_date.is_none()) {
+                                        "Put the week on days"
+                                    } else {
+                                        "Open planned meals"
+                                    }
+                                }
                                 Link {
                                     to: Route::PlanShoppingList { plan_id: detail.plan.id },
                                     class: "mr-btn mr-btn--outline mr-btn--md",
