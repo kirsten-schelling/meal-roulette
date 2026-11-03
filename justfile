@@ -55,10 +55,11 @@ fmt:
     cargo fmt
     cd web && dx fmt
 
-# lint: fmt check + clippy (fails on warnings, enforces query_as!)
+# lint: fmt check + clippy (fails on warnings, enforces query_as!) + prettier
 lint:
     cargo fmt --check
     cargo clippy --all-targets -- -D warnings
+    npx prettier@3.3.3 --check .
 
 # type-check everything without producing binaries
 check:
