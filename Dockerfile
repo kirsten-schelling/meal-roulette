@@ -7,7 +7,7 @@ COPY . .
 ENV SQLX_OFFLINE=true
 RUN dx bundle --package web --web --release
 
-FROM tailscale/tailscale:v1.80.2 AS tailscale
+FROM tailscale/tailscale:v1.104.4 AS tailscale
 
 FROM debian:bookworm-slim
 RUN apt-get update \
