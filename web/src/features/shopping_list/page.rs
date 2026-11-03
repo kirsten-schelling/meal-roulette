@@ -79,7 +79,6 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
     let mut selected = use_signal(Vec::<Uuid>::new);
     let mut basket_open = use_signal(|| false);
     let mut sleeping_open = use_signal(|| false);
-    let mut clearing = use_signal(|| false);
     let mut sleeping = use_signal(|| false);
     // The line whose "Add back" is in flight.
     let mut waking = use_signal(|| None as Option<Uuid>);
@@ -91,6 +90,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
     let mut confirm_rebuild = use_signal(|| false);
     // The own-item line whose "Remove" is in flight.
     let mut removing = use_signal(|| None as Option<Uuid>);
+    let mut clearing = use_signal(|| false);
 
     let loaded = data();
     let view: Option<&ShoppingListForPlan> = match &loaded {
@@ -343,6 +343,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         .filter(|l| l.sleep_until.is_none() && purchased(l))
         .count();
     let to_buy = items.len() - sleeping_count - purchased_count;
+    let all_bought = to_buy == 0 && purchased_count > 0;
 
     rsx! {
         div { class: "mr-page",
@@ -431,7 +432,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                             }
                         }
                     }
-                    p { class: "mr-listsummary",
+                    p { class: "mr-listsummary", role: "status", aria_live: "polite",
                         "{to_buy} to buy, {purchased_count} purchased, {sleeping_count} sleeping"
                     }
                     if add_open() {
@@ -467,6 +468,14 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                     }
                     if items.is_empty() {
                         Text { muted: true, "None of this week's recipes list any ingredients yet." }
+                    } else if all_bought {
+                        div { class: "mr-empty mr-empty--inline", role: "status", aria_live: "polite",
+                            div { class: "mr-empty__icon", aria_hidden: "true", Icon { name: IconName::Check } }
+                            Heading { level: 3, "Everything's in the basket" }
+                            Text { muted: true,
+                                "All {purchased_count} items are bought. Clear them to start the next shop."
+                            }
+                        }
                     } else if to_buy == 0 {
                         Text { muted: true, "Nothing left to buy." }
                     }
