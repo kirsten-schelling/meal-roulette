@@ -87,6 +87,7 @@ unsafe extern "C" {
 const MR_OK: i32 = 0;
 const MR_ERR_INVALID_INPUT: i32 = 1;
 const MR_ERR_UNSATISFIABLE: i32 = 2;
+const MR_ERR_NO_MEMORY: i32 = 3;
 const MR_ERR_GAVE_UP: i32 = 4;
 const MR_NO_LIMIT: i32 = -1;
 
@@ -119,6 +120,8 @@ pub enum SolveError {
     Unsatisfiable,
     /// The required rules took too long to settle either way.
     GaveUp,
+    /// The solver could not allocate its working memory.
+    NoMemory,
     /// A status code this wrapper does not know; carries the raw value.
     Unknown(i32),
     /// The solver wrote an index that is not a position in the recipe pool.
@@ -135,6 +138,7 @@ impl fmt::Display for SolveError {
                 f.write_str("no selection of recipes satisfies every required rule")
             }
             SolveError::GaveUp => f.write_str("the solver ran out of steps before settling"),
+            SolveError::NoMemory => f.write_str("the solver ran out of memory"),
             SolveError::Unknown(code) => write!(f, "the solver failed with status {code}"),
             SolveError::BadIndex(index) => {
                 write!(
@@ -221,6 +225,7 @@ pub fn roll(problem: &Problem) -> Result<Solution, SolveError> {
         MR_OK => {}
         MR_ERR_INVALID_INPUT => return Err(SolveError::InvalidInput),
         MR_ERR_UNSATISFIABLE => return Err(SolveError::Unsatisfiable),
+        MR_ERR_NO_MEMORY => return Err(SolveError::NoMemory),
         MR_ERR_GAVE_UP => return Err(SolveError::GaveUp),
         other => return Err(SolveError::Unknown(other)),
     }
@@ -374,6 +379,68 @@ mod tests {
             recipes: pool(),
             requirements: vec![rule(7, 1, 1, Importance::Required)],
             num_to_pick: 1,
+            seed: 0,
+        };
+        assert_eq!(roll(&problem), Err(SolveError::InvalidInput));
+    }
+
+    #[test]
+    fn the_same_seed_gives_identical_picks_twice() {
+        let problem = Problem {
+            recipes: mixed_pool(),
+            num_to_pick: 5,
+            seed: 0xDEAD_BEEF_0000_0001,
+            ..Problem::default()
+        };
+        let first = roll(&problem).expect("an unconstrained pick succeeds");
+        for _ in 0..20 {
+            assert_eq!(roll(&problem).expect("same problem"), first);
+        }
+    }
+
+    #[test]
+    fn the_same_seed_gives_the_same_week_on_every_thread() {
+        let problem = mixed_problem(7);
+        let expected = roll(&problem).expect("the mixed problem has a solution");
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..4)
+                .map(|_| scope.spawn(|| (0..50).map(|_| roll(&problem)).collect::<Vec<_>>()))
+                .collect();
+            for handle in handles {
+                for result in handle.join().expect("thread did not panic") {
+                    assert_eq!(result.as_ref(), Ok(&expected));
+                }
+            }
+        });
+    }
+
+    #[test]
+    fn seeds_that_differ_only_in_the_high_bits_can_differ() {
+        let weeks: std::collections::HashSet<Vec<usize>> = (0..32u64)
+            .map(|n| {
+                roll(&Problem {
+                    recipes: mixed_pool(),
+                    num_to_pick: 5,
+                    seed: n << 32,
+                    ..Problem::default()
+                })
+                .expect("an unconstrained pick succeeds")
+                .picks
+            })
+            .collect();
+        assert!(weeks.len() > 1);
+    }
+
+    #[test]
+    fn a_minimum_above_the_maximum_is_rejected() {
+        let problem = Problem {
+            recipes: pool(),
+            requirements: vec![Requirement {
+                at_least: 2,
+                at_most: Some(1),
+                ..rule(CUISINE, 1, 0, Importance::Required)
+            }],
+            num_to_pick: 2,
             seed: 0,
         };
         assert_eq!(roll(&problem), Err(SolveError::InvalidInput));
