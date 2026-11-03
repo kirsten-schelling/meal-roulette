@@ -17,7 +17,9 @@ login, no public IP, no public DNS. Database: Neon Postgres managed by Pulumi.
 
 1. **Fly.io**: sign up at https://fly.io, add a payment method, install `flyctl`, `fly auth login`.
 2. **Neon**: sign up at https://neon.tech, create an API key.
-3. **Tailscale**: enable MagicDNS and "HTTPS Certificates" (admin console, DNS page).
+3. **Tailscale**: enable MagicDNS and "HTTPS Certificates" (admin console, DNS page). Serve must
+   also be allowed on the tailnet; if it is not, the first deploy logs a `login.tailscale.com/f/serve`
+   link to approve, and `tailscale serve` waits until then.
 4. **Pulumi**: sign up for Pulumi Cloud. Install `pulumi` and Node 24.
 
 ## 2. Tailscale auth key
@@ -91,9 +93,19 @@ A fresh app lists none; release any listed. Confirm `https://meal-roulette.fly.d
 
 If it fails to load, check `fly logs --app meal-roulette` for `tailscale up` and `tailscale serve` output, and the node in the admin console Machines list.
 
+## Deploying from GitHub
+
+`.github/workflows/deploy.yml` deploys every push to `main` once CI passes, then fails if the app
+has a public IP. It can also be run by hand from the Actions tab. It needs a repo secret
+`FLY_API_TOKEN` holding a deploy token scoped to the app:
+
+```
+fly tokens create deploy --app meal-roulette | gh secret set FLY_API_TOKEN
+```
+
 ## Updating
 
-- App: `fly deploy`. A page left open loads the new version on reload.
+- App: merge to `main`, or `fly deploy` by hand. A page left open loads the new version on reload.
 - Neon: edit `infra/index.ts`, run `pulumi up`.
 - Tailscale key: `fly secrets set TS_AUTHKEY=...`.
 
