@@ -567,10 +567,10 @@ body { margin: 0; }
   animation: mr-toast-in var(--mr-dur-slow) var(--mr-ease-out);
   border-left-width: 4px;
 }
-.mr-toast--green { border-left-color: var(--mr-good); }
-.mr-toast--amber { border-left-color: var(--mr-star); }
-.mr-toast--red { border-left-color: var(--mr-danger); }
-.mr-toast--neutral { border-left-color: var(--mr-text-muted); }
+.mr-toast--green { border-left-color: var(--mr-good); background: color-mix(in srgb, var(--mr-green-bg) 80%, var(--mr-surface-3)); }
+.mr-toast--amber { border-left-color: var(--mr-star); background: color-mix(in srgb, var(--mr-amber-bg) 80%, var(--mr-surface-3)); }
+.mr-toast--red { border-left-color: var(--mr-danger); background: color-mix(in srgb, var(--mr-red-bg) 80%, var(--mr-surface-3)); }
+.mr-toast--neutral { border-left-color: var(--mr-text-muted); background: color-mix(in srgb, var(--mr-text-muted) 12%, var(--mr-surface-3)); }
 
 .mr-toast__icon {
   flex: none; width: var(--mr-icon-md); height: var(--mr-icon-md); margin-top: 2px;
