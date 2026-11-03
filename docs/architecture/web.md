@@ -121,9 +121,10 @@ them.
 
 ## Adding a feature
 
-1. Create `features/<feature>/` with `mod.rs`, `page.rs`, and `hooks/`.
+1. Create `features/<feature>/` with `mod.rs` and `hooks/`, plus `page.rs` if the feature has
+   a screen.
 2. Add a `#[server]` function per data call in `server/api/<feature>.rs`, calling the feature's
    repository in `api/src/features/<feature>/repository.rs` (declare the module `pub` in the
    feature's `mod.rs` if it is not yet).
 3. Add a hook per call in `features/<feature>/hooks/` that awaits the server function.
-4. Register the page in `router.rs`.
+4. If the feature has a page, register it in `router.rs`.
