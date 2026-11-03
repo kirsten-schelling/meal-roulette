@@ -14,4 +14,4 @@ WORKDIR /app
 COPY --from=build /src/target/dx/web/release/web/ /app/
 ENV IP=0.0.0.0 PORT=8080
 EXPOSE 8080
-CMD ["/app/web"]
+CMD ["/app/server"]
