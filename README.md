@@ -1,8 +1,10 @@
 # Meal Roulette
 
 Randomizes a week of meals from a Postgres library of recipes and builds a shopping list
-from the result. Rolls follow per-week rules on difficulty, cuisine, protein and must-use ingredients, and each
-day of the roll (Day 1, Day 2, ...) can have its own difficulty and cook-time limits.
+from the result. A roll picks the dinners; you then put them on days, move any one to another
+date, and see tonight's dinner on the home page. Rolls follow per-week rules on difficulty,
+cuisine, protein and must-use ingredients, and each day of the roll (Day 1, Day 2, ...) can have
+its own difficulty and cook-time limits.
 
 Personal project — also a deliberate excuse to learn a Rust backend (on the path toward
 embedded). The full feature vision lives in [docs/product/roadmap.md](docs/product/roadmap.md).

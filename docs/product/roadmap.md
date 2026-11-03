@@ -9,7 +9,7 @@
 ## The core loop (MVP — mostly built)
 
 Roll a week of dinners from recipes in Postgres, limited per day so **you choose
-how easy or ambitious each day is**, then generate a **shopping
+how easy or ambitious each day is**, then put them on days and generate a **shopping
 list** for the week.
 
 Built: Dioxus (Rust) fullstack frontend · Rust/Axum + SQLx backend (Cargo workspace with a
@@ -33,6 +33,14 @@ Core sub-features:
 
 - Recipe attributes: difficulty, time-to-make, servings/yield, **main protein**, cuisine,
   tags, **healthiness**.
+- **Roll, then schedule**: _built._ The roll asks only for how many dinners; the result is
+  an unscheduled set, Day 1 to Day N in roll order. A **Put on days** step on the plan page
+  takes a start date and lays the dinners on consecutive dates, then any single dinner can be
+  moved to another date (a date picker, or drag on a desktop pointer; a date another dinner
+  holds is traded) or taken off the calendar. Home shows the dinner scheduled for today, or
+  a prompt to put the week on days. A scheduled dinner is labelled with its weekday and date,
+  an unscheduled one with "Day N", and History and the shopping list name a plan by its name
+  or by when it was rolled.
 - **Difficulty by day**: _built._ The user sets difficulty and max cook time per day
   number (Day 1..N) on the roll form: one default limit for all days plus per-day overrides.
   A limit is an easiest band, a hardest band and an optional max cook time. Days are numbers,
