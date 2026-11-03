@@ -16,4 +16,5 @@ pub fn routes() -> Router<AppState> {
                 .put(handlers::update_unit)
                 .delete(handlers::delete_unit),
         )
+        .route("/units/{id}/references", get(handlers::get_unit_references))
 }

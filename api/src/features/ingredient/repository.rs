@@ -1,7 +1,9 @@
 use crate::features::unit;
+use crate::references::{to_references, ReferenceRow};
 use domain::ingredient::{
     Ingredient, IngredientEntry, InsertIngredient, NewIngredient, UpdateIngredient,
 };
+use domain::usage::{Reference, ReferenceKind};
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
@@ -162,5 +164,77 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<Ingredient, sqlx::Error> 
     )
     .fetch_one(pool)
     .await?;
+    Ok(ingredient)
+}
+
+pub async fn references(pool: &PgPool, id: Uuid) -> Result<Vec<Reference>, sqlx::Error> {
+    let recipes = sqlx::query_as!(
+        ReferenceRow,
+        r#"
+        SELECT recipe.id, recipe.title AS name
+        FROM recipe
+        WHERE EXISTS (
+            SELECT 1 FROM recipe_ingredient
+            WHERE recipe_ingredient.recipe_id = recipe.id
+              AND recipe_ingredient.ingredient_id = $1
+        )
+        ORDER BY recipe.title, recipe.id
+        "#,
+        id,
+    )
+    .fetch_all(pool)
+    .await?;
+    let lists = sqlx::query_as!(
+        ReferenceRow,
+        r#"
+        SELECT shopping_list.id, COALESCE(shopping_list.name, 'Shopping list') AS "name!"
+        FROM shopping_list
+        WHERE EXISTS (
+            SELECT 1 FROM shopping_list_item
+            WHERE shopping_list_item.shopping_list_id = shopping_list.id
+              AND shopping_list_item.ingredient_id = $1
+        )
+        ORDER BY 2, shopping_list.id
+        "#,
+        id,
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut found = to_references(recipes, ReferenceKind::Recipe);
+    found.extend(to_references(lists, ReferenceKind::ShoppingList));
+    Ok(found)
+}
+
+/// Removes the ingredient from every recipe and shopping list that uses it, then deletes it,
+/// in one transaction. Only reachable through an explicit cascade request.
+pub async fn delete_with_references(pool: &PgPool, id: Uuid) -> Result<Ingredient, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    sqlx::query_scalar!(
+        "DELETE FROM recipe_ingredient WHERE ingredient_id = $1 RETURNING id",
+        id,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    sqlx::query_scalar!(
+        "DELETE FROM shopping_list_item WHERE ingredient_id = $1 RETURNING id",
+        id,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    let ingredient = sqlx::query_as!(
+        Ingredient,
+        r#"
+        with deleted_ingredient as (
+            DELETE FROM ingredient WHERE id = $1 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at
+        )
+        SELECT deleted_ingredient.id, deleted_ingredient.household_id, deleted_ingredient.name, deleted_ingredient.purchase_size, unit.name as unit, deleted_ingredient.unit_id, deleted_ingredient.created_at, deleted_ingredient.updated_at
+        FROM deleted_ingredient
+        JOIN unit ON deleted_ingredient.unit_id = unit.id
+        "#,
+        id,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
     Ok(ingredient)
 }

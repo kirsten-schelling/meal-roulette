@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use domain::ingredient::{Ingredient, NewIngredient, UpdateIngredient};
+use domain::usage::Reference;
 use uuid::Uuid;
 
 #[server]
@@ -43,6 +44,28 @@ pub async fn delete_ingredient(id: Uuid) -> Result<Ingredient, ServerFnError> {
 
     let state = app_state()?;
     repository::delete(&state.db, id)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
+pub async fn get_ingredient_references(id: Uuid) -> Result<Vec<Reference>, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::ingredient::repository;
+
+    let state = app_state()?;
+    repository::references(&state.db, id)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
+pub async fn delete_ingredient_cascade(id: Uuid) -> Result<Ingredient, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::ingredient::repository;
+
+    let state = app_state()?;
+    repository::delete_with_references(&state.db, id)
         .await
         .map_err(server_fn_error)
 }

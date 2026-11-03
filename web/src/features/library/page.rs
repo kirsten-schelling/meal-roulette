@@ -3,9 +3,11 @@ use crate::components::ui::{
     IconButton, IconName, Spinner, Text, Tone,
 };
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
-use crate::features::ingredient::hooks::use_ingredient::{delete_ingredient, use_get_ingredients};
+use crate::features::ingredient::hooks::use_ingredient::{
+    delete_ingredient, delete_ingredient_cascade, get_ingredient_references, use_get_ingredients,
+};
 use crate::features::library::components::{
-    IngredientDialog, LookupCard, ManageListsDialog, ManageTab,
+    BlockedDeleteDialog, IngredientDialog, LookupCard, ManageListsDialog, ManageTab,
 };
 use crate::features::protein::hooks::use_protein::use_get_proteins;
 use crate::features::tag::hooks::use_tag::use_get_tags;
@@ -14,6 +16,7 @@ use crate::hooks::use_toast::use_toast;
 use crate::models::error_message;
 use dioxus::prelude::*;
 use domain::ingredient::Ingredient;
+use domain::usage::Reference;
 
 /// Flattens a lookup fetch into the names the rail cards show — the error
 /// becomes a plain message so the card's props stay simple.
@@ -59,6 +62,7 @@ pub fn Library(manage: String) -> Element {
     let mut form = use_signal(|| IngredientForm::Closed);
     let mut deleting = use_signal(|| None as Option<Ingredient>);
     let mut delete_busy = use_signal(|| false);
+    let mut blocked = use_signal(|| None as Option<(Ingredient, Vec<Reference>)>);
 
     let mut delete_confirmed = move |ingredient: Ingredient| {
         if delete_busy() {
@@ -75,13 +79,44 @@ pub fn Library(manage: String) -> Element {
                         Tone::Green,
                     );
                 }
+                Err(e) => match get_ingredient_references(ingredient.id).await {
+                    Ok(references) if !references.is_empty() => {
+                        blocked.set(Some((ingredient, references)));
+                    }
+                    _ => toast.show(
+                        Some("Couldn't delete".to_string()),
+                        error_message(&e),
+                        Tone::Red,
+                    ),
+                },
+            }
+            deleting.set(None);
+            delete_busy.set(false);
+        });
+    };
+
+    let mut cascade_confirmed = move |ingredient: Ingredient| {
+        if delete_busy() {
+            return;
+        }
+        delete_busy.set(true);
+        spawn(async move {
+            match delete_ingredient_cascade(ingredient.id).await {
+                Ok(_) => {
+                    ingredients.restart();
+                    toast.show(
+                        Some("Deleted".to_string()),
+                        format!("{} was deleted.", ingredient.name),
+                        Tone::Green,
+                    );
+                }
                 Err(e) => toast.show(
                     Some("Couldn't delete".to_string()),
                     error_message(&e),
                     Tone::Red,
                 ),
             }
-            deleting.set(None);
+            blocked.set(None);
             delete_busy.set(false);
         });
     };
@@ -208,6 +243,24 @@ pub fn Library(manage: String) -> Element {
                     Text {
                         "This removes it for good. If a recipe or a shopping list still uses it, the delete is refused."
                     }
+                }
+            }
+
+            if let Some((ingredient, references)) = blocked() {
+                BlockedDeleteDialog {
+                    name: ingredient.name.clone(),
+                    references,
+                    cascade_warning: Some(
+                        "Delete anyway takes it out of these recipes and shopping lists, then deletes it. The recipes and lists themselves are kept."
+                            .to_string(),
+                    ),
+                    busy: delete_busy(),
+                    on_cascade: move |_| cascade_confirmed(ingredient.clone()),
+                    on_close: move |_| {
+                        if !delete_busy() {
+                            blocked.set(None);
+                        }
+                    },
                 }
             }
 

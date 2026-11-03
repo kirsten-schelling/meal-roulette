@@ -2,7 +2,10 @@ mod handlers;
 pub mod repository;
 
 use crate::state::AppState;
-use axum::{routing::get, Router};
+use axum::{
+    routing::{delete, get},
+    Router,
+};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -15,5 +18,13 @@ pub fn routes() -> Router<AppState> {
             get(handlers::get_protein)
                 .put(handlers::update_protein)
                 .delete(handlers::delete_protein),
+        )
+        .route(
+            "/proteins/{id}/references",
+            get(handlers::get_protein_references),
+        )
+        .route(
+            "/proteins/{id}/cascade",
+            delete(handlers::delete_protein_cascade),
         )
 }
