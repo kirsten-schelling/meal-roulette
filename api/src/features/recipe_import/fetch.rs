@@ -6,6 +6,10 @@ use std::time::Duration;
 const MAX_BYTES: usize = 2 * 1024 * 1024;
 const MAX_REDIRECTS: usize = 5;
 const TIMEOUT: Duration = Duration::from_secs(10);
+// Recipe sites behind bot protection answer 403 to an unfamiliar client name, so the fetch
+// presents itself as a current desktop browser.
+const USER_AGENT: &str =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 
 fn blocked() -> AppError {
     AppError::BadRequest("That address isn't allowed.".to_string())
@@ -112,13 +116,17 @@ async fn fetch_with(raw: &str, allow: fn(IpAddr) -> bool) -> Result<(Url, String
             .redirect(redirect::Policy::none())
             .timeout(TIMEOUT)
             .connect_timeout(Duration::from_secs(5))
-            .user_agent("MealRoulette/0.1 (recipe import)")
+            .user_agent(USER_AGENT)
             .resolve_to_addrs(url.host_str().ok_or_else(blocked)?, &addrs)
             .build()
             .map_err(|_| unreachable_page())?;
         let mut response = client
             .get(url.clone())
-            .header("Accept", "text/html,application/xhtml+xml")
+            .header(
+                "Accept",
+                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            )
+            .header("Accept-Language", "en-AU,en;q=0.9")
             .send()
             .await
             .map_err(|_| unreachable_page())?;
@@ -133,6 +141,13 @@ async fn fetch_with(raw: &str, allow: fn(IpAddr) -> bool) -> Result<(Url, String
                 .ok_or_else(unreachable_page)?;
             url = parse_url(next.as_str())?;
             continue;
+        }
+        if matches!(status.as_u16(), 401 | 403 | 429) {
+            return Err(AppError::Unprocessable(format!(
+                "{} refused the import ({}). Add this recipe by hand.",
+                url.host_str().unwrap_or("That site"),
+                status.as_u16()
+            )));
         }
         if !status.is_success() {
             return Err(AppError::Unprocessable(format!(
@@ -299,6 +314,27 @@ mod tests {
         assert!(fetch_with(&format!("http://127.0.0.1:{port}/"), allow_all)
             .await
             .is_err());
+    }
+
+    #[tokio::test]
+    async fn a_refusing_site_is_named() {
+        let port = serve(
+            "HTTP/1.1 403 Forbidden
+Content-Length: 0
+Connection: close
+
+"
+            .to_string(),
+        )
+        .await;
+        let err = fetch_with(&format!("http://127.0.0.1:{port}/"), allow_all)
+            .await
+            .unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("127.0.0.1 refused the import (403)"),
+            "{err}"
+        );
     }
 
     #[tokio::test]
