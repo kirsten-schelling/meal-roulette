@@ -70,6 +70,75 @@ pub struct DifficultyRule {
     pub importance: Importance,
 }
 
+/// What one day of the week may take: recipes no easier than `min_difficulty`'s
+/// band, no harder than `max_difficulty`'s band, and no longer to cook than
+/// `max_time_mins`. A field left `None` is not limited.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct DayLimits {
+    #[serde(default)]
+    pub min_difficulty: Option<DifficultyBand>,
+    #[serde(default)]
+    pub max_difficulty: Option<DifficultyBand>,
+    #[serde(default)]
+    pub max_time_mins: Option<u32>,
+}
+
+impl DayLimits {
+    /// The difficulty levels (1..=5) the day allows, lowest first.
+    pub fn levels(self) -> (i16, i16) {
+        let low = self.min_difficulty.map_or(1, |band| band.levels().0);
+        let high = self.max_difficulty.map_or(5, |band| band.levels().1);
+        (low, high)
+    }
+
+    /// Whether any of the three limits is set.
+    pub fn is_limited(self) -> bool {
+        self.min_difficulty.is_some()
+            || self.max_difficulty.is_some()
+            || self.max_time_mins.is_some()
+    }
+
+    /// Whether the limits can be met by any recipe at all.
+    pub fn is_valid(self) -> bool {
+        let (low, high) = self.levels();
+        low <= high && self.max_time_mins != Some(0)
+    }
+}
+
+/// `limits` for roll day `day`, counted from the first day (0), in place of the
+/// default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DayLimitsAt {
+    pub day: u16,
+    pub limits: DayLimits,
+}
+
+/// Difficulty and cook-time limits by day number: every day follows `default`
+/// unless the day has an override. Days are numbers, never dates, so a roll
+/// does not depend on which weekday it starts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub struct DayLimitPlan {
+    #[serde(default)]
+    pub default: DayLimits,
+    #[serde(default)]
+    pub overrides: Vec<DayLimitsAt>,
+}
+
+impl DayLimitPlan {
+    pub fn limits_for(&self, day: usize) -> DayLimits {
+        self.overrides
+            .iter()
+            .rev()
+            .find(|o| usize::from(o.day) == day)
+            .map_or(self.default, |o| o.limits)
+    }
+
+    /// Whether every limit in the plan can be met by some recipe.
+    pub fn is_valid(&self) -> bool {
+        self.default.is_valid() && self.overrides.iter().all(|o| o.limits.is_valid())
+    }
+}
+
 /// Every constraint family the solver understands. Stored on the plan it
 /// produced, so a single day can be re-rolled against the same rules.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -83,6 +152,10 @@ pub struct RollConstraints {
     pub ingredients: Vec<CountRule>,
     #[serde(default)]
     pub difficulties: Vec<DifficultyRule>,
+    /// Limits on what each day of the week may take. `None` = every day takes
+    /// any recipe, as plans rolled before day limits existed did.
+    #[serde(default)]
+    pub day_limits: Option<DayLimitPlan>,
 }
 
 /// Incoming body for `POST /roll`. Dates are ISO `YYYY-MM-DD`.
@@ -126,4 +199,59 @@ pub struct UnmetRule {
 pub struct RollOutcome {
     pub plan: MealPlanDetail,
     pub unmet: Vec<UnmetRule>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_day_follows_the_default_unless_it_has_an_override() {
+        let plan = DayLimitPlan {
+            default: DayLimits {
+                max_time_mins: Some(30),
+                ..DayLimits::default()
+            },
+            overrides: vec![DayLimitsAt {
+                day: 2,
+                limits: DayLimits {
+                    min_difficulty: Some(DifficultyBand::Hard),
+                    ..DayLimits::default()
+                },
+            }],
+        };
+        assert_eq!(plan.limits_for(0).max_time_mins, Some(30));
+        assert_eq!(plan.limits_for(2).levels(), (4, 5));
+        assert_eq!(plan.limits_for(2).max_time_mins, None);
+        assert_eq!(plan.limits_for(3).max_time_mins, Some(30));
+    }
+
+    #[test]
+    fn plans_stored_without_day_limits_still_read() {
+        let stored: RollConstraints = serde_json::from_str(r#"{"cuisines": []}"#).expect("parses");
+        assert_eq!(stored.day_limits, None);
+        let with: RollConstraints = serde_json::from_str(
+            r#"{"day_limits": {"default": {"max_time_mins": 30}, "overrides": [{"day": 4, "limits": {}}]}}"#,
+        )
+        .expect("parses");
+        let plan = with.day_limits.expect("present");
+        assert_eq!(plan.default.max_time_mins, Some(30));
+        assert!(!plan.limits_for(4).is_limited());
+    }
+
+    #[test]
+    fn limits_that_no_recipe_could_meet_are_invalid() {
+        let backwards = DayLimits {
+            min_difficulty: Some(DifficultyBand::Hard),
+            max_difficulty: Some(DifficultyBand::Easy),
+            max_time_mins: None,
+        };
+        assert!(!backwards.is_valid());
+        assert!(!DayLimits {
+            max_time_mins: Some(0),
+            ..DayLimits::default()
+        }
+        .is_valid());
+        assert!(DayLimits::default().is_valid());
+    }
 }

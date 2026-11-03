@@ -4,10 +4,10 @@ use domain::meal_plan::NewMealPlan;
 use domain::planned_meal::{NewPlannedMeal, PlannedMealDetail};
 use domain::recipe::Recipe;
 use domain::roll::{
-    Bound, CountRule, DifficultyRule, Importance, RollConstraints, RollOutcome, RollRequest,
-    RuleFamily, UnmetRule,
+    Bound, CountRule, DayLimitPlan, DifficultyRule, Importance, RollConstraints, RollOutcome,
+    RollRequest, RuleFamily, UnmetRule,
 };
-use solver::{Problem, Requirement, SolveError};
+use solver::{Problem, Requirement, SlotLimit, SolveError};
 use sqlx::PgPool;
 use time::Duration;
 use uuid::Uuid;
@@ -51,20 +51,32 @@ pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcom
         Some(id) => id,
         None => household::repository::default_household(pool).await?.id,
     };
+    check_day_limits(request.constraints.day_limits.as_ref())?;
     let recipes = recipe::repository::list(pool).await?;
     let grid = Grid::build(pool, &recipes, &request.constraints).await?;
     let seed = request.seed.unwrap_or_else(fresh_seed);
+    let start_date = request
+        .start_date
+        .unwrap_or_else(|| time::OffsetDateTime::now_utc().date());
+    let slot_limits = request
+        .constraints
+        .day_limits
+        .as_ref()
+        .map(|plan| {
+            (0..num_days)
+                .flat_map(|day| slot_limits_for(plan, day))
+                .collect()
+        })
+        .unwrap_or_default();
     let solution = run_solver(Problem {
         recipes: grid.rows.clone(),
         requirements: grid.requirements(),
+        slot_limits,
         num_to_pick: num_days,
         seed: seed as u64,
     })
     .await?;
     let unmet = grid.unmet(&solution.achieved);
-    let start_date = request
-        .start_date
-        .unwrap_or_else(|| time::OffsetDateTime::now_utc().date());
 
     let mut tx = pool.begin().await?;
     let plan = meal_plan::repository::create(
@@ -131,12 +143,55 @@ pub async fn reroll(pool: &PgPool, planned_meal_id: Uuid) -> Result<PlannedMealD
     let solution = run_solver(Problem {
         recipes: candidates.iter().map(|&i| grid.rows[i].clone()).collect(),
         requirements: residual(&grid.requirements(), &kept_rows),
+        slot_limits: plan
+            .constraints
+            .day_limits
+            .as_ref()
+            .map(|limits| {
+                let day = (meal.scheduled_date - plan.start_date).whole_days();
+                slot_limits_for(limits, usize::try_from(day).unwrap_or(0))
+            })
+            .unwrap_or_default(),
         num_to_pick: 1,
         seed: fresh_seed() as u64,
     })
     .await?;
     let replacement = recipes[candidates[solution.picks[0]]].id;
     Ok(planned_meal::repository::set_recipe(pool, meal.id, replacement).await?)
+}
+
+fn check_day_limits(plan: Option<&DayLimitPlan>) -> Result<(), AppError> {
+    if plan.is_none_or(DayLimitPlan::is_valid) {
+        return Ok(());
+    }
+    Err(AppError::BadRequest(
+        "A day limit can't be met by any recipe: the easiest allowed difficulty is above the hardest, or the cook time is zero."
+            .to_string(),
+    ))
+}
+
+/// The solver limits for roll day `day` (0 is the first day).
+fn slot_limits_for(plan: &DayLimitPlan, day: usize) -> Vec<SlotLimit> {
+    let limits = plan.limits_for(day);
+    let (low, high) = limits.levels();
+    let mut slot_limits = Vec::new();
+    if (low, high) != (1, 5) {
+        slot_limits.push(SlotLimit {
+            day,
+            attribute: DIFFICULTY,
+            low: i32::from(low),
+            high: i32::from(high),
+        });
+    }
+    if let Some(max) = limits.max_time_mins {
+        slot_limits.push(SlotLimit {
+            day,
+            attribute: TIME,
+            low: 0,
+            high: i32::try_from(max).unwrap_or(i32::MAX),
+        });
+    }
+    slot_limits
 }
 
 /// What the rules still ask of the open day once the kept days are counted: at
@@ -161,7 +216,8 @@ fn residual(requirements: &[Requirement], kept: &[&Vec<i32>]) -> Vec<Requirement
 const CUISINE: usize = 0;
 const PROTEIN: usize = 1;
 const DIFFICULTY: usize = 2;
-const FIRST_INGREDIENT: usize = 3;
+const TIME: usize = 3;
+const FIRST_INGREDIENT: usize = 4;
 
 /// The recipes flattened into the solver's integer grid, plus each rule as a
 /// requirement over it, remembering which rule each requirement came from.
@@ -201,6 +257,7 @@ impl Grid {
                     codes.of(r.cuisine_id),
                     codes.of(r.main_protein_id),
                     i32::from(r.difficulty),
+                    i32::from(r.time_mins),
                 ];
                 row.extend(
                     ingredient_ids
@@ -345,7 +402,7 @@ fn fresh_seed() -> i64 {
 fn solver_error(error: SolveError) -> AppError {
     match error {
         SolveError::Unsatisfiable => AppError::Unprocessable(
-            "No combination of your recipes meets the required rules. Loosen a rule, make it a preference, roll fewer days, or add recipes."
+            "No combination of your recipes meets the required rules and day limits. Loosen a rule or a day limit, make a rule a preference, roll fewer days, or add recipes."
                 .to_string(),
         ),
         SolveError::GaveUp => AppError::Unprocessable(
@@ -353,7 +410,11 @@ fn solver_error(error: SolveError) -> AppError {
                 .to_string(),
         ),
         SolveError::InvalidInput => AppError::BadRequest(error.to_string()),
-        SolveError::NoMemory | SolveError::Unknown(_) | SolveError::BadIndex(_) | SolveError::Duplicate(_) => {
+        SolveError::NoMemory
+        | SolveError::Unknown(_)
+        | SolveError::BadIndex(_)
+        | SolveError::BrokenLimit(_)
+        | SolveError::Duplicate(_) => {
             AppError::Internal(error.to_string())
         }
     }
@@ -362,7 +423,7 @@ fn solver_error(error: SolveError) -> AppError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use domain::roll::DifficultyBand;
+    use domain::roll::{DayLimits, DayLimitsAt, DifficultyBand};
 
     fn recipe(cuisine: Uuid, protein: Uuid, difficulty: i16) -> Recipe {
         Recipe {
@@ -393,6 +454,7 @@ mod tests {
         solver::roll(&Problem {
             recipes: grid.rows.clone(),
             requirements: grid.requirements(),
+            slot_limits: Vec::new(),
             num_to_pick: days,
             seed,
         })
@@ -442,6 +504,7 @@ mod tests {
                 bound: Bound::AtLeast,
                 importance: Importance::Required,
             }],
+            day_limits: None,
         };
         let grid = Grid::new(&recipes, &uses, &constraints);
         for seed in 0..40 {
@@ -517,5 +580,126 @@ mod tests {
         assert_eq!((left[0].at_least, left[0].at_most), (1, None));
         assert_eq!((left[1].at_least, left[1].at_most), (0, Some(0)));
         assert_eq!(left[1].importance, solver::Importance::High);
+    }
+
+    fn timed(difficulty: i16, time_mins: i16) -> Recipe {
+        Recipe {
+            time_mins,
+            ..recipe(Uuid::now_v7(), Uuid::now_v7(), difficulty)
+        }
+    }
+
+    fn limit_plan() -> DayLimitPlan {
+        DayLimitPlan {
+            default: DayLimits {
+                max_difficulty: Some(DifficultyBand::Medium),
+                max_time_mins: Some(30),
+                ..DayLimits::default()
+            },
+            overrides: [5, 6]
+                .into_iter()
+                .map(|day| DayLimitsAt {
+                    day,
+                    limits: DayLimits {
+                        min_difficulty: Some(DifficultyBand::Medium),
+                        ..DayLimits::default()
+                    },
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn a_roll_gives_each_day_number_its_own_limits() {
+        let recipes: Vec<Recipe> = (0..6)
+            .map(|n| timed(1 + n % 3, 15 + 3 * n))
+            .chain((0..6).map(|n| timed(3 + n % 3, 45 + 10 * n)))
+            .collect();
+        let grid = Grid::new(&recipes, &HashSet::new(), &RollConstraints::default());
+        let plan = limit_plan();
+        for seed in 0..40 {
+            let solution = solver::roll(&Problem {
+                recipes: grid.rows.clone(),
+                requirements: grid.requirements(),
+                slot_limits: (0..7).flat_map(|d| slot_limits_for(&plan, d)).collect(),
+                num_to_pick: 7,
+                seed,
+            })
+            .expect("quick and ambitious recipes both exist");
+            for (day, &pick) in solution.picks.iter().enumerate() {
+                let limits = plan.limits_for(day);
+                let r = &recipes[pick];
+                let (low, high) = limits.levels();
+                assert!(
+                    (low..=high).contains(&r.difficulty),
+                    "seed {seed} day {day}"
+                );
+                assert!(
+                    limits
+                        .max_time_mins
+                        .is_none_or(|max| r.time_mins <= max as i16),
+                    "seed {seed} day {day}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_unlimited_override_adds_no_solver_limits() {
+        let plan = DayLimitPlan {
+            overrides: vec![DayLimitsAt {
+                day: 0,
+                limits: DayLimits::default(),
+            }],
+            ..limit_plan()
+        };
+        assert!(slot_limits_for(&plan, 0).is_empty());
+        let limits = slot_limits_for(&plan, 1);
+        assert_eq!(limits.len(), 2);
+        assert!(limits.iter().all(|l| l.day == 1));
+    }
+
+    #[test]
+    fn days_with_too_few_quick_recipes_cannot_be_rolled() {
+        let recipes: Vec<Recipe> = (0..8)
+            .map(|n| timed(1, if n < 2 { 20 } else { 90 }))
+            .collect();
+        let grid = Grid::new(&recipes, &HashSet::new(), &RollConstraints::default());
+        let plan = DayLimitPlan {
+            default: DayLimits {
+                max_time_mins: Some(30),
+                ..DayLimits::default()
+            },
+            overrides: Vec::new(),
+        };
+        let result = solver::roll(&Problem {
+            recipes: grid.rows.clone(),
+            requirements: grid.requirements(),
+            slot_limits: (0..5).flat_map(|d| slot_limits_for(&plan, d)).collect(),
+            num_to_pick: 5,
+            seed: 1,
+        });
+        assert_eq!(result, Err(SolveError::Unsatisfiable));
+    }
+
+    #[test]
+    fn day_limits_no_recipe_could_meet_are_a_bad_request() {
+        let backwards = DayLimitPlan {
+            default: DayLimits::default(),
+            overrides: vec![DayLimitsAt {
+                day: 3,
+                limits: DayLimits {
+                    min_difficulty: Some(DifficultyBand::Hard),
+                    max_difficulty: Some(DifficultyBand::Easy),
+                    max_time_mins: None,
+                },
+            }],
+        };
+        assert!(matches!(
+            check_day_limits(Some(&backwards)),
+            Err(AppError::BadRequest(_))
+        ));
+        assert!(check_day_limits(Some(&limit_plan())).is_ok());
+        assert!(check_day_limits(None).is_ok());
     }
 }
