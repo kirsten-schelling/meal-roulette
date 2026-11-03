@@ -203,6 +203,70 @@ pub struct RollOutcome {
     pub unmet: Vec<UnmetRule>,
 }
 
+/// One dinner of a roll that has not been kept: the recipe and what the
+/// results list shows of it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PreviewMeal {
+    pub recipe_id: Uuid,
+    pub title: String,
+    pub difficulty: i16,
+    pub time_mins: i16,
+    pub cuisine: Option<String>,
+    pub protein: Option<String>,
+}
+
+/// Response for `POST /roll/preview`: a roll that is not stored. `meals` are in
+/// roll order and `seed` repeats the roll.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RollPreview {
+    pub seed: i64,
+    pub meals: Vec<PreviewMeal>,
+    pub unmet: Vec<UnmetRule>,
+}
+
+/// Incoming body for `POST /roll/preview/reroll`: replace the dinner on roll day
+/// `day` (0 is the first) of an unsaved roll, keeping the others.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RerollPreviewRequest {
+    pub constraints: RollConstraints,
+    /// The roll's recipes in roll order.
+    pub recipe_ids: Vec<Uuid>,
+    pub day: u16,
+}
+
+/// Response for `POST /roll/preview/reroll`: the new dinner, and the preferences
+/// the roll falls short of with it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RerollPreview {
+    pub meal: PreviewMeal,
+    pub unmet: Vec<UnmetRule>,
+}
+
+/// Incoming body for `POST /roll/keep`: store a previewed roll as a plan.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct KeepRollRequest {
+    pub household_id: Option<Uuid>,
+    pub seed: Option<i64>,
+    pub constraints: RollConstraints,
+    /// The roll's recipes in roll order.
+    pub recipe_ids: Vec<Uuid>,
+}
+
+/// Incoming body for `POST /roll/fit`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FitRequest {
+    pub num_days: u16,
+    pub constraints: RollConstraints,
+}
+
+/// How many recipes a roll can still draw on once its required rules and day
+/// limits have ruled some out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FitCount {
+    pub fitting: u32,
+    pub total: u32,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

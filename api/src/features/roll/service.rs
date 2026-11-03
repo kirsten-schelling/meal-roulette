@@ -1,11 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
-use domain::meal_plan::NewMealPlan;
+use domain::meal_plan::{MealPlanDetail, NewMealPlan};
 use domain::planned_meal::{NewPlannedMeal, PlannedMealDetail};
-use domain::recipe::Recipe;
+use domain::recipe::{Recipe, RecipeOverview};
 use domain::roll::{
-    Bound, CountRule, DayLimitPlan, DifficultyRule, Importance, RollConstraints, RollOutcome,
-    RollRequest, RuleFamily, UnmetRule,
+    Bound, CountRule, DayLimitPlan, DifficultyRule, FitCount, FitRequest, Importance,
+    KeepRollRequest, PreviewMeal, RerollPreview, RerollPreviewRequest, RollConstraints,
+    RollOutcome, RollPreview, RollRequest, RuleFamily, UnmetRule,
 };
 use solver::{Problem, Requirement, SlotLimit, SolveError};
 use sqlx::PgPool;
@@ -42,21 +43,30 @@ async fn run_solver(problem: Problem) -> Result<solver::Solution, AppError> {
         .map_err(solver_error)
 }
 
-/// Roll a new plan: pick `num_days` recipes under the request's constraints,
-/// then store the plan and its dinners in roll order. With a `start_date` they are
-/// also placed on consecutive dates from it; without one they are left unscheduled.
-/// The outcome lists the preferences the recipes could not fully meet.
-pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcome, AppError> {
+/// A solved roll that is not stored yet.
+struct Rolled {
+    recipes: Vec<Recipe>,
+    grid: Grid,
+    seed: i64,
+    picks: Vec<usize>,
+}
+
+impl Rolled {
+    fn recipe_ids(&self) -> Vec<Uuid> {
+        self.picks.iter().map(|&i| self.recipes[i].id).collect()
+    }
+
+    fn unmet(&self) -> Vec<UnmetRule> {
+        self.grid.unmet(&self.grid.achieved(&self.picks))
+    }
+}
+
+async fn solve(pool: &PgPool, request: &RollRequest) -> Result<Rolled, AppError> {
     let num_days = check_num_days(usize::from(request.num_days))?;
-    let household_id = match request.household_id {
-        Some(id) => id,
-        None => household::repository::default_household(pool).await?.id,
-    };
     check_day_limits(request.constraints.day_limits.as_ref())?;
     let recipes = recipe::repository::list(pool).await?;
     let grid = Grid::build(pool, &recipes, &request.constraints).await?;
     let seed = request.seed.unwrap_or_else(fresh_seed);
-    let start_date = request.start_date;
     let slot_limits = request
         .constraints
         .day_limits
@@ -75,26 +85,37 @@ pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcom
         seed: seed as u64,
     })
     .await?;
-    let unmet = grid.unmet(&solution.achieved);
+    Ok(Rolled {
+        recipes,
+        grid,
+        seed,
+        picks: solution.picks,
+    })
+}
 
+async fn household_or_default(pool: &PgPool, id: Option<Uuid>) -> Result<Uuid, AppError> {
+    match id {
+        Some(id) => Ok(id),
+        None => Ok(household::repository::default_household(pool).await?.id),
+    }
+}
+
+/// Store a plan with its dinners in roll order. With a `start_date` they are
+/// also placed on consecutive dates from it; without one they are left unscheduled.
+async fn store_plan(
+    pool: &PgPool,
+    new_plan: NewMealPlan,
+    recipe_ids: &[Uuid],
+) -> Result<MealPlanDetail, AppError> {
+    let start_date = new_plan.start_date;
     let mut tx = pool.begin().await?;
-    let plan = meal_plan::repository::create(
-        &mut *tx,
-        NewMealPlan {
-            household_id,
-            start_date,
-            seed: Some(seed),
-            name: None,
-            constraints: request.constraints,
-        },
-    )
-    .await?;
-    for (offset, &index) in solution.picks.iter().enumerate() {
+    let plan = meal_plan::repository::create(&mut *tx, new_plan).await?;
+    for (offset, &recipe_id) in recipe_ids.iter().enumerate() {
         planned_meal::repository::create(
             &mut *tx,
             NewPlannedMeal {
                 meal_plan_id: plan.id,
-                recipe_id: recipes[index].id,
+                recipe_id,
                 day_index: i16::try_from(offset + 1)
                     .map_err(|_| AppError::Internal("too many days to number".to_string()))?,
                 scheduled_date: start_date.map(|start| start + Duration::days(offset as i64)),
@@ -105,11 +126,142 @@ pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcom
         .await?;
     }
     tx.commit().await?;
+    Ok(meal_plan::repository::get_detail(pool, plan.id).await?)
+}
 
-    Ok(RollOutcome {
-        plan: meal_plan::repository::get_detail(pool, plan.id).await?,
-        unmet,
+/// Roll a new plan: pick `num_days` recipes under the request's constraints,
+/// then store the plan and its dinners in roll order. With a `start_date` they are
+/// also placed on consecutive dates from it; without one they are left unscheduled.
+/// The outcome lists the preferences the recipes could not fully meet.
+pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcome, AppError> {
+    let rolled = solve(pool, &request).await?;
+    let unmet = rolled.unmet();
+    let household_id = household_or_default(pool, request.household_id).await?;
+    let plan = store_plan(
+        pool,
+        NewMealPlan {
+            household_id,
+            start_date: request.start_date,
+            seed: Some(rolled.seed),
+            name: None,
+            constraints: request.constraints,
+        },
+        &rolled.recipe_ids(),
+    )
+    .await?;
+    Ok(RollOutcome { plan, unmet })
+}
+
+async fn overviews_by_id(pool: &PgPool) -> Result<HashMap<Uuid, RecipeOverview>, AppError> {
+    Ok(recipe::repository::list_overview(pool)
+        .await?
+        .into_iter()
+        .map(|overview| (overview.recipe.id, overview))
+        .collect())
+}
+
+fn preview_meal(overview: &RecipeOverview) -> PreviewMeal {
+    PreviewMeal {
+        recipe_id: overview.recipe.id,
+        title: overview.recipe.title.clone(),
+        difficulty: overview.recipe.difficulty,
+        time_mins: overview.recipe.time_mins,
+        cuisine: overview.cuisine.clone(),
+        protein: overview.protein.clone(),
+    }
+}
+
+/// Roll without storing anything. The result carries the seed and the recipes,
+/// which `keep_roll` stores as they are.
+pub async fn preview_roll(pool: &PgPool, request: RollRequest) -> Result<RollPreview, AppError> {
+    let rolled = solve(pool, &request).await?;
+    let overviews = overviews_by_id(pool).await?;
+    let meals = rolled
+        .recipe_ids()
+        .iter()
+        .filter_map(|id| overviews.get(id))
+        .map(preview_meal)
+        .collect();
+    Ok(RollPreview {
+        seed: rolled.seed,
+        meals,
+        unmet: rolled.unmet(),
     })
+}
+
+/// Store a previewed roll as a plan, unscheduled and in roll order.
+pub async fn keep_roll(
+    pool: &PgPool,
+    request: KeepRollRequest,
+) -> Result<MealPlanDetail, AppError> {
+    check_num_days(request.recipe_ids.len())?;
+    let known: HashSet<Uuid> = recipe::repository::list(pool)
+        .await?
+        .into_iter()
+        .map(|r| r.id)
+        .collect();
+    let distinct: HashSet<&Uuid> = request.recipe_ids.iter().collect();
+    if distinct.len() != request.recipe_ids.len() {
+        return Err(AppError::BadRequest(
+            "A recipe can only be in a roll once.".to_string(),
+        ));
+    }
+    if request.recipe_ids.iter().any(|id| !known.contains(id)) {
+        return Err(AppError::BadRequest(
+            "A recipe in this roll no longer exists. Roll again.".to_string(),
+        ));
+    }
+    let household_id = household_or_default(pool, request.household_id).await?;
+    store_plan(
+        pool,
+        NewMealPlan {
+            household_id,
+            start_date: None,
+            seed: request.seed,
+            name: None,
+            constraints: request.constraints,
+        },
+        &request.recipe_ids,
+    )
+    .await
+}
+
+/// The recipe to put on `day` in place of `replaced` while `kept` stay: the
+/// pool excludes every recipe already in the roll, and only the part of each
+/// rule the kept days leave open is asked of the new pick. Returns an index into
+/// `recipes`.
+async fn pick_replacement(
+    grid: &Grid,
+    recipes: &[Recipe],
+    kept: &HashSet<Uuid>,
+    replaced: Uuid,
+    day_limits: Option<&DayLimitPlan>,
+    day: usize,
+) -> Result<usize, AppError> {
+    let kept_rows: Vec<&Vec<i32>> = recipes
+        .iter()
+        .zip(&grid.rows)
+        .filter(|(r, _)| kept.contains(&r.id))
+        .map(|(_, row)| row)
+        .collect();
+    let candidates: Vec<usize> = recipes
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| !kept.contains(&r.id) && r.id != replaced)
+        .map(|(i, _)| i)
+        .collect();
+
+    let solution = run_solver(Problem {
+        recipes: candidates.iter().map(|&i| grid.rows[i].clone()).collect(),
+        requirements: residual(&grid.requirements(), &kept_rows),
+        slot_limits: day_limits
+            .map(|limits| reroll_slot_limits(limits, day))
+            .unwrap_or_default(),
+        num_to_pick: 1,
+        seed: fresh_seed() as u64,
+    })
+    .await?;
+    Ok(candidates[solution.picks[0]])
 }
 
 /// Replace one dinner with a fresh pick that keeps the rest of the plan valid:
@@ -128,37 +280,116 @@ pub async fn reroll(pool: &PgPool, planned_meal_id: Uuid) -> Result<PlannedMealD
 
     let recipes = recipe::repository::list(pool).await?;
     let grid = Grid::build(pool, &recipes, &plan.constraints).await?;
-    let kept_rows: Vec<&Vec<i32>> = recipes
-        .iter()
-        .zip(&grid.rows)
-        .filter(|(r, _)| kept.contains(&r.id))
-        .map(|(_, row)| row)
-        .collect();
-    let candidates: Vec<usize> = recipes
+    let day = usize::try_from(meal.day_index - 1).unwrap_or(0);
+    let replacement = pick_replacement(
+        &grid,
+        &recipes,
+        &kept,
+        meal.recipe_id,
+        plan.constraints.day_limits.as_ref(),
+        day,
+    )
+    .await?;
+    Ok(planned_meal::repository::set_recipe(pool, meal.id, recipes[replacement].id).await?)
+}
+
+/// Re-roll one dinner of a roll that is not stored.
+pub async fn reroll_preview(
+    pool: &PgPool,
+    request: RerollPreviewRequest,
+) -> Result<RerollPreview, AppError> {
+    let day = usize::from(request.day);
+    let Some(&replaced) = request.recipe_ids.get(day) else {
+        return Err(AppError::BadRequest(
+            "That day is not part of this roll.".to_string(),
+        ));
+    };
+    let kept: HashSet<Uuid> = request
+        .recipe_ids
         .iter()
         .enumerate()
-        .filter(|(_, r)| !kept.contains(&r.id) && r.id != meal.recipe_id)
-        .map(|(i, _)| i)
+        .filter(|&(i, _)| i != day)
+        .map(|(_, &id)| id)
         .collect();
-
-    let solution = run_solver(Problem {
-        recipes: candidates.iter().map(|&i| grid.rows[i].clone()).collect(),
-        requirements: residual(&grid.requirements(), &kept_rows),
-        slot_limits: plan
-            .constraints
-            .day_limits
-            .as_ref()
-            .map(|limits| {
-                let day = usize::try_from(meal.day_index - 1).unwrap_or(0);
-                reroll_slot_limits(limits, day)
-            })
-            .unwrap_or_default(),
-        num_to_pick: 1,
-        seed: fresh_seed() as u64,
-    })
+    let recipes = recipe::repository::list(pool).await?;
+    let grid = Grid::build(pool, &recipes, &request.constraints).await?;
+    let replacement = pick_replacement(
+        &grid,
+        &recipes,
+        &kept,
+        replaced,
+        request.constraints.day_limits.as_ref(),
+        day,
+    )
     .await?;
-    let replacement = recipes[candidates[solution.picks[0]]].id;
-    Ok(planned_meal::repository::set_recipe(pool, meal.id, replacement).await?)
+
+    let position: HashMap<Uuid, usize> =
+        recipes.iter().enumerate().map(|(i, r)| (r.id, i)).collect();
+    let picks: Vec<usize> = request
+        .recipe_ids
+        .iter()
+        .enumerate()
+        .filter_map(|(i, id)| {
+            if i == day {
+                Some(replacement)
+            } else {
+                position.get(id).copied()
+            }
+        })
+        .collect();
+    let overviews = overviews_by_id(pool).await?;
+    let meal = overviews
+        .get(&recipes[replacement].id)
+        .map(preview_meal)
+        .ok_or_else(|| AppError::Internal("the new recipe disappeared".to_string()))?;
+    Ok(RerollPreview {
+        meal,
+        unmet: grid.unmet(&grid.achieved(&picks)),
+    })
+}
+
+/// How many recipes the roll can draw on: those no required "at most 0" rule
+/// rules out and that some day of the roll accepts.
+pub async fn fit_count(pool: &PgPool, request: FitRequest) -> Result<FitCount, AppError> {
+    let recipes = recipe::repository::list(pool).await?;
+    let grid = Grid::build(pool, &recipes, &request.constraints).await?;
+    let fitting = fitting_rows(
+        &grid.rows,
+        &grid.requirements(),
+        request.constraints.day_limits.as_ref(),
+        usize::from(request.num_days).max(1),
+    );
+    Ok(FitCount {
+        fitting: u32::try_from(fitting).unwrap_or(u32::MAX),
+        total: u32::try_from(recipes.len()).unwrap_or(u32::MAX),
+    })
+}
+
+fn fitting_rows(
+    rows: &[Vec<i32>],
+    requirements: &[Requirement],
+    day_limits: Option<&DayLimitPlan>,
+    num_days: usize,
+) -> usize {
+    let banned: Vec<&Requirement> = requirements
+        .iter()
+        .filter(|r| r.importance == solver::Importance::Required && r.at_most == Some(0))
+        .collect();
+    rows.iter()
+        .filter(|row| !banned.iter().any(|r| r.matches(row)))
+        .filter(|row| {
+            day_limits.is_none_or(|plan| {
+                (0..num_days).any(|day| {
+                    let limits = plan.limits_for(day);
+                    let (low, high) = limits.levels();
+                    (i32::from(low)..=i32::from(high)).contains(&row[DIFFICULTY])
+                        && limits
+                            .max_time_mins
+                            .is_none_or(|max| row[TIME] <= i32::try_from(max).unwrap_or(i32::MAX))
+                })
+            })
+        })
+        .count()
 }
 
 fn check_day_limits(plan: Option<&DayLimitPlan>) -> Result<(), AppError> {
@@ -324,6 +555,17 @@ impl Grid {
 
     fn requirements(&self) -> Vec<Requirement> {
         self.rules.iter().map(|(_, _, r)| *r).collect()
+    }
+
+    /// How many of the `picks` (indexes into the recipes) match each rule.
+    fn achieved(&self, picks: &[usize]) -> Vec<u32> {
+        self.rules
+            .iter()
+            .map(|(_, _, r)| {
+                let matched = picks.iter().filter(|&&i| r.matches(&self.rows[i])).count();
+                u32::try_from(matched).unwrap_or(u32::MAX)
+            })
+            .collect()
     }
 
     /// The rules the week falls short of, given how many picks matched each.
@@ -711,6 +953,75 @@ mod tests {
             seed: 1,
         });
         assert_eq!(result, Err(SolveError::Unsatisfiable));
+    }
+
+    #[test]
+    fn achieved_counts_the_picks_matching_each_rule() {
+        let thai = Uuid::now_v7();
+        let beef = Uuid::now_v7();
+        let recipes = vec![
+            recipe(thai, beef, 1),
+            recipe(thai, Uuid::now_v7(), 2),
+            recipe(Uuid::now_v7(), beef, 5),
+        ];
+        let constraints = RollConstraints {
+            cuisines: vec![rule(thai, 2, Bound::AtLeast, Importance::High)],
+            proteins: vec![rule(beef, 1, Bound::AtMost, Importance::Medium)],
+            ..RollConstraints::default()
+        };
+        let grid = Grid::new(&recipes, &HashSet::new(), &constraints);
+        assert_eq!(grid.achieved(&[0, 1]), [2, 1]);
+        assert_eq!(grid.achieved(&[0, 2]), [1, 2]);
+        let unmet = grid.unmet(&grid.achieved(&[0, 2]));
+        assert_eq!(unmet.len(), 2);
+    }
+
+    #[test]
+    fn only_required_at_most_zero_rules_and_day_limits_rule_recipes_out() {
+        let chicken = Uuid::now_v7();
+        let recipes = vec![
+            timed(1, 20),
+            Recipe {
+                main_protein_id: Some(chicken),
+                ..timed(1, 20)
+            },
+            timed(5, 20),
+            timed(1, 90),
+        ];
+        let constraints = RollConstraints {
+            proteins: vec![
+                rule(chicken, 0, Bound::AtMost, Importance::Required),
+                rule(Uuid::now_v7(), 0, Bound::AtMost, Importance::High),
+            ],
+            ..RollConstraints::default()
+        };
+        let grid = Grid::new(&recipes, &HashSet::new(), &constraints);
+        let requirements = grid.requirements();
+        assert_eq!(fitting_rows(&grid.rows, &requirements, None, 5), 3);
+        let plan = DayLimitPlan {
+            default: DayLimits {
+                max_difficulty: Some(DifficultyBand::Medium),
+                max_time_mins: Some(30),
+                ..DayLimits::default()
+            },
+            overrides: Vec::new(),
+        };
+        assert_eq!(fitting_rows(&grid.rows, &requirements, Some(&plan), 5), 1);
+        let hard_day = DayLimitPlan {
+            overrides: vec![DayLimitsAt {
+                day: 2,
+                limits: DayLimits::default(),
+            }],
+            ..plan
+        };
+        assert_eq!(
+            fitting_rows(&grid.rows, &requirements, Some(&hard_day), 5),
+            3
+        );
+        assert_eq!(
+            fitting_rows(&grid.rows, &requirements, Some(&hard_day), 2),
+            1
+        );
     }
 
     #[test]
