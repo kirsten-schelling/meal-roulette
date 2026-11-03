@@ -2,6 +2,7 @@
 //! tap, and the screen kept awake. Recipes have no method steps yet, so it shows
 //! ingredients only.
 
+use crate::components::ui::modal::FOCUS_SCRIPT;
 use crate::components::ui::{Button, ButtonVariant, Icon, IconName, Text};
 use crate::hooks::use_wake_lock::use_wake_lock;
 use crate::models::amount_label;
@@ -17,13 +18,25 @@ pub fn CookMode(
     on_exit: EventHandler<()>,
 ) -> Element {
     use_wake_lock();
+    let id = use_hook(|| format!("mr-cook-{}", dioxus::core::current_scope_id().0));
+    let script_id = id.clone();
+    use_effect(move || {
+        let _ = document::eval(&FOCUS_SCRIPT.replace("__ID__", &script_id));
+    });
     let mut checked = use_signal(HashSet::<Uuid>::new);
     let total = ingredients.len();
     let done = checked.read().len();
 
     rsx! {
         div {
+            id: "{id}",
             class: "mr-cook",
+            tabindex: "-1",
+            onkeydown: move |e: KeyboardEvent| {
+                if e.key() == Key::Escape {
+                    on_exit.call(());
+                }
+            },
             role: "dialog",
             aria_modal: "true",
             aria_label: "Cooking {title}",

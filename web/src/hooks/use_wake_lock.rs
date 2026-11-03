@@ -7,8 +7,14 @@ use dioxus::prelude::*;
 const ACQUIRE: &str = r#"
 try {
   if ('wakeLock' in navigator) {
+    window.__mrWakeActive = true;
     const take = async () => {
-      try { window.__mrWake = await navigator.wakeLock.request('screen'); } catch (e) {}
+      try {
+        const lock = await navigator.wakeLock.request('screen');
+        if (!window.__mrWakeActive) { lock.release(); return; }
+        if (window.__mrWake) window.__mrWake.release();
+        window.__mrWake = lock;
+      } catch (e) {}
     };
     window.__mrWakeVisible = () => {
       if (document.visibilityState === 'visible') take();
@@ -21,6 +27,7 @@ try {
 
 const RELEASE: &str = r#"
 try {
+  window.__mrWakeActive = false;
   if (window.__mrWakeVisible) {
     document.removeEventListener('visibilitychange', window.__mrWakeVisible);
     window.__mrWakeVisible = null;
