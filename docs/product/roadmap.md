@@ -8,8 +8,8 @@
 
 ## The core loop (MVP — mostly built)
 
-Roll a week of dinners from recipes in Postgres, weighted so **weeknight meals are
-quick/easy** and **weekend meals can run longer/ambitious**, then generate a **shopping
+Roll a week of dinners from recipes in Postgres, limited per day so **you choose
+how easy or ambitious each day is**, then generate a **shopping
 list** for the week.
 
 Built: Dioxus (Rust) fullstack frontend · Rust/Axum + SQLx backend (Cargo workspace with a
@@ -24,7 +24,7 @@ the single-day re-roll. Stretch surface: ESP32 kitchen screen.
   presets (one default per household); shopping-list generation and check-off; sleep for N
   weeks and wake; plan history (favourite, archive, delete); Library page with the manage-lists
   dialog; recipe create, edit in place and copy; toasts.
-- Partial: constraint-conflict prompts (see §1), difficulty by day (below).
+- Partial: constraint-conflict prompts (see §1).
 - Not built: pin (`planned_meal.is_pinned` exists, but nothing sets it and there is no UI);
   cooking log (`/cooking-log` is a placeholder page; `cook_log` has REST CRUD only, nothing
   writes to it from the app, and the roller does not use recency).
@@ -33,10 +33,14 @@ Core sub-features:
 
 - Recipe attributes: difficulty, time-to-make, servings/yield, **main protein**, cuisine,
   tags, **healthiness**.
-- **Difficulty by day**: defaults to easier dishes on weeknights, harder on weekends —
-  but **user-overridable** per day / per plan. _Status: partial. What shipped is per-plan
-  difficulty-band count rules (e.g. "at least 2 Hard"); there is no weekday/weekend default
-  and no per-day override (`planned_meal.target_difficulty` is unused)._
+- **Difficulty by day**: _built._ The user sets difficulty and max cook time per day
+  number (Day 1..N) on the roll form: one default limit for all days plus per-day overrides.
+  A limit is an easiest band, a hardest band and an optional max cook time. Days are numbers,
+  never weekdays, so the roll is date-free and nothing is derived from weeknight or weekend.
+  Each limit is a hard rule in the solver, so a recipe only lands on a day it fits, and an
+  impossible combination fails the roll with a message instead of being loosened. The limits
+  are saved in roll presets by day number and on the plan, so re-rolling one day keeps that
+  day's limits. Count rules per difficulty band still work alongside.
 - Shopping list = union of ingredients across the week's recipes.
 - **Sleep ingredients (shopping list)** — **MVP**. The list still returns _every_ ingredient
   the week needs, but you can choose **not to add specific items to the shopping list** when
@@ -329,8 +333,9 @@ built for personal use, so it leads with what the author values most.
   recipes and veto. **Per-day cook assignment** and **per-user recipe affinity** feed the
   roll (whose night it is → prefer recipes they like to make). → build users/auth + household
   ownership into the schema from the start (§6).
-- **Difficulty by day, overridable.** Easier weeknights, harder weekends by default; the
-  user can override per day / per plan.
+- **Difficulty by day, chosen at roll time.** The user sets difficulty and max cook time
+  per day number on the roll form (a default for all days plus per-day overrides); nothing
+  is derived from the weekday.
 - **Recipe sources: both** — hand-entered _and_ imported from URL.
 - **Pantry decrement: recipe-driven, with user override.** Cooking a planned recipe
   decrements its ingredients; the user can always add an item to the list even when the app
