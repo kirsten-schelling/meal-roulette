@@ -28,6 +28,9 @@ impl SelectOption {
 ///
 /// Controlled: pass the selected `value`; `onchange` fires with the chosen value.
 ///
+/// `aria_label` names a select that has no visible `label`. `compact` shrinks the trigger
+/// to its text, for use inside a sentence.
+///
 /// Keyboard: Arrow Up/Down, Home and End move a highlight through the options,
 /// Enter (or Space on the plain trigger) picks it, Escape and Tab close the list.
 /// Focus stays on the control; the highlighted option is named by
@@ -40,6 +43,8 @@ pub fn Select(
     onchange: EventHandler<String>,
     #[props(optional)] placeholder: Option<String>,
     #[props(default)] searchable: bool,
+    #[props(optional)] aria_label: Option<String>,
+    #[props(default)] compact: bool,
 ) -> Element {
     let id = use_control_id();
     let list_id = format!("{id}-list");
@@ -126,6 +131,7 @@ pub fn Select(
                                 class: "{field_cls}",
                                 r#type: "text",
                                 role: "combobox",
+                                aria_label: aria_label.clone(),
                                 autocomplete: "off",
                                 aria_autocomplete: "list",
                                 aria_expanded: open(),
@@ -221,12 +227,13 @@ pub fn Select(
                     };
                     let open_ids = id.clone();
                     rsx! {
-                        div { class: "mr-sel",
+                        div { class: if compact { "mr-sel mr-sel--compact" } else { "mr-sel" },
                             button {
                                 id: "{id}",
                                 r#type: "button",
                                 class: "{trigger_cls}",
                                 role: "combobox",
+                                aria_label: aria_label.clone(),
                                 aria_haspopup: "listbox",
                                 aria_expanded: open(),
                                 aria_controls: "{list_id}",

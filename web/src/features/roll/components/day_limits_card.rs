@@ -1,5 +1,5 @@
 use crate::components::ui::*;
-use crate::features::roll::settings::DayLimitSettings;
+use crate::features::roll::settings::RollSettings;
 use dioxus::prelude::*;
 use domain::roll::{DayLimits, DifficultyBand};
 
@@ -26,36 +26,34 @@ fn parse_band(value: &str) -> Option<DifficultyBand> {
 /// One limit for every day, plus own limits for any single day. Days are
 /// numbered from the first rolled day, whatever date the roll starts on.
 #[component]
-pub fn DayLimitsCard(mut limits: Signal<DayLimitSettings>, day_count: usize) -> Element {
-    let current = limits();
+pub fn DayLimitsCard(mut settings: Signal<RollSettings>, day_count: usize) -> Element {
+    let current = settings.read().day_limits.clone();
 
     rsx! {
-        Card { header: "Day limits".to_string(),
-            VStack { gap: 0.75,
-                Text { small: true, muted: true,
-                    "Set how hard and how long a dinner may be. Each day only takes a recipe inside its limits, so these are always required. Give any day its own limits below."
+        VStack { gap: 0.75,
+            Text { small: true, muted: true,
+                "Set how hard and how long a dinner may be. Each day only takes a recipe inside its limits, so these are always required. Give any day its own limits below."
+            }
+            Switch {
+                checked: current.enabled,
+                label: "Limit recipes by day".to_string(),
+                onchange: move |on| settings.write().day_limits.enabled = on,
+            }
+            if current.enabled {
+                LimitRow {
+                    name: "All days".to_string(),
+                    value: current.default,
+                    on_change: move |v: DayLimits| settings.write().day_limits.default = v,
                 }
-                Switch {
-                    checked: current.enabled,
-                    label: "Limit recipes by day".to_string(),
-                    onchange: move |on| limits.write().enabled = on,
-                }
-                if current.enabled {
-                    LimitRow {
-                        name: "All days".to_string(),
-                        value: current.default,
-                        on_change: move |v: DayLimits| limits.write().default = v,
-                    }
-                    for day in 0..day_count {
-                        DayRow {
-                            key: "{day}",
-                            day,
-                            default: current.default,
-                            own: current.override_for(day),
-                            on_change: move |v: Option<DayLimits>| {
-                                limits.write().set_override(day, v);
-                            },
-                        }
+                for day in 0..day_count {
+                    DayRow {
+                        key: "{day}",
+                        day,
+                        default: current.default,
+                        own: current.override_for(day),
+                        on_change: move |v: Option<DayLimits>| {
+                            settings.write().day_limits.set_override(day, v);
+                        },
                     }
                 }
             }

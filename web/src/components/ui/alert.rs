@@ -16,7 +16,9 @@ pub fn Alert(
         Tone::Neutral => "mr-alert--neutral",
     };
     rsx! {
-        div { class: "mr-alert {cls}",
+        div {
+            class: "mr-alert {cls}",
+            role: if tone == Tone::Red { "alert" } else { "status" },
             if let Some(t) = title.clone() {
                 p { class: "mr-alert__title", "{t}" }
             }
