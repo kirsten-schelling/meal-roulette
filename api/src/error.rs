@@ -128,3 +128,24 @@ impl axum::response::IntoResponse for AppError {
         (status, self.to_string()).into_response()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn delete_blocking_foreign_keys_have_a_friendly_conflict_message() {
+        for constraint in [
+            "fk_recipe_cuisine",
+            "fk_recipe_protein",
+            "fk_ingredient_unit",
+            "fk_shopping_list_item_unit",
+            "fk_recipe_ingredient_ingredient",
+            "fk_shopping_list_item_ingredient",
+        ] {
+            let error = constraint_message(constraint).expect(constraint);
+            assert_eq!(error.status(), StatusCode::CONFLICT, "{constraint}");
+            assert!(error.to_string().contains("still"), "{constraint}");
+        }
+    }
+}
