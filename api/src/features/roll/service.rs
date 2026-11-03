@@ -149,7 +149,7 @@ pub async fn reroll(pool: &PgPool, planned_meal_id: Uuid) -> Result<PlannedMealD
             .as_ref()
             .map(|limits| {
                 let day = (meal.scheduled_date - plan.start_date).whole_days();
-                slot_limits_for(limits, usize::try_from(day).unwrap_or(0))
+                reroll_slot_limits(limits, usize::try_from(day).unwrap_or(0))
             })
             .unwrap_or_default(),
         num_to_pick: 1,
@@ -168,6 +168,15 @@ fn check_day_limits(plan: Option<&DayLimitPlan>) -> Result<(), AppError> {
         "A day limit can't be met by any recipe: the easiest allowed difficulty is above the hardest, or the cook time is zero."
             .to_string(),
     ))
+}
+
+/// Limits for re-rolling plan day `day`: the solver is asked for a single pick,
+/// so its one open slot is always slot 0.
+fn reroll_slot_limits(plan: &DayLimitPlan, day: usize) -> Vec<SlotLimit> {
+    slot_limits_for(plan, day)
+        .into_iter()
+        .map(|l| SlotLimit { day: 0, ..l })
+        .collect()
 }
 
 /// The solver limits for roll day `day` (0 is the first day).
@@ -641,6 +650,27 @@ mod tests {
                     "seed {seed} day {day}"
                 );
             }
+        }
+    }
+
+    #[test]
+    fn rerolling_a_later_day_applies_that_days_limits_to_the_single_slot() {
+        let recipes: Vec<Recipe> = (0..6)
+            .map(|n| timed(1 + n % 3, 15 + 3 * n))
+            .chain((0..6).map(|n| timed(3 + n % 3, 45 + 10 * n)))
+            .collect();
+        let grid = Grid::new(&recipes, &HashSet::new(), &RollConstraints::default());
+        let plan = limit_plan();
+        for seed in 0..20 {
+            let solution = solver::roll(&Problem {
+                recipes: grid.rows.clone(),
+                requirements: grid.requirements(),
+                slot_limits: reroll_slot_limits(&plan, 5),
+                num_to_pick: 1,
+                seed,
+            })
+            .expect("a medium or harder recipe exists");
+            assert!(recipes[solution.picks[0]].difficulty >= 3, "seed {seed}");
         }
     }
 
