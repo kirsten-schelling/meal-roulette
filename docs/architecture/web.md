@@ -29,11 +29,14 @@ web/src/
 ├── showcase.rs                 # temporary /showcase component gallery
 │
 ├── components/                 # GENERIC, cross-feature UI only
-│   ├── ui/                     #   primitives (button, card, input, ...)
+│   ├── ui/                     #   primitives (button, card, input, combobox, modal, ...)
 │   ├── layout/                 #   app shell (header, sidebar, app_layout)
+│   ├── difficulty_badge.rs     #   shared difficulty badge
+│   ├── toast_master.rs         #   toast host
 │   └── stub.rs                 #   shared placeholders
 │
-├── pages/                      # shell route stubs not yet wired to a feature
+├── pages/                      # shell route pages outside a feature: home.rs (a wired
+│                               #   dashboard), cooking_log.rs (still a PageStub)
 │                               #   (their fate: docs/decisions/pending.md)
 ├── hooks/                      # GENERIC, cross-feature client hooks
 │
@@ -46,10 +49,18 @@ web/src/
 │
 └── features/                   # one folder per feature
     └── <feature>/
-        ├── page.rs             #   route-target component
+        ├── page.rs             #   route-target component (optional; see Adding a feature)
         ├── hooks/              #   client data hooks (wrap use_resource)
         └── components/         #   feature-specific UI
 ```
+
+A feature may also hold more route-target files (`recipe/detail_page.rs`; `plan/page.rs` and
+`shopping_list/page.rs` each export two pages) and pure helper modules (`recipe/filter.rs`,
+`ingredient/parse.rs`, `history/format.rs`, `roll/settings.rs`).
+
+Routes (`router.rs`): `/`, `/showcase`, `/recipes`, `/recipes/:id`, `/library`, `/shopping-list`,
+`/shopping-list/:plan_id`, `/cooking-log`, `/planned-meals`, `/planned-meals/:id`, `/history`,
+`/roll`.
 
 `[server]` marks modules compiled only with the `server` feature.
 
@@ -64,7 +75,8 @@ web/src/
   could use it, it lives here; otherwise it lives in the feature.
 - **`server/api/<feature>.rs`** — the `#[server]` functions for that feature. The only surface
   the browser calls. Each takes `AppState` from `app_state()`, calls the feature's repository
-  in the `api` crate, and maps the error with `server_fn_error`.
+  (or, for roll and re-roll, `api::features::roll::service`) in the `api` crate, and maps the
+  error with `server_fn_error`.
 - **`server/serve.rs`** — server-only bootstrap: connects the pool, builds the Axum router
   (Dioxus app, server functions, REST routes nested under `/api`), attaches `AppState` to every
   request as an extension, and serves.
@@ -101,7 +113,7 @@ them.
    appear in the function *signature* (e.g. `Recipe`, `ServerFnError`) are the exception: they
    exist in both builds and belong at module scope.
 4. **Thin server functions.** A server function takes the state, calls one repository
-   function, and maps the error. Logic that both the REST handler and the server function
+   or service function, and maps the error. Logic that both the REST handler and the server function
    need — a transaction spanning tables, resolving an inline lookup value — belongs in the
    `api` crate's repository, not in the server function.
 5. **Hooks call server functions, not the data layer.** A feature hook imports its `#[server]`
@@ -113,7 +125,9 @@ them.
 
 ## Adding a feature
 
-1. Create `features/<feature>/` with `mod.rs`, `page.rs`, and `hooks/`.
+1. Create `features/<feature>/` with `mod.rs`, `hooks/`, and `page.rs` if the feature has its own
+   screen (cuisine, ingredient, protein, tag and unit have none: they are managed from the
+   Library page and its dialog).
 2. Add a `#[server]` function per data call in `server/api/<feature>.rs`, calling the feature's
    repository in `api/src/features/<feature>/repository.rs` (declare the module `pub` in the
    feature's `mod.rs` if it is not yet).

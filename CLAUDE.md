@@ -13,7 +13,6 @@ list. Learning-oriented — Rust backend as an on-ramp toward embedded. Feature 
   the `solver` crate, which exposes a safe `roll()` over one `extern "C"` call. The `api` roll
   feature (`api/src/features/roll/`) flattens recipes and rules into its integer-only input.
 - Database: Postgres (Docker locally)
-- `web2/` (SvelteKit) and `web3/` (Next) — gitignored reference spikes from the UI comparison; not part of the build.
 
 ## Web app
 `web/` follows a required module structure — features, the `#[server]` BFF surface, and the
@@ -22,9 +21,10 @@ split between generic and feature-scoped components/hooks. Read
 `web/`.
 
 ## Local dev
-- DB:  `docker compose up -d`
+- DB:  `docker compose up -d`, then `just migrate` (the app does not run migrations at startup)
 - Web: `cd web && dx serve`   -> http://localhost:8080 (app + `#[server]` functions + REST under `/api`)
 - REST on its own (optional): `cargo run -p api` -> http://localhost:3000
+- Tests: `cargo test --workspace`; lint: `just lint`
 
 ## Conventions
 - **Teaching mode (learning project):** For API / web-server / non-UI logic, default to *hints*
