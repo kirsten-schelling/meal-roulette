@@ -31,6 +31,7 @@ fn main() {
 fn App() -> Element {
     rsx! {
         document::Stylesheet { href: asset!("/assets/primitives.css") }
+        document::Script { {hooks::use_theme::EARLY_SCRIPT} }
         Router::<Route> {}
     }
 }
