@@ -263,7 +263,7 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                 if !lines_now.is_empty() {
                                     div { class: "mr-ings-summary",
                                         span { class: "mr-label", "Ingredients ({line_count})" }
-                                        div { class: "mr-ings-summary__list mr-scroll",
+                                        div { class: "mr-ings-summary__list",
                                             for line in lines_now.iter() {
                                                 {
                                                     let amount = amount_label(parse_qty(&line.qty).ok().flatten(), &line.unit);
@@ -275,7 +275,9 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                                     rsx! {
                                                         div { key: "{line.id}", class: "mr-ings-summary__item",
                                                             div { class: "mr-ings-summary__row",
-                                                                span { class: "mr-ings-summary__name", "{line.name}" }
+                                                                if line.import.is_none() {
+                                                                    span { class: "mr-ings-summary__name", "{line.name}" }
+                                                                }
                                                                 span { class: "mr-ings-summary__amt", "{amt}" }
                                                                 if line.import.is_some() {
                                                                     IconButton {
