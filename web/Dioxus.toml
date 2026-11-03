@@ -1,0 +1,8 @@
+[application]
+name = "Meal Roulette"
+android_manifest = "android/AndroidManifest.xml"
+
+[bundle]
+identifier = "dev.kirsten.mealroulette"
+publisher = "Kirsten Schelling"
+icon = ["assets/pwa/icon-512.png", "assets/pwa/icon-192.png"]
