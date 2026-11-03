@@ -63,3 +63,13 @@ lint:
 # type-check everything without producing binaries
 check:
     cargo check --workspace
+
+# TEMPORARY: expose the local web app to your tailnet only, over HTTPS (see docs/guides/tailscale.md)
+tailnet-on:
+    tailscale serve --bg 8080
+    tailscale serve status
+
+# TEMPORARY: stop serving the web app on your tailnet
+tailnet-off:
+    tailscale serve --https=443 off
+    tailscale serve status
