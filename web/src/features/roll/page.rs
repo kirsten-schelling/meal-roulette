@@ -148,7 +148,7 @@ pub fn Roll() -> Element {
     );
     let still_loading = proteins().is_none() || cuisines().is_none() || ingredients().is_none();
     let load_error = (load_failed && !still_loading)
-        .then(|| "Some proteins, cuisines or ingredients could not be loaded, so they are missing from the search.".to_string());
+        .then(|| "Some proteins, cuisines or ingredients are missing from the list.".to_string());
 
     let do_roll = move |_| {
         if rolling() || keeping() {
@@ -247,7 +247,7 @@ pub fn Roll() -> Element {
                 Ok(_) => {
                     toast.show(
                         Some("Kept".to_string()),
-                        "The week is saved. Put it on days when you are ready.".to_string(),
+                        "Week saved to Planned meals.".to_string(),
                         Tone::Green,
                     );
                     navigator.push(Route::PlannedMeals {});
@@ -336,7 +336,7 @@ pub fn Roll() -> Element {
                         }
                     }
                     Text { small: true, muted: true,
-                        "Enter the seed of an earlier roll to get the same week again. While a seed is set, rolling again gives the same week every time."
+                        "Use a past roll's seed to get the same week again."
                     }
                 }
             }

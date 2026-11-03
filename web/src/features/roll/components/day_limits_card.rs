@@ -32,7 +32,7 @@ pub fn DayLimitsCard(mut settings: Signal<RollSettings>, day_count: usize) -> El
     rsx! {
         VStack { gap: 0.75,
             Text { small: true, muted: true,
-                "Set how hard and how long a dinner may be. Each day only takes a recipe inside its limits, so these are always required. Give any day its own limits below."
+                "Cap difficulty and cook time. Applies to every day unless a day has its own."
             }
             Switch {
                 checked: current.enabled,

@@ -299,7 +299,7 @@ impl RollSettings {
     pub fn rules_summary(&self) -> String {
         let lines = self.lines();
         if lines.is_empty() {
-            return "No rules, any recipe can come up".to_string();
+            return "No rules yet".to_string();
         }
         let must = lines
             .iter()
@@ -775,7 +775,7 @@ mod tests {
     #[test]
     fn the_folded_summary_counts_the_rules() {
         let mut settings = RollSettings::default();
-        assert!(settings.rules_summary().starts_with("No rules"));
+        assert_eq!(settings.rules_summary(), "No rules yet");
         settings.proteins = vec![lookup("Beef", 2, Bound::AtLeast, Importance::Required)];
         settings.add_band(DifficultyBand::Easy);
         assert_eq!(settings.rules_summary(), "2 rules, 1 Must: Easy, Beef");

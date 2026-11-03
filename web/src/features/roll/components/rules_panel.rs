@@ -35,7 +35,7 @@ pub fn RulesPanel(
             open,
             ontoggle,
             if let Some(message) = load_error.clone() {
-                Alert { tone: Tone::Red, title: "Couldn't load everything you can add", "{message}" }
+                Alert { tone: Tone::Red, title: "Some options didn't load", "{message}" }
             }
             Select {
                 label: "Add a rule".to_string(),
@@ -55,7 +55,7 @@ pub fn RulesPanel(
             if lines.is_empty() {
                 div { class: "mr-rules__empty",
                     Text { muted: true,
-                        "No rules, so any recipe can come up. Search above to ask for a protein, cuisine, ingredient or difficulty, like at least 2 beef dinners or at most 1 hard one."
+                        "No rules yet."
                     }
                 }
             } else {
