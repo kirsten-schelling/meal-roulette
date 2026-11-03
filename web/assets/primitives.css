@@ -754,7 +754,7 @@ body { margin: 0; }
 .mr-dialog-form { display: flex; flex-direction: column; gap: var(--mr-space-4); }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ADD-RECIPE DIALOG — a two-step form inside the Modal. A step taller than the
+   ADD-RECIPE DIALOG: a two-step form inside the Modal. A step taller than the
    screen (say, a long imported ingredient list) scrolls in the Modal body.
    ═══════════════════════════════════════════════════════════════════════ */
 .mr-recipe-dialog { display: flex; flex-direction: column; gap: 1rem; }
