@@ -33,8 +33,18 @@ impl ToastController {
         });
 
         spawn(async move {
-            gloo_timers::future::TimeoutFuture::new(3_000).await;
+            sleep_ms(3_000).await;
             toasts.write().retain(|t| t.id != id);
         });
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn sleep_ms(ms: u32) {
+    gloo_timers::future::TimeoutFuture::new(ms).await;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn sleep_ms(ms: u32) {
+    tokio::time::sleep(std::time::Duration::from_millis(u64::from(ms))).await;
 }

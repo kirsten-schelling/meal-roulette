@@ -26,6 +26,14 @@ solver input="solver/input.txt":
 web:
     cd web && dx serve
 
+# run the app as a native desktop window (fast loop for the mobile code path; server must be running: just web)
+desktop:
+    cd web && dx serve --desktop --no-default-features --features desktop
+
+# run the app on an Android emulator or device (see docs/guides/mobile.md)
+android:
+    cd web && dx serve --android --no-default-features --features mobile
+
 # run pending migrations, then refresh the offline query cache (needs sqlx-cli + DATABASE_URL in .env)
 migrate: && prepare
     sqlx migrate run --source api/migrations
