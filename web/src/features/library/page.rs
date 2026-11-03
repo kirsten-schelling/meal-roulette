@@ -40,7 +40,7 @@ enum IngredientForm {
 /// table (they grow into the base ingredient library); the tiny lookup lists
 /// (cuisines / proteins / units / tags) live in a rail, managed through a dialog.
 #[component]
-pub fn Library() -> Element {
+pub fn Library(manage: String) -> Element {
     let mut ingredients = use_get_ingredients();
     let mut cuisines = use_get_cuisines();
     let mut proteins = use_get_proteins();
@@ -49,7 +49,13 @@ pub fn Library() -> Element {
     let toast = use_toast();
 
     // Which manage tab is open, if any — `None` means the dialog is closed.
-    let mut managing = use_signal(|| None as Option<ManageTab>);
+    let mut managing = use_signal(|| match manage.as_str() {
+        "cuisines" => Some(ManageTab::Cuisines),
+        "proteins" => Some(ManageTab::Proteins),
+        "units" => Some(ManageTab::Units),
+        "tags" => Some(ManageTab::Tags),
+        _ => None,
+    });
     let mut form = use_signal(|| IngredientForm::Closed);
     let mut deleting = use_signal(|| None as Option<Ingredient>);
     let mut delete_busy = use_signal(|| false);

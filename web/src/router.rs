@@ -31,8 +31,8 @@ pub enum Route {
     Recipes {},
     #[route("/recipes/:id")]
     RecipePage { id: Uuid },
-    #[route("/library")]
-    Library {},
+    #[route("/library?:manage")]
+    Library { manage: String },
     #[route("/shopping-list")]
     ShoppingList {},
     #[route("/shopping-list/:plan_id")]

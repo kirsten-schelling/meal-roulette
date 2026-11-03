@@ -3,6 +3,7 @@ pub mod date_format;
 pub mod cook_log;
 pub mod cuisine;
 pub mod household;
+pub mod housekeeping;
 pub mod ingredient;
 pub mod meal_plan;
 pub mod planned_meal;

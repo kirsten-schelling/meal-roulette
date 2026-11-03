@@ -2,6 +2,7 @@
 //! shortcuts into the app.
 
 use crate::components::ui::*;
+use crate::features::housekeeping::components::HousekeepingCard;
 use crate::features::plan::hooks::use_plan::use_get_latest_plan;
 use crate::models::{day_label, error_message};
 use crate::router::Route;
@@ -61,6 +62,8 @@ pub fn Home() -> Element {
                     }
                 }
 
+                HousekeepingCard {}
+
                 div { style: "display:grid; grid-template-columns:repeat(auto-fit, minmax(12rem, 1fr)); gap:.9rem;",
                     DashLink {
                         to: Route::Recipes {},
@@ -87,7 +90,7 @@ pub fn Home() -> Element {
                         hint: "Past weeks, favourites, archive",
                     }
                     DashLink {
-                        to: Route::Library {},
+                        to: Route::Library { manage: String::new() },
                         icon: IconName::Carrot,
                         label: "Library",
                         hint: "Ingredients, proteins, cuisines",
