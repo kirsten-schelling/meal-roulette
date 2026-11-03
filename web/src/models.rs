@@ -51,3 +51,15 @@ pub fn date_label(date: Date) -> String {
 pub fn parse_iso_date(value: &str) -> Option<Date> {
     Date::parse(value.trim(), format_description!("[year]-[month]-[day]")).ok()
 }
+
+/// "Monday": the large label on a day card.
+pub fn weekday_label(date: Date) -> String {
+    date.format(format_description!("[weekday repr:long]"))
+        .unwrap_or_else(|_| date.to_string())
+}
+
+/// "6 Oct": the date under a weekday on a day card.
+pub fn short_date_label(date: Date) -> String {
+    date.format(format_description!("[day padding:none] [month repr:short]"))
+        .unwrap_or_else(|_| date.to_string())
+}
