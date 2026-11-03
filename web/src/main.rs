@@ -12,6 +12,11 @@ mod showcase;
 use router::Route;
 
 fn main() {
+    #[cfg(all(not(feature = "server"), not(target_arch = "wasm32")))]
+    dioxus::fullstack::set_server_url(
+        option_env!("MR_SERVER_URL").unwrap_or("http://10.0.2.2:8080"),
+    );
+
     #[cfg(not(feature = "server"))]
     dioxus::launch(App);
 
