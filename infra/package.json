@@ -1,0 +1,13 @@
+{
+  "name": "meal-roulette-infra",
+  "private": true,
+  "main": "index.ts",
+  "devDependencies": {
+    "@types/node": "^24",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@pulumi/cloudflare": "^6",
+    "@pulumi/pulumi": "^3"
+  }
+}

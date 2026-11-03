@@ -23,6 +23,7 @@ Reference and planning docs for Meal Roulette, organised by purpose.
   - [Pending decisions](decisions/pending.md) — queue of decisions to make / to record
 - **Guides**
   - [Local development](guides/local-dev.md)
+  - [Deploying to production](guides/deploy.md)
 
 ## Conventions
 

@@ -1,0 +1,13 @@
+target/
+.git/
+.claude/
+.env
+.env.*
+!.env.example
+web/dist/
+.dioxus/
+web2/
+web3/
+node_modules/
+infra/
+docs/
