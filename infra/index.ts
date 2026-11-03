@@ -9,6 +9,8 @@ const neonOrgId = config.require("neonOrgId");
 const project = new neon.Project("meal-roulette", {
   name: "meal-roulette",
   orgId: neonOrgId,
+  // The provider asks for 24 hours of point-in-time history by default; the free plan allows 6.
+  historyRetentionSeconds: 21600,
   regionId: neonRegion,
   pgVersion: 18,
   branch: {
