@@ -679,7 +679,7 @@ fn ConfirmDeleteRow(
 ) -> Element {
     rsx! {
         ConfirmDialog {
-            title: "Delete “{name}”?".to_string(),
+            title: format!("Delete “{name}”?"),
             confirm_label: "Delete".to_string(),
             danger: true,
             on_confirm: move |_| on_confirm.call(()),

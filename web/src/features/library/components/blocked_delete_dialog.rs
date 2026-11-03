@@ -17,7 +17,7 @@ pub fn BlockedDeleteDialog(
     on_close: EventHandler<()>,
 ) -> Element {
     rsx! {
-        Modal { title: "Can't delete “{name}” yet".to_string(), on_close: move |_| on_close.call(()),
+        Modal { title: format!("Can't delete “{name}” yet"), on_close: move |_| on_close.call(()),
             Text { "These still use it. Open one to change it there:" }
             ul { class: "mr-refs mr-scroll",
                 for reference in references.iter() {
