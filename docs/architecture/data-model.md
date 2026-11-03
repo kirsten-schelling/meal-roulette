@@ -314,7 +314,7 @@ unscheduled); `uq_planned_meal_recipe (meal_plan_id, recipe_id)` — a recipe ap
 whether the solver picked it or a swap chose it.
 
 A roll produces dinners with a `day_index` and no date. Putting a plan on days
-(`PUT /meal-plans/{id}/schedule`) gives dinner *n* the start date plus *n - 1* days; moving
+(`PUT /meal-plans/{id}/schedule`) gives dinner _n_ the start date plus _n - 1_ days; moving
 one dinner (`PUT /planned-meals/{id}/schedule`) sets or clears its date, and a date another
 dinner holds is traded rather than refused. The migration that introduced `day_index`
 numbered existing dinners by their dates, so no plan lost its order.
