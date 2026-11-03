@@ -13,7 +13,9 @@ pub fn Switch(
         label { class: "mr-switch",
             input {
                 r#type: "checkbox",
+                role: "switch",
                 checked,
+                aria_checked: "{checked}",
                 oninput: move |_| onchange.call(!checked),
             }
             span { class: "mr-switch__track",

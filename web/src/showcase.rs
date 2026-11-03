@@ -20,6 +20,7 @@ pub fn Showcase() -> Element {
     let mut notify = use_signal(|| false);
     let mut healthiness = use_signal(|| Some(3i16));
     let mut notes = use_signal(String::new);
+    let mut chip_on = use_signal(|| true);
     let protein_pick = use_signal(Picker::default);
 
     let toast_controller = use_context::<ToastController>();
@@ -71,6 +72,7 @@ pub fn Showcase() -> Element {
                                 Button { variant: ButtonVariant::Outline, "Outline" }
                                 Button { variant: ButtonVariant::Ghost, "Ghost" }
                                 Button { variant: ButtonVariant::Danger, "Delete" }
+                                Button { variant: ButtonVariant::Solid, disabled: true, "Disabled" }
                                 Button {
                                     variant: ButtonVariant::Solid,
                                     loading: true,
@@ -157,6 +159,28 @@ pub fn Showcase() -> Element {
                                 scale: RatingScale::HighIsGood,
                                 onchange: move |n: i16| healthiness.set(Some(n)),
                                 on_clear: move |_| healthiness.set(None),
+                            }
+                            Input {
+                                label: "Servings".to_string(),
+                                value: "abc".to_string(),
+                                oninput: move |_| {},
+                                error: "Enter a whole number".to_string(),
+                                required: true,
+                            }
+                            Input {
+                                label: "Locked".to_string(),
+                                value: "Can't edit this".to_string(),
+                                oninput: move |_| {},
+                                disabled: true,
+                            }
+                            HStack { gap: 0.5, align: Align::Center,
+                                Chip {
+                                    label: "Vegetarian".to_string(),
+                                    active: chip_on(),
+                                    onclick: move |_| chip_on.set(!chip_on()),
+                                }
+                                Chip { label: "Quick".to_string(), onclick: move |_| {} }
+                                Chip { label: "Thai".to_string(), onremove: move |_| {} }
                             }
                             Textarea {
                                 label: "Notes".to_string(),

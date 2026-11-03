@@ -11,7 +11,11 @@ pub fn ToastMaster(children: Element) -> Element {
     use_context_provider(|| ToastController { toasts });
 
     rsx! {
-        div { class: "mr-toast-stack",
+        div {
+            class: "mr-toast-stack",
+            role: "region",
+            aria_label: "Notifications",
+            aria_live: "polite",
             for toast in toasts() {
                 Toast {
                     key: "{toast.id}",

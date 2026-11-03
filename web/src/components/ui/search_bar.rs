@@ -1,4 +1,5 @@
-use crate::components::ui::{Chip, Icon, IconName};
+use crate::components::ui::menu_nav::{is_nav_key, next_index, option_class, option_id, reveal};
+use crate::components::ui::{field::use_control_id, Chip, Icon, IconName};
 use dioxus::prelude::*;
 use std::rc::Rc;
 
@@ -52,6 +53,33 @@ pub fn SearchBar(
     let mut input_el = use_signal(|| None as Option<Rc<MountedData>>);
 
     let has_filters = !filters.is_empty();
+
+    let menu_base = use_control_id();
+    let menu_list_id = format!("{menu_base}-list");
+    // The highlighted row of the filter menu, moved by the arrow keys.
+    let mut menu_hl = use_signal(|| None as Option<usize>);
+    let filter_count = filters.len();
+    let menu_hl_now = menu_hl().filter(|i| *i < filter_count);
+    let menu_active_id = menu_hl_now.map(|i| option_id(&menu_base, i));
+
+    let pick_filters = filters.clone();
+    let pick_filter = use_callback(move |i: usize| {
+        let Some(field) = pick_filters.get(i).cloned() else {
+            return;
+        };
+        pending.set(Some(field));
+        menu.set(false);
+        text.set(String::new());
+        if let Some(cb) = onquery {
+            cb.call(String::new());
+        }
+        // focus the field so you can type the value right away
+        if let Some(el) = input_el() {
+            spawn(async move {
+                let _ = el.set_focus(true).await;
+            });
+        }
+    });
 
     let ph = if let Some(f) = pending() {
         f.placeholder.clone()
@@ -159,10 +187,49 @@ pub fn SearchBar(
                     class: "mr-fsearch__add",
                     aria_haspopup: "listbox",
                     aria_expanded: menu(),
+                    aria_controls: "{menu_list_id}",
+                    aria_activedescendant: menu_active_id,
                     aria_label: "Add a filter",
                     onclick: move |_| {
                         let now = menu();
                         menu.set(!now);
+                        if !now {
+                            menu_hl.set(Some(0));
+                        }
+                    },
+                    onkeydown: move |e: KeyboardEvent| {
+                        let key = e.key();
+                        if !menu() {
+                            if matches!(key, Key::ArrowDown | Key::ArrowUp) {
+                                e.prevent_default();
+                                menu.set(true);
+                                menu_hl.set(Some(0));
+                            }
+                            return;
+                        }
+                        match key {
+                            Key::Escape => {
+                                // only this menu closes, not a dialog around it
+                                e.stop_propagation();
+                                menu.set(false);
+                            }
+                            Key::Tab => menu.set(false),
+                            Key::Enter => {
+                                e.prevent_default();
+                                if let Some(i) = menu_hl_now {
+                                    pick_filter.call(i);
+                                }
+                            }
+                            _ if is_nav_key(&key) => {
+                                e.prevent_default();
+                                let next = next_index(menu_hl_now, filter_count, &key);
+                                menu_hl.set(next);
+                                if let Some(i) = next {
+                                    reveal(&option_id(&menu_base, i));
+                                }
+                            }
+                            _ => {}
+                        }
                     },
                     Icon { name: IconName::Plus }
                 }
@@ -174,32 +241,24 @@ pub fn SearchBar(
                     }
                     div { class: "mr-fsearch__menu",
                         div { class: "mr-fsearch__menu-head", "Filter by" }
-                        div { class: "mr-sel__list mr-scroll", role: "listbox",
-                            for f in filters.iter() {
-                                {
-                                    let field = f.clone();
-                                    rsx! {
-                                        div {
-                                            key: "{f.label}",
-                                            class: "mr-sel__opt",
-                                            role: "option",
-                                            onclick: move |_| {
-                                                pending.set(Some(field.clone()));
-                                                menu.set(false);
-                                                text.set(String::new());
-                                                if let Some(cb) = onquery {
-                                                    cb.call(String::new());
-                                                }
-                                                // focus the field so you can type the value right away
-                                                if let Some(el) = input_el() {
-                                                    spawn(async move {
-                                                        let _ = el.set_focus(true).await;
-                                                    });
-                                                }
-                                            },
-                                            span { "{f.label}" }
+                        div {
+                            id: "{menu_list_id}",
+                            class: "mr-sel__list mr-scroll",
+                            role: "listbox",
+                            for (i , f) in filters.iter().enumerate() {
+                                div {
+                                    key: "{f.label}",
+                                    id: "{option_id(&menu_base, i)}",
+                                    class: option_class(false, menu_hl_now == Some(i)),
+                                    role: "option",
+                                    aria_selected: menu_hl_now == Some(i),
+                                    onmousemove: move |_| {
+                                        if menu_hl() != Some(i) {
+                                            menu_hl.set(Some(i));
                                         }
-                                    }
+                                    },
+                                    onclick: move |_| pick_filter.call(i),
+                                    span { "{f.label}" }
                                 }
                             }
                         }
