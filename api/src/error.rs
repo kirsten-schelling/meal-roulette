@@ -65,6 +65,7 @@ fn constraint_message(constraint: &str) -> Option<AppError> {
         "uq_protein_household_name" => conflict("A protein with that name already exists."),
         "uq_tag_household_name" => conflict("A tag with that name already exists."),
         "uq_roll_preset_household_name" => conflict("A preset with that name already exists."),
+        "uq_planned_meal" => conflict("Another dinner in the plan is already on that date."),
         "uq_planned_meal_recipe" => conflict("That recipe is already on another day of the plan."),
         "fk_recipe_cuisine" => conflict("This cuisine is still used by a recipe."),
         "fk_recipe_protein" => conflict("This protein is still used by a recipe."),

@@ -4,10 +4,14 @@ use axum::{
 };
 use uuid::Uuid;
 
-use super::repository::{create, delete, get, latest_detail, list, list_summaries, update};
+use super::repository::{
+    create, delete, get, latest_detail, list, list_summaries, schedule, update,
+};
 use crate::error::AppError;
 use crate::state::AppState;
-use domain::meal_plan::{MealPlan, MealPlanDetail, MealPlanSummary, NewMealPlan, UpdateMealPlan};
+use domain::meal_plan::{
+    MealPlan, MealPlanDetail, MealPlanSummary, NewMealPlan, SchedulePlan, UpdateMealPlan,
+};
 
 pub async fn get_meal_plans(
     State(state): State<AppState>,
@@ -63,4 +67,13 @@ pub async fn delete_meal_plan(
 ) -> Result<Json<MealPlan>, AppError> {
     let plan = delete(&state.db, id).await?;
     Ok(Json(plan))
+}
+
+pub async fn schedule_meal_plan(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+    Json(body): Json<SchedulePlan>,
+) -> Result<Json<MealPlanDetail>, AppError> {
+    let detail = schedule(&state.db, id, body.start_date).await?;
+    Ok(Json(detail))
 }

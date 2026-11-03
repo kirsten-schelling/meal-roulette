@@ -163,7 +163,9 @@ pub struct RollConstraints {
 pub struct RollRequest {
     /// Owning household. `None` = the single local household.
     pub household_id: Option<Uuid>,
-    /// First day of the plan. `None` = today.
+    /// Lay the dinners out on consecutive dates from here. `None` = leave them
+    /// unscheduled, in roll order. Day limits are keyed by day number, so they
+    /// apply either way.
     #[serde(default, with = "crate::date_format::iso_date::option")]
     pub start_date: Option<time::Date>,
     pub num_days: u16,

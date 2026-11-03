@@ -8,8 +8,9 @@ use uuid::Uuid;
 pub struct MealPlan {
     pub id: Uuid,
     pub household_id: Uuid,
-    #[serde(with = "crate::date_format::iso_date")]
-    pub start_date: time::Date,
+    /// The date the dinners were last laid out from. `None` = never scheduled.
+    #[serde(default, with = "crate::date_format::iso_date::option")]
+    pub start_date: Option<time::Date>,
     pub seed: Option<i64>,
     pub name: Option<String>,
     /// The rules this plan was rolled under.
@@ -21,19 +22,15 @@ pub struct MealPlan {
     pub updated_at: time::OffsetDateTime,
 }
 
-/// One plan as the history lists it: when it was rolled, the week it covers,
-/// and its dinner titles in date order.
+/// One plan as the history lists it: its name, when it was rolled, and its
+/// dinner titles in roll order.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct MealPlanSummary {
     pub id: Uuid,
     pub household_id: Uuid,
     /// When the plan was rolled.
     pub created_at: time::OffsetDateTime,
-    #[serde(with = "crate::date_format::iso_date")]
-    pub start_date: time::Date,
-    /// The last planned day. `None` = the plan has no days.
-    #[serde(default, with = "crate::date_format::iso_date::option")]
-    pub end_date: Option<time::Date>,
+    pub name: Option<String>,
     pub num_days: i64,
     pub seed: Option<i64>,
     pub is_favourite: bool,
@@ -41,7 +38,7 @@ pub struct MealPlanSummary {
     pub dinners: Vec<String>,
 }
 
-/// A plan together with its dinners, one per day in date order.
+/// A plan together with its dinners, in roll order.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct MealPlanDetail {
     pub plan: MealPlan,
@@ -52,8 +49,8 @@ pub struct MealPlanDetail {
 #[derive(Debug, Deserialize)]
 pub struct NewMealPlan {
     pub household_id: Uuid,
-    #[serde(with = "crate::date_format::iso_date")]
-    pub start_date: time::Date,
+    #[serde(default, with = "crate::date_format::iso_date::option")]
+    pub start_date: Option<time::Date>,
     pub seed: Option<i64>,
     pub name: Option<String>,
     #[serde(default)]
@@ -67,4 +64,12 @@ pub struct UpdateMealPlan {
     pub start_date: Option<time::Date>,
     pub seed: Option<i64>,
     pub name: Option<String>,
+}
+
+/// Body for `PUT /meal-plans/{id}/schedule`: put the plan's dinners on
+/// consecutive dates from `start_date`, in roll order.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SchedulePlan {
+    #[serde(with = "crate::date_format::iso_date")]
+    pub start_date: time::Date,
 }

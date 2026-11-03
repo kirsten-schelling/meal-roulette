@@ -104,7 +104,7 @@ erDiagram
     }
     meal_plan {
         uuid household_id FK
-        date start_date
+        date start_date "nullable"
         bigint seed "nullable"
         text name "nullable"
         jsonb roll_constraints "rules the plan was rolled under"
@@ -114,7 +114,8 @@ erDiagram
     planned_meal {
         uuid meal_plan_id FK
         uuid recipe_id FK
-        date scheduled_date
+        smallint day_index "roll order, from 1"
+        date scheduled_date "nullable"
         bool is_pinned
         smallint target_difficulty "nullable, unused"
     }
@@ -286,8 +287,9 @@ recipe amounts and the ingredient are entered in the same unit, so no conversion
 
 ### Planning & history
 
-**`meal_plan`** — one rolled week (the header). `household_id` (`NOT NULL`), `start_date`,
-`seed` (nullable — stored so a roll is reproducible, per the roadmap's seeded-rolls feature),
+**`meal_plan`** — one rolled week (the header). `household_id` (`NOT NULL`), `start_date`
+(nullable: the date the dinners were last laid out from, so `NULL` until the plan is put on
+days; plans are ordered by `created_at`, when they were rolled, not by it), `seed` (nullable — stored so a roll is reproducible, per the roadmap's seeded-rolls feature),
 `name` (nullable label), `roll_constraints` (`JSONB`, default `{}`: the rules the plan was
 rolled under, in the shape of `domain::roll::RollConstraints`, i.e. cuisine, protein,
 must-use-ingredient and difficulty-band counts, each at least or at most, each Required or a
@@ -300,12 +302,22 @@ cascades to its days and frees their recipes to be deleted; its shopping list an
 entries stay, unlinked (`SET NULL`).
 
 **`planned_meal`** — one dinner slot in a plan. `meal_plan_id` (`ON DELETE CASCADE`),
-`recipe_id` (`ON DELETE RESTRICT`), `scheduled_date`, `is_pinned` (reserved for the pin/keep feature; nothing sets it yet, a roll writes `false`),
+`recipe_id` (`ON DELETE RESTRICT`), `day_index` (`NOT NULL`, from 1: the dinner's place in
+the roll, fixed once rolled), `scheduled_date` (nullable: the date the dinner is on, `NULL`
+until it is put on a day), `is_pinned` (reserved for the pin/keep feature; nothing sets it yet, a roll writes `false`),
 `target_difficulty` (nullable; unused: the roll always writes `NULL` and nothing reads it.
-Per-day limits live in `meal_plan.roll_constraints.day_limits`, keyed by day number counted
-from the plan's `start_date`, as a default for all days plus per-day overrides). `uq_planned_meal (meal_plan_id, scheduled_date)` — one dinner per day per plan;
-`uq_planned_meal_recipe (meal_plan_id, recipe_id)` — a recipe appears at most once per plan,
+Per-day limits live in `meal_plan.roll_constraints.day_limits`, keyed by day number, which is
+`day_index`, as a default for all days plus per-day overrides). `uq_planned_meal_day_index (meal_plan_id, day_index)` — roll
+positions are unique per plan; `uq_planned_meal (meal_plan_id, scheduled_date)` — one dinner
+per date per plan when set (`NULL` dates never collide, so any number of dinners can be
+unscheduled); `uq_planned_meal_recipe (meal_plan_id, recipe_id)` — a recipe appears at most once per plan,
 whether the solver picked it or a swap chose it.
+
+A roll produces dinners with a `day_index` and no date. Putting a plan on days
+(`PUT /meal-plans/{id}/schedule`) gives dinner *n* the start date plus *n - 1* days; moving
+one dinner (`PUT /planned-meals/{id}/schedule`) sets or clears its date, and a date another
+dinner holds is traded rather than refused. The migration that introduced `day_index`
+numbered existing dinners by their dates, so no plan lost its order.
 
 **`cook_log`** — the permanent record of what was actually cooked. `household_id`
 (`NOT NULL`), `recipe_id` (`ON DELETE RESTRICT`), `cooked_on`, `planned_meal_id` (nullable

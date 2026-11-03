@@ -39,6 +39,15 @@ pub fn day_label(date: Date) -> String {
     .unwrap_or_else(|_| date.to_string())
 }
 
+/// How a dinner is named in a plan: "Mon 6 Oct" once it has a date, "Day 3" while it is
+/// still in roll order.
+pub fn dinner_day_label(day_index: i16, date: Option<Date>) -> String {
+    match date {
+        Some(date) => day_label(date),
+        None => format!("Day {day_index}"),
+    }
+}
+
 /// "6 Oct 2026".
 pub fn date_label(date: Date) -> String {
     date.format(format_description!(
@@ -62,4 +71,19 @@ pub fn weekday_label(date: Date) -> String {
 pub fn short_date_label(date: Date) -> String {
     date.format(format_description!("[day padding:none] [month repr:short]"))
         .unwrap_or_else(|_| date.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::macros::date;
+
+    #[test]
+    fn a_dinner_is_named_by_its_date_once_scheduled_and_by_its_roll_position_before() {
+        assert_eq!(
+            dinner_day_label(3, Some(date!(2026 - 11 - 06))),
+            "Fri 6 Nov"
+        );
+        assert_eq!(dinner_day_label(3, None), "Day 3");
+    }
 }

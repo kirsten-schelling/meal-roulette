@@ -1,18 +1,8 @@
 //! Labels for a rolled plan, shared by the history, the plan page and the
 //! shopping list.
 
-use crate::models::day_label;
 use time::macros::format_description;
-use time::{Date, OffsetDateTime, UtcOffset};
-
-/// "Mon 5 Oct to Sun 11 Oct", or just the first day when the plan covers one
-/// day or has none.
-pub fn week_label(start: Date, end: Option<Date>) -> String {
-    match end {
-        Some(end) if end != start => format!("{} to {}", day_label(start), day_label(end)),
-        _ => day_label(start),
-    }
-}
+use time::{OffsetDateTime, UtcOffset};
 
 /// "11 Oct 2026, 4:52 pm" at `offset`.
 pub fn rolled_label(at: OffsetDateTime, offset: UtcOffset) -> String {
@@ -30,5 +20,35 @@ pub fn dinner_count(count: i64) -> String {
         "1 dinner".to_string()
     } else {
         format!("{count} dinners")
+    }
+}
+
+/// What a plan is called: its name, or when it was rolled.
+pub fn plan_title(name: Option<&str>, rolled_at: OffsetDateTime, offset: UtcOffset) -> String {
+    match name.map(str::trim).filter(|name| !name.is_empty()) {
+        Some(name) => name.to_string(),
+        None => format!("Plan rolled {}", rolled_label(rolled_at, offset)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_plan_is_named_or_else_dated_by_when_it_was_rolled() {
+        let rolled = OffsetDateTime::UNIX_EPOCH;
+        assert_eq!(
+            plan_title(Some("Winter week"), rolled, UtcOffset::UTC),
+            "Winter week"
+        );
+        assert_eq!(
+            plan_title(Some("  "), rolled, UtcOffset::UTC),
+            "Plan rolled 1 Jan 1970, 12:00 am"
+        );
+        assert_eq!(
+            plan_title(None, rolled, UtcOffset::UTC),
+            "Plan rolled 1 Jan 1970, 12:00 am"
+        );
     }
 }

@@ -7,8 +7,11 @@ pub struct PlannedMeal {
     pub id: Uuid,
     pub meal_plan_id: Uuid,
     pub recipe_id: Uuid,
-    #[serde(with = "crate::date_format::iso_date")]
-    pub scheduled_date: time::Date,
+    /// Position in the roll, from 1. Fixed once rolled.
+    pub day_index: i16,
+    /// The date the dinner is on. `None` = not scheduled yet.
+    #[serde(default, with = "crate::date_format::iso_date::option")]
+    pub scheduled_date: Option<time::Date>,
     pub is_pinned: bool,
     /// Per-day difficulty override. `None` = use the day's default.
     pub target_difficulty: Option<i16>,
@@ -23,8 +26,9 @@ pub struct PlannedMealDetail {
     pub id: Uuid,
     pub meal_plan_id: Uuid,
     pub recipe_id: Uuid,
-    #[serde(with = "crate::date_format::iso_date")]
-    pub scheduled_date: time::Date,
+    pub day_index: i16,
+    #[serde(default, with = "crate::date_format::iso_date::option")]
+    pub scheduled_date: Option<time::Date>,
     pub is_pinned: bool,
     pub target_difficulty: Option<i16>,
     pub title: String,
@@ -43,8 +47,9 @@ pub struct PlannedMealDetail {
 pub struct NewPlannedMeal {
     pub meal_plan_id: Uuid,
     pub recipe_id: Uuid,
-    #[serde(with = "crate::date_format::iso_date")]
-    pub scheduled_date: time::Date,
+    pub day_index: i16,
+    #[serde(default, with = "crate::date_format::iso_date::option")]
+    pub scheduled_date: Option<time::Date>,
     #[serde(default)]
     pub is_pinned: bool,
     pub target_difficulty: Option<i16>,
@@ -58,4 +63,32 @@ pub struct UpdatePlannedMeal {
     pub scheduled_date: Option<time::Date>,
     pub is_pinned: Option<bool>,
     pub target_difficulty: Option<i16>,
+}
+
+/// Body for `PUT /planned-meals/{id}/schedule`: move the dinner to `scheduled_date`, or take
+/// it off the calendar with `null`. A date another dinner of the plan holds is swapped.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ScheduleMeal {
+    #[serde(default, with = "crate::date_format::iso_date::option")]
+    pub scheduled_date: Option<time::Date>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_unscheduled_dinner_has_no_date_on_the_wire() {
+        let meal: ScheduleMeal =
+            serde_json::from_str(r#"{"scheduled_date": null}"#).expect("parses");
+        assert_eq!(meal.scheduled_date, None);
+        let meal: ScheduleMeal = serde_json::from_str(r#"{}"#).expect("parses");
+        assert_eq!(meal.scheduled_date, None);
+        let meal: ScheduleMeal =
+            serde_json::from_str(r#"{"scheduled_date": "2026-11-06"}"#).expect("parses");
+        assert_eq!(
+            meal.scheduled_date,
+            Some(time::macros::date!(2026 - 11 - 06))
+        );
+    }
 }

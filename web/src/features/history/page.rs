@@ -6,7 +6,7 @@ use crate::components::ui::{
     IconButton, IconName, Size, Spinner, Tabs, Text, Tone,
 };
 use crate::features::history::components::FavouriteStar;
-use crate::features::history::format::{dinner_count, rolled_label, week_label};
+use crate::features::history::format::{dinner_count, plan_title};
 use crate::features::history::hooks::use_history::{
     delete_plan, set_plan_archived, set_plan_favourite, use_get_plan_history,
 };
@@ -101,17 +101,17 @@ pub fn History() -> Element {
         if busy() {
             return;
         }
+        let name = plan_title(plan.name.as_deref(), plan.created_at, offset());
         starring.set(Some(plan.id));
         spawn(async move {
             let on = !plan.is_favourite;
-            let week = week_label(plan.start_date, plan.end_date);
             match set_plan_favourite(plan.id, on).await {
                 Ok(_) => {
                     history.restart();
                     let message = if on {
-                        format!("The week of {week} is in Favourites.")
+                        format!("{name} is in Favourites.")
                     } else {
-                        format!("The week of {week} is no longer a favourite.")
+                        format!("{name} is no longer a favourite.")
                     };
                     toast.show(
                         Some(if on { "Starred" } else { "Unstarred" }.to_string()),
@@ -133,20 +133,17 @@ pub fn History() -> Element {
         if busy() {
             return;
         }
+        let name = plan_title(plan.name.as_deref(), plan.created_at, offset());
         archiving.set(Some(plan.id));
         spawn(async move {
             let archive = plan.archived_at.is_none();
-            let week = week_label(plan.start_date, plan.end_date);
             match set_plan_archived(plan.id, archive).await {
                 Ok(_) => {
                     history.restart();
                     let (title, message) = if archive {
-                        ("Archived", format!("The week of {week} moved to Archived."))
+                        ("Archived", format!("{name} moved to Archived."))
                     } else {
-                        (
-                            "Unarchived",
-                            format!("The week of {week} is back in Active."),
-                        )
+                        ("Unarchived", format!("{name} is back in Active."))
                     };
                     toast.show(Some(title.to_string()), message, Tone::Green);
                 }
@@ -174,15 +171,15 @@ pub fn History() -> Element {
         if delete_busy() {
             return;
         }
+        let name = plan_title(plan.name.as_deref(), plan.created_at, offset());
         delete_busy.set(true);
         spawn(async move {
-            let week = week_label(plan.start_date, plan.end_date);
             match delete_plan(plan.id).await {
                 Ok(_) => {
                     history.restart();
                     toast.show(
                         Some("Deleted".to_string()),
-                        format!("The week of {week} was deleted."),
+                        format!("{name} was deleted."),
                         Tone::Green,
                     );
                 }
@@ -198,14 +195,11 @@ pub fn History() -> Element {
     };
 
     let columns: Vec<Column<MealPlanSummary>> = vec![
-        Column::new("Rolled", move |p: &MealPlanSummary| {
+        Column::new("Plan", move |p: &MealPlanSummary| {
             rsx! {
-                span { class: "mr-nowrap", "{rolled_label(p.created_at, offset())}" }
-            }
-        }),
-        Column::new("Week", |p: &MealPlanSummary| {
-            rsx! {
-                span { class: "mr-cell-strong mr-nowrap", "{week_label(p.start_date, p.end_date)}" }
+                span { class: "mr-cell-strong mr-nowrap",
+                    "{plan_title(p.name.as_deref(), p.created_at, offset())}"
+                }
             }
         }),
         Column::new("Dinners", |p: &MealPlanSummary| {
@@ -339,7 +333,7 @@ pub fn History() -> Element {
 
             if let Some(plan) = deleting() {
                 ConfirmDialog {
-                    title: format!("Delete the week of {}?", week_label(plan.start_date, plan.end_date)),
+                    title: format!("Delete {}?", plan_title(plan.name.as_deref(), plan.created_at, offset())),
                     confirm_label: "Delete".to_string(),
                     danger: true,
                     loading: delete_busy(),

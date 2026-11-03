@@ -8,7 +8,7 @@ use uuid::Uuid;
 struct MealPlanRow {
     id: Uuid,
     household_id: Uuid,
-    start_date: time::Date,
+    start_date: Option<time::Date>,
     seed: Option<i64>,
     name: Option<String>,
     roll_constraints: Json<RollConstraints>,
@@ -43,7 +43,7 @@ pub async fn list(pool: &PgPool) -> Result<Vec<MealPlan>, sqlx::Error> {
                roll_constraints AS "roll_constraints: Json<RollConstraints>",
                is_favourite, archived_at, created_at, updated_at
         FROM meal_plan
-        ORDER BY start_date DESC
+        ORDER BY created_at DESC
         "#,
     )
     .fetch_all(pool)
@@ -101,17 +101,16 @@ pub async fn latest_detail(pool: &PgPool) -> Result<Option<MealPlanDetail>, sqlx
     Ok(Some(MealPlanDetail { plan, meals }))
 }
 
-/// Every plan, newest roll first, with its week and dinner titles.
+/// Every plan, newest roll first, with its dinner titles in roll order.
 pub async fn list_summaries(pool: &PgPool) -> Result<Vec<MealPlanSummary>, sqlx::Error> {
     sqlx::query_as!(
         MealPlanSummary,
         r#"
-        SELECT meal_plan.id, meal_plan.household_id, meal_plan.created_at, meal_plan.start_date,
-               MAX(planned_meal.scheduled_date) AS end_date,
+        SELECT meal_plan.id, meal_plan.household_id, meal_plan.created_at, meal_plan.name,
                COUNT(planned_meal.id) AS "num_days!",
                meal_plan.seed, meal_plan.is_favourite, meal_plan.archived_at,
                COALESCE(
-                   ARRAY_AGG(recipe.title ORDER BY planned_meal.scheduled_date)
+                   ARRAY_AGG(recipe.title ORDER BY planned_meal.day_index)
                        FILTER (WHERE planned_meal.id IS NOT NULL),
                    ARRAY[]::text[]
                ) AS "dinners!"
@@ -130,12 +129,11 @@ pub async fn get_summary(pool: &PgPool, id: Uuid) -> Result<MealPlanSummary, sql
     sqlx::query_as!(
         MealPlanSummary,
         r#"
-        SELECT meal_plan.id, meal_plan.household_id, meal_plan.created_at, meal_plan.start_date,
-               MAX(planned_meal.scheduled_date) AS end_date,
+        SELECT meal_plan.id, meal_plan.household_id, meal_plan.created_at, meal_plan.name,
                COUNT(planned_meal.id) AS "num_days!",
                meal_plan.seed, meal_plan.is_favourite, meal_plan.archived_at,
                COALESCE(
-                   ARRAY_AGG(recipe.title ORDER BY planned_meal.scheduled_date)
+                   ARRAY_AGG(recipe.title ORDER BY planned_meal.day_index)
                        FILTER (WHERE planned_meal.id IS NOT NULL),
                    ARRAY[]::text[]
                ) AS "dinners!"
@@ -267,4 +265,38 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<MealPlan, sqlx::Error> {
     .fetch_one(pool)
     .await?;
     Ok(row.into())
+}
+
+/// Put the plan's dinners on consecutive dates from `start_date`, in roll order,
+/// replacing any dates they had.
+pub async fn schedule(
+    pool: &PgPool,
+    id: Uuid,
+    start_date: time::Date,
+) -> Result<MealPlanDetail, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    sqlx::query_scalar!(
+        "UPDATE meal_plan SET start_date = $2 WHERE id = $1 RETURNING id",
+        id,
+        start_date,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    // A dinner's new date can be another's old one, which the unique constraint
+    // would refuse row by row, so clear them all first.
+    let _cleared = sqlx::query_scalar!(
+        "UPDATE planned_meal SET scheduled_date = NULL WHERE meal_plan_id = $1 RETURNING id",
+        id,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    let _placed = sqlx::query_scalar!(
+        "UPDATE planned_meal SET scheduled_date = $2::date + (day_index - 1)::int WHERE meal_plan_id = $1 RETURNING id",
+        id,
+        start_date,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    get_detail(pool, id).await
 }

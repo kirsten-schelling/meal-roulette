@@ -43,8 +43,9 @@ async fn run_solver(problem: Problem) -> Result<solver::Solution, AppError> {
 }
 
 /// Roll a new plan: pick `num_days` recipes under the request's constraints,
-/// then store the plan and one dinner per day starting at `start_date`. The
-/// outcome lists the preferences the recipes could not fully meet.
+/// then store the plan and its dinners in roll order. With a `start_date` they are
+/// also placed on consecutive dates from it; without one they are left unscheduled.
+/// The outcome lists the preferences the recipes could not fully meet.
 pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcome, AppError> {
     let num_days = check_num_days(usize::from(request.num_days))?;
     let household_id = match request.household_id {
@@ -55,9 +56,7 @@ pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcom
     let recipes = recipe::repository::list(pool).await?;
     let grid = Grid::build(pool, &recipes, &request.constraints).await?;
     let seed = request.seed.unwrap_or_else(fresh_seed);
-    let start_date = request
-        .start_date
-        .unwrap_or_else(|| time::OffsetDateTime::now_utc().date());
+    let start_date = request.start_date;
     let slot_limits = request
         .constraints
         .day_limits
@@ -96,7 +95,9 @@ pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcom
             NewPlannedMeal {
                 meal_plan_id: plan.id,
                 recipe_id: recipes[index].id,
-                scheduled_date: start_date + Duration::days(offset as i64),
+                day_index: i16::try_from(offset + 1)
+                    .map_err(|_| AppError::Internal("too many days to number".to_string()))?,
+                scheduled_date: start_date.map(|start| start + Duration::days(offset as i64)),
                 is_pinned: false,
                 target_difficulty: None,
             },
@@ -148,8 +149,8 @@ pub async fn reroll(pool: &PgPool, planned_meal_id: Uuid) -> Result<PlannedMealD
             .day_limits
             .as_ref()
             .map(|limits| {
-                let day = (meal.scheduled_date - plan.start_date).whole_days();
-                reroll_slot_limits(limits, usize::try_from(day).unwrap_or(0))
+                let day = usize::try_from(meal.day_index - 1).unwrap_or(0);
+                reroll_slot_limits(limits, day)
             })
             .unwrap_or_default(),
         num_to_pick: 1,
