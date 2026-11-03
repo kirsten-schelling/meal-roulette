@@ -38,10 +38,10 @@ Only Android is covered here. iOS needs a Mac and is not set up.
 
 Start the database and the server first (`just db`, `just web`), then in another terminal:
 
-| Command | Runs on |
-| --- | --- |
+| Command        | Runs on                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------ |
 | `just desktop` | a native window on this machine, talking to `http://10.0.2.2:8080` unless `MR_SERVER_URL` is set |
-| `just android` | the booted emulator (`emulator -avd <name>`) or a USB device |
+| `just android` | the booted emulator (`emulator -avd <name>`) or a USB device                                     |
 
 On the desktop, `10.0.2.2` does not resolve, so set `MR_SERVER_URL=http://localhost:8080`
 before `just desktop`.

@@ -17,6 +17,7 @@ shared `domain` crate) · Postgres, fully migrated · the C solver, wired into `
 the single-day re-roll. Stretch surface: ESP32 kitchen screen.
 
 **Status on `main`:**
+
 - Built: roll a week (`/roll`) under week-level rules (cuisine, protein, must-use ingredient and
   difficulty-band counts, each Required or a High / Medium / Low preference), with unmet
   preferences reported back; seeded rolls; re-roll a day; swap a day for a chosen recipe; roll
