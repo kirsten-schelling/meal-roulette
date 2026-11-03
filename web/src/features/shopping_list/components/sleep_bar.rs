@@ -2,10 +2,16 @@ use crate::components::ui::{Button, ButtonVariant, Size, Text};
 use dioxus::prelude::*;
 use domain::slept_ingredient::MAX_SLEEP_WEEKS;
 
-/// The floating bar shown while list rows are selected: how many, and a
-/// "sleep for N weeks" control. `on_sleep` fires with the number of weeks.
+/// The bar shown once rows are picked from their More menu: how many, how
+/// long to sleep them, and a way out. `on_sleep` fires with the number of
+/// weeks; `on_cancel` drops the picks.
 #[component]
-pub fn SleepBar(count: usize, busy: bool, on_sleep: EventHandler<i32>) -> Element {
+pub fn SleepBar(
+    count: usize,
+    busy: bool,
+    on_sleep: EventHandler<i32>,
+    on_cancel: EventHandler<()>,
+) -> Element {
     let mut weeks = use_signal(|| "2".to_string());
     let parsed = weeks()
         .trim()
@@ -21,7 +27,13 @@ pub fn SleepBar(count: usize, busy: bool, on_sleep: EventHandler<i32>) -> Elemen
 
     rsx! {
         div { class: "mr-bulkbar",
-            Text { small: true, "{count} selected" }
+            Text { small: true,
+                if count == 1 {
+                    "1 item to sleep"
+                } else {
+                    "{count} items to sleep"
+                }
+            }
             label { class: "mr-sleepbar",
                 span { "Sleep for" }
                 input {
@@ -40,7 +52,18 @@ pub fn SleepBar(count: usize, busy: bool, on_sleep: EventHandler<i32>) -> Elemen
                 loading: busy,
                 disabled: parsed.is_none(),
                 onclick: submit,
-                "Sleep"
+                if count == 1 {
+                    "Sleep item"
+                } else {
+                    "Sleep items"
+                }
+            }
+            Button {
+                variant: ButtonVariant::Ghost,
+                size: Size::Sm,
+                disabled: busy,
+                onclick: move |_| on_cancel.call(()),
+                "Cancel"
             }
         }
     }

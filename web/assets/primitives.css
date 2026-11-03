@@ -1033,7 +1033,7 @@ body { margin: 0; }
   flex-wrap: wrap; margin-bottom: 1.5rem;
 }
 .mr-pagehead__titles { display: flex; flex-direction: column; gap: .35rem; }
-.mr-pagehead__actions { display: flex; align-items: center; gap: .6rem; }
+.mr-pagehead__actions { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    PAGE FILTERS — spacing wrapper around the combined search + filter bar
@@ -1480,9 +1480,34 @@ button.mr-chip--active::before {
 .mr-linerow__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .1rem; padding: .35rem 0; }
 .mr-linerow__name { font-weight: 600; overflow-wrap: anywhere; }
 .mr-linerow__detail { color: var(--mr-text-muted); font-size: .85rem; overflow-wrap: anywhere; }
+.mr-linerow__hit { flex: 1; min-width: 0; display: flex; align-items: center; gap: .25rem; }
+.mr-linerow__hit--tick { cursor: pointer; min-height: 44px; }
+.mr-linerow--selected { background: var(--mr-neutral-bg); }
+.mr-linerow__name .mr-badge { margin-left: .5rem; }
+.mr-confirm__line { margin: 0 0 .6rem; }
 .mr-linerow__action { flex: none; display: flex; align-items: center; gap: .35rem; }
 .mr-linerow__action .mr-btn { min-height: 44px; min-width: 44px; }
 .mr-linerow .mr-buycheck { width: 1.6rem; height: 1.6rem; }
+
+.mr-menu { position: relative; display: inline-block; }
+.mr-menu__trigger { min-height: 44px; min-width: 44px; }
+.mr-menu__scrim { position: fixed; inset: 0; z-index: 40; background: transparent; }
+.mr-menu__panel {
+  position: absolute; right: 0; top: calc(100% + 2px); z-index: 41;
+  min-width: 12rem; display: flex; flex-direction: column; padding: .25rem;
+  background: var(--mr-surface); color: var(--mr-text);
+  border: 1px solid var(--mr-border); border-radius: var(--mr-radius);
+  box-shadow: var(--mr-shadow-lg);
+}
+.mr-menu__item {
+  display: flex; align-items: center; width: 100%; min-height: 44px; padding: 0 .8rem;
+  background: none; border: 0; border-radius: calc(var(--mr-radius) - 2px);
+  font: inherit; text-align: left; color: inherit; cursor: pointer;
+}
+.mr-menu__item:hover:not(:disabled) { background: var(--mr-neutral-bg); }
+.mr-menu__item:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); }
+.mr-menu__item:disabled { opacity: .5; cursor: default; }
+.mr-menu__item--danger { color: var(--mr-red-fg); }
 
 .mr-linegroup { margin: 0 0 1rem; }
 .mr-linegroup__head {
