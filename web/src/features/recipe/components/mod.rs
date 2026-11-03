@@ -1,4 +1,5 @@
 pub mod add_recipe_dialog;
+pub mod cook_mode;
 pub mod copy_recipe_dialog;
 pub mod import_from_link;
 pub mod import_match;
@@ -12,6 +13,7 @@ pub mod tag_picker;
 pub mod view_toggle;
 
 pub use add_recipe_dialog::AddRecipeDialog;
+pub use cook_mode::CookMode;
 pub use copy_recipe_dialog::CopyRecipeDialog;
 pub use ingredient_table::IngredientTable;
 pub use recipe_card::RecipeCard;
