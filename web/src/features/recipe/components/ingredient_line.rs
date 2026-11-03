@@ -1,5 +1,6 @@
 use crate::components::ui::{
-    Badge, Button, ButtonVariant, Checkbox, Icon, IconButton, IconName, Input, Size, Tone,
+    Badge, Button, ButtonVariant, Checkbox, ComboOption, Icon, IconButton, IconName, Input, Picker,
+    Size, Tone,
 };
 use crate::features::recipe::components::import_match::ImportMatch;
 use crate::features::recipe::components::ingredient_composer::parse_qty;
@@ -31,46 +32,6 @@ pub struct ImportChoice {
     pub matched: bool,
 }
 
-impl RecipeLine {
-    /// This line with the other choice applied, or `None` for a line that isn't imported or
-    /// has no library match to switch to.
-    pub fn switched(&self) -> Option<RecipeLine> {
-        let import = self.import.as_ref()?;
-        let suggestion = import.suggestion.as_ref()?;
-        let (target, matched) = if import.matched {
-            (&import.as_new, false)
-        } else {
-            (&suggestion.line, true)
-        };
-        Some(RecipeLine {
-            name: target.name.clone(),
-            unit: target.unit.clone(),
-            qty: target
-                .qty
-                .map(|q| q.normalize().to_string())
-                .unwrap_or_default(),
-            note: target.note.clone().unwrap_or_default(),
-            ingredient: target.ingredient.clone(),
-            import: Some(ImportChoice {
-                matched,
-                ..import.clone()
-            }),
-            ..self.clone()
-        })
-    }
-
-    /// The name the line would take on if switched.
-    pub fn switch_target_name(&self) -> Option<&str> {
-        let import = self.import.as_ref()?;
-        let suggestion = import.suggestion.as_ref()?;
-        Some(if import.matched {
-            &import.as_new.name
-        } else {
-            &suggestion.line.name
-        })
-    }
-}
-
 /// A single row in the "In this recipe" list: a read view with Edit/× actions,
 /// or — while `editing` — a small stacked form. The row owns its draft state;
 /// `on_save` hands the updated line back to the list owner.
@@ -82,8 +43,9 @@ pub fn IngredientLine(
     on_cancel: EventHandler<()>,
     on_save: EventHandler<RecipeLine>,
     on_remove: EventHandler<usize>,
-    #[props(default)] on_switch: Option<EventHandler<usize>>,
-    #[props(default)] switch_blocked: bool,
+    #[props(default)] ingredient_options: Vec<ComboOption>,
+    #[props(default)] on_change: Option<EventHandler<(usize, Picker)>>,
+    #[props(default)] taken: Vec<String>,
 ) -> Element {
     let mut draft_qty = use_signal(String::new);
     let mut draft_note = use_signal(String::new);
@@ -172,11 +134,12 @@ pub fn IngredientLine(
                         }
                     }
                     span { class: "mr-ing-line__meta", "{meta}" }
-                    if let Some(on_switch) = on_switch {
+                    if let Some(on_change) = on_change {
                         ImportMatch {
                             line: line.clone(),
-                            on_switch,
-                            blocked: switch_blocked,
+                            ingredient_options: ingredient_options.clone(),
+                            on_change,
+                            taken: taken.clone(),
                         }
                     }
                 }
@@ -194,7 +157,7 @@ pub fn IngredientLine(
                         "Edit"
                     }
                     IconButton {
-                        label: "Remove ingredient".to_string(),
+                        label: format!("Remove {}", line.name),
                         danger: true,
                         onclick: move |_| on_remove.call(id),
                         Icon { name: IconName::X }

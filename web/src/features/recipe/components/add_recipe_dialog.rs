@@ -1,6 +1,6 @@
 use crate::components::ui::{
-    Alert, Button, ButtonVariant, ComboOption, ConfirmDialog, Heading, Icon, IconName, Modal,
-    ReasonTip, Separator, Spinner, Text, Tone,
+    Alert, Button, ButtonVariant, ComboOption, ConfirmDialog, Heading, Icon, IconButton, IconName,
+    Modal, Picker, ReasonTip, Separator, Spinner, Text, Tone,
 };
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
 use crate::features::library::components::{ManageListsDialog, ManageTab};
@@ -184,27 +184,55 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
         lines.set(imported);
     };
 
-    let switch_line = move |id: usize| {
+    let change_line = move |(id, picked): (usize, Picker)| {
         let mut lines = lines;
         let mut all = lines.write();
-        if let Some(line) = all.iter_mut().find(|l| l.id == id) {
-            if let Some(next) = line.switched() {
-                *line = next;
+        let name = picked.query.trim().to_string();
+        if all
+            .iter()
+            .any(|o| o.id != id && o.name.eq_ignore_ascii_case(&name))
+        {
+            return;
+        }
+        let Some(line) = all.iter_mut().find(|l| l.id == id) else {
+            return;
+        };
+        let Some(import) = line.import.as_mut() else {
+            return;
+        };
+        if let Some(opt) = picked.picked {
+            if line.ingredient == IngredientEntry::Existing(opt.id) {
+                return;
             }
+            line.name = opt.label;
+            line.unit = opt.hint;
+            line.ingredient = IngredientEntry::Existing(opt.id);
+            import.matched = import
+                .suggestion
+                .as_ref()
+                .is_some_and(|s| s.line.ingredient == line.ingredient);
+        } else if picked.new_name.is_some() {
+            if matches!(&line.ingredient, IngredientEntry::New { name: n, .. } if *n == name) {
+                return;
+            }
+            let IngredientEntry::New {
+                purchase_size,
+                unit,
+                ..
+            } = import.as_new.ingredient.clone()
+            else {
+                return;
+            };
+            line.unit = import.as_new.unit.clone();
+            line.ingredient = IngredientEntry::New {
+                name: name.clone(),
+                purchase_size,
+                unit,
+            };
+            line.name = name;
+            import.matched = false;
         }
     };
-    let blocked_ids: Vec<usize> = lines_now
-        .iter()
-        .filter(|l| {
-            l.switch_target_name().is_some_and(|target| {
-                lines_now
-                    .iter()
-                    .any(|o| o.id != l.id && o.name.eq_ignore_ascii_case(target))
-            })
-        })
-        .map(|l| l.id)
-        .collect();
-
     let modal_title = match panel() {
         Panel::Recipe => "Add recipe",
         Panel::Ingredients => "Add ingredients",
@@ -249,11 +277,23 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                                             div { class: "mr-ings-summary__row",
                                                                 span { class: "mr-ings-summary__name", "{line.name}" }
                                                                 span { class: "mr-ings-summary__amt", "{amt}" }
+                                                                if line.import.is_some() {
+                                                                    IconButton {
+                                                                        label: format!("Remove {}", line.name),
+                                                                        danger: true,
+                                                                        onclick: {
+                                                                            let id = line.id;
+                                                                            move |_| lines.write().retain(|l| l.id != id)
+                                                                        },
+                                                                        Icon { name: IconName::X }
+                                                                    }
+                                                                }
                                                             }
                                                             ImportMatch {
                                                                 line: line.clone(),
-                                                                on_switch: switch_line,
-                                                                blocked: blocked_ids.contains(&line.id),
+                                                                ingredient_options: ingredient_options.clone(),
+                                                                on_change: change_line,
+                                                                taken: taken.clone(),
                                                             }
                                                         }
                                                     }
@@ -325,8 +365,9 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                                                 key: "{line.id}",
                                                 line: line.clone(),
                                                 editing: editing_id() == Some(line.id),
-                                                on_switch: switch_line,
-                                                switch_blocked: blocked_ids.contains(&line.id),
+                                                ingredient_options: ingredient_options.clone(),
+                                                on_change: change_line,
+                                                taken: taken.clone(),
                                                 on_edit: move |id: usize| editing_id.set(Some(id)),
                                                 on_cancel: move |_| editing_id.set(None),
                                                 on_save: move |updated: RecipeLine| {
