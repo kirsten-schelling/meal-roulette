@@ -64,6 +64,35 @@ pub async fn set_item_purchased(
         .map_err(server_fn_error)
 }
 
+/// Add a free-text line (something that is not an ingredient) to a list.
+#[server]
+pub async fn add_custom_item(
+    shopping_list_id: Uuid,
+    name: String,
+) -> Result<ShoppingListItem, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::shopping_list_item::repository;
+
+    let state = app_state()?;
+    repository::add_custom(&state.db, shopping_list_id, &name)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
+pub async fn remove_custom_item(
+    shopping_list_id: Uuid,
+    id: Uuid,
+) -> Result<ShoppingListItem, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::shopping_list_item::repository;
+
+    let state = app_state()?;
+    repository::remove_custom(&state.db, shopping_list_id, id)
+        .await
+        .map_err(server_fn_error)
+}
+
 #[server]
 pub async fn sleep_ingredients(
     household_id: Uuid,

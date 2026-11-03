@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        DELETE FROM shopping_list_item\n        WHERE id = $1\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, created_at, updated_at\n        ",
+  "query": "\n        DELETE FROM shopping_list_item\n        WHERE id = $1\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, name, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,17 @@
       },
       {
         "ordinal": 7,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -92,7 +103,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -111,14 +122,15 @@
     "nullable": [
       false,
       false,
-      false,
-      false,
+      true,
+      true,
       true,
       false,
+      true,
       true,
       false,
       false
     ]
   },
-  "hash": "9eb30a4f15244f7e8215dac10ffba4b372a7157fa91225e88bae0e222884aa6a"
+  "hash": "4d3e13a6b57f57dd373cb03730e76df3afb69949e60c2f694b4417888fa6b855"
 }

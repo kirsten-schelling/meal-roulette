@@ -55,7 +55,7 @@ pub async fn find_for_plan(
 /// Build a plan's list, or rebuild the one it already has. Each line is one
 /// ingredient summed across the plan's recipes, in the ingredient's current
 /// unit. Rebuilding keeps the purchased tick on lines that are still needed,
-/// drops lines that no longer are, and bumps the list's `updated_at`, which is
+/// drops lines that no longer are, leaves free-text lines alone, and bumps the list's `updated_at`, which is
 /// what the stale check compares against.
 pub async fn generate_for_plan(
     pool: &PgPool,
@@ -83,6 +83,7 @@ pub async fn generate_for_plan(
         r#"
         DELETE FROM shopping_list_item
         WHERE shopping_list_id = $1
+          AND shopping_list_item.ingredient_id IS NOT NULL
           AND NOT EXISTS (
               SELECT 1
               FROM planned_meal
@@ -238,4 +239,152 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<ShoppingList, sqlx::Error
     .fetch_one(pool)
     .await?;
     Ok(list)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::features::shopping_list_item::repository::{add_custom, lines, remove_custom};
+
+    struct Fixture {
+        plan_id: Uuid,
+        rice_recipe: Uuid,
+    }
+
+    async fn fixture(pool: &PgPool) -> Fixture {
+        let household =
+            sqlx::query_scalar!("INSERT INTO household (name) VALUES ('Home') RETURNING id")
+                .fetch_one(pool)
+                .await
+                .unwrap();
+        let unit = sqlx::query_scalar!("INSERT INTO unit (name) VALUES ('g') RETURNING id")
+            .fetch_one(pool)
+            .await
+            .unwrap();
+        let mut recipes = Vec::new();
+        for (title, name) in [("Pasta", "Spaghetti"), ("Rice bowl", "Rice")] {
+            let ingredient = sqlx::query_scalar!(
+                "INSERT INTO ingredient (unit_id, name) VALUES ($1, $2) RETURNING id",
+                unit,
+                name,
+            )
+            .fetch_one(pool)
+            .await
+            .unwrap();
+            let recipe = sqlx::query_scalar!(
+                "INSERT INTO recipe (title, difficulty, time_mins, servings) VALUES ($1, 1, 20, 2) RETURNING id",
+                title,
+            )
+            .fetch_one(pool)
+            .await
+            .unwrap();
+            sqlx::query_scalar!(
+                "INSERT INTO recipe_ingredient (recipe_id, ingredient_id, qty) VALUES ($1, $2, 100) RETURNING id",
+                recipe,
+                ingredient,
+            )
+            .fetch_one(pool)
+            .await
+            .unwrap();
+            recipes.push(recipe);
+        }
+        let plan_id = sqlx::query_scalar!(
+            "INSERT INTO meal_plan (household_id, start_date) VALUES ($1, '2026-11-02') RETURNING id",
+            household,
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        sqlx::query_scalar!(
+            "INSERT INTO planned_meal (meal_plan_id, recipe_id, scheduled_date)
+             VALUES ($1, $2, '2026-11-02'), ($1, $3, '2026-11-03')
+             RETURNING id",
+            plan_id,
+            recipes[0],
+            recipes[1],
+        )
+        .fetch_all(pool)
+        .await
+        .unwrap();
+        Fixture {
+            plan_id,
+            rice_recipe: recipes[1],
+        }
+    }
+
+    fn names(lines: &[domain::shopping_list_item::ShoppingListLine]) -> Vec<&str> {
+        lines.iter().map(|l| l.ingredient.as_str()).collect()
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn rebuild_keeps_custom_items_and_their_tick(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let bags = add_custom(&pool, list.id, "  Bin bags ").await.unwrap();
+        sqlx::query_scalar!(
+            "UPDATE shopping_list_item SET is_purchased = true WHERE id = $1 RETURNING id",
+            bags.id,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        sqlx::query_scalar!(
+            "DELETE FROM planned_meal WHERE recipe_id = $1 RETURNING id",
+            f.rice_recipe,
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+
+        generate_for_plan(&pool, f.plan_id).await.unwrap();
+
+        let after = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&after), ["Spaghetti", "Bin bags"]);
+        let kept = &after[1];
+        assert_eq!(kept.id, bags.id);
+        assert!(kept.is_purchased);
+        assert!(kept.ingredient_id.is_none());
+        assert!(kept.qty.is_none());
+        assert!(kept.used_in.is_empty());
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn rebuild_with_an_emptied_plan_still_keeps_custom_items(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        add_custom(&pool, list.id, "Bin bags").await.unwrap();
+        sqlx::query_scalar!(
+            "DELETE FROM planned_meal WHERE meal_plan_id = $1 RETURNING id",
+            f.plan_id,
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+
+        generate_for_plan(&pool, f.plan_id).await.unwrap();
+
+        let after = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&after), ["Bin bags"]);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn custom_items_can_repeat_and_be_removed_but_blank_ones_are_refused(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+
+        let first = add_custom(&pool, list.id, "Bin bags").await.unwrap();
+        add_custom(&pool, list.id, "Bin bags").await.unwrap();
+        assert!(add_custom(&pool, list.id, "   ").await.is_err());
+        assert_eq!(lines(&pool, list.id).await.unwrap().len(), 4);
+
+        remove_custom(&pool, list.id, first.id).await.unwrap();
+        let after = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&after), ["Rice", "Spaghetti", "Bin bags"]);
+
+        let ingredient_line = after[0].id;
+        assert!(remove_custom(&pool, list.id, ingredient_line)
+            .await
+            .is_err());
+        assert_eq!(lines(&pool, list.id).await.unwrap().len(), 3);
+    }
 }

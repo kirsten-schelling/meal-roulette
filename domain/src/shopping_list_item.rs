@@ -7,12 +7,15 @@ use uuid::Uuid;
 pub struct ShoppingListItem {
     pub id: Uuid,
     pub shopping_list_id: Uuid,
-    pub ingredient_id: Uuid,
-    /// Snapshot of the unit at generation time.
-    pub unit_id: Uuid,
+    /// `None` for a free-text line the household added (see `name`).
+    pub ingredient_id: Option<Uuid>,
+    /// Snapshot of the unit at generation time. `None` for a free-text line.
+    pub unit_id: Option<Uuid>,
     pub qty: Option<Decimal>,
     pub is_purchased: bool,
     pub note: Option<String>,
+    /// The text of a free-text line; `None` on an ingredient line.
+    pub name: Option<String>,
     pub created_at: time::OffsetDateTime,
     pub updated_at: time::OffsetDateTime,
 }
@@ -24,9 +27,12 @@ pub struct ShoppingListItem {
 pub struct ShoppingListLine {
     /// The `shopping_list_item` id.
     pub id: Uuid,
-    pub ingredient_id: Uuid,
+    /// `None` for a free-text line, which has no ingredient to sleep.
+    pub ingredient_id: Option<Uuid>,
+    /// The ingredient's name, or the text of a free-text line.
     pub ingredient: String,
     pub qty: Option<Decimal>,
+    /// Empty for a free-text line.
     pub unit: String,
     pub purchase_size: Option<i32>,
     /// Whole packs of `purchase_size` needed to cover `qty`; `None` unless both are known.
@@ -38,6 +44,12 @@ pub struct ShoppingListLine {
     /// Wake date of an active sleep. `None` = not asleep, so it goes on the list.
     #[serde(default, with = "crate::date_format::iso_date::option")]
     pub sleep_until: Option<time::Date>,
+}
+
+/// Incoming body for `POST /shopping-lists/{id}/custom-items`.
+#[derive(Debug, Deserialize)]
+pub struct NewCustomItem {
+    pub name: String,
 }
 
 /// Incoming body for `POST /shopping-list-items`.
