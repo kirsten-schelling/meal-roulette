@@ -15,7 +15,7 @@ Companion to [the roadmap](../product/roadmap.md).
   - `domain`: wire types shared by api, web and the future device.
   - `web`: Dioxus app; its server build embeds `api`.
   - `solver`: meal roller in **C** via FFI.
-- Modules: `features/<x>/{ mod.rs = routes, handlers.rs, repository.rs }`; request/response types live in `domain`. `roll` has `mod.rs` (`POST /roll`, `POST /planned-meals/{id}/reroll`), `handlers.rs`, `service.rs`, no repository; the service orchestrates other repositories and the solver.
+- Modules: `features/<x>/{ mod.rs = routes, handlers.rs, repository.rs }`; request/response types live in `domain`. `roll` has `mod.rs` (`POST /roll`, `POST /roll/preview`, `POST /roll/preview/reroll`, `POST /roll/keep`, `POST /roll/fit`, `POST /planned-meals/{id}/reroll`), `handlers.rs`, `service.rs`, no repository; the service orchestrates other repositories and the solver.
 - Logic shared by REST handlers and `#[server]` functions (multi-table transactions, inline lookups) lives in the repository.
 - **UUIDv7** primary keys (`DEFAULT uuidv7()`, needs Postgres 18), plus `created_at` / `updated_at` with a shared `set_updated_at` trigger.
 - **Migrations** via `sqlx-cli` (`api/migrations`, reversible with `-r`) are the schema source of truth. Never edit an applied one; add a new one.

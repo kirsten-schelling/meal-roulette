@@ -41,6 +41,17 @@ Core sub-features:
   a prompt to put the week on days. A scheduled dinner is labelled with its weekday and date,
   an unscheduled one with "Day N", and History and the shopping list name a plan by its name
   or by when it was rolled.
+- **Roll page**: _built._ The page is a roll first: a wheel, "Plan N dinners" and a big Roll
+  button (sticky at the bottom on a phone), with the rules folded under it into one line.
+  A roll is a preview shown in place and saved only when kept, so rolling again does not add
+  plans to History; each dinner can be re-rolled on its own, and preferences the roll could
+  not meet are listed in an amber alert. There is one Rules panel with a single "Add a
+  rule…" search; a rule reads as a sentence ("Beef, at least 2 dinners, Prefer"). Importance
+  is Must / Strongly prefer / Prefer / If possible, and a new rule starts as Prefer (saved
+  presets keep theirs). A failed roll shows a persistent error; rules that cannot all hold
+  are flagged before rolling, with a "Make these nice-to-have" fix; a live count shows how
+  many recipes fit the Must rules. Presets are a chip that applies on pick, with a menu to
+  save, update, make default and delete, and an "(edited)" marker. The seed is under Advanced.
 - **Difficulty by day**: _built._ The user sets difficulty and max cook time per day
   number (Day 1..N) on the roll form: one default limit for all days plus per-day overrides.
   A limit is an easiest band, a hardest band and an optional max cook time. Days are numbers,
