@@ -1,7 +1,7 @@
 # Meal Roulette
 
 Randomizes a week of meals from a Postgres library of recipes and builds a shopping list
-from the result. Weeknight picks lean quick-and-easy; weekends can run more ambitious.
+from the result. Rolls follow per-week rules on difficulty, cuisine, protein and must-use ingredients.
 
 Personal project — also a deliberate excuse to learn a Rust backend (on the path toward
 embedded). The full feature vision lives in [docs/product/roadmap.md](docs/product/roadmap.md).
@@ -30,10 +30,11 @@ docker-compose.yml   local Postgres
 - A C compiler for the solver: on Windows, the MSVC Build Tools the Rust toolchain already needs; gcc or clang elsewhere
 - [dioxus-cli](https://dioxuslabs.com/) (`dx`) — `cargo install dioxus-cli`
 - [Docker](https://www.docker.com/)
+- [sqlx-cli](https://crates.io/crates/sqlx-cli) and [just](https://github.com/casey/just) — migrations and the task recipes
 
 ## Run locally
 
-Two processes, one per terminal:
+Three steps; the first two run once and return, the last stays running:
 
 ```bash
 # 1. Postgres
@@ -41,7 +42,12 @@ docker compose up -d
 ```
 
 ```bash
-# 2. Web  ->  http://localhost:8080  (the app, and the REST routes under /api)
+# 2. Apply the migrations (the app does not run them at startup)
+just migrate
+```
+
+```bash
+# 3. Web  ->  http://localhost:8080  (the app, and the REST routes under /api)
 cd web && dx serve
 ```
 

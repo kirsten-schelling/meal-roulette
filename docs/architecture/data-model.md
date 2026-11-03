@@ -29,6 +29,7 @@ erDiagram
     household |o--o{ protein : owns
     household |o--o{ cuisine : owns
     household |o--o{ tag : owns
+    household |o--o{ roll_preset : owns
     household ||--o{ meal_plan : owns
     household ||--o{ shopping_list : owns
     household ||--o{ cook_log : records
@@ -78,7 +79,7 @@ erDiagram
         uuid household_id FK "NULL = global"
         uuid unit_id FK
         text name
-        int purchase_size
+        int purchase_size "nullable"
     }
     recipe {
         uuid household_id FK "NULL = global"
@@ -93,7 +94,7 @@ erDiagram
     recipe_ingredient {
         uuid recipe_id FK
         uuid ingredient_id FK
-        numeric qty
+        numeric qty "nullable"
         text note
         bool is_optional
     }
@@ -115,7 +116,13 @@ erDiagram
         uuid recipe_id FK
         date scheduled_date
         bool is_pinned
-        smallint target_difficulty "nullable override"
+        smallint target_difficulty "nullable, unused"
+    }
+    roll_preset {
+        uuid household_id FK "NULL = global"
+        text name
+        jsonb settings
+        bool is_default
     }
     cook_log {
         uuid household_id FK
@@ -132,7 +139,7 @@ erDiagram
         uuid shopping_list_id FK
         uuid ingredient_id FK
         uuid unit_id FK "snapshot"
-        numeric qty
+        numeric qty "nullable"
         bool is_purchased
         text note
     }
@@ -198,8 +205,10 @@ lands, the users table is named `app_user` (final choice deferred to the auth mi
 Ownership is **per household**, not per user — a household owns recipes and plans; individual
 members and auth arrive later without touching these tables.
 
-- A single `household` table anchors ownership. Solo use runs against one seeded row.
-- **Catalog tables** (`recipe`, `ingredient`, `unit`, `protein`, `cuisine`, `tag`) carry a
+- A single `household` table anchors ownership. Solo use runs against one household: `household::repository::default_household` returns the
+  oldest household, or creates one named "Home" when the table is empty, and the roll uses it
+  when the request names no household.
+- **Catalog tables** (`recipe`, `ingredient`, `unit`, `protein`, `cuisine`, `tag`, `roll_preset`) carry a
   **nullable** `household_id`:
   - `household_id = <a household>` → owned by that household.
   - `household_id IS NULL` → a **global preset**, visible to everyone.
@@ -241,6 +250,12 @@ single-valued on a recipe (FK on `recipe`); `tag` is many-valued (via `recipe_ta
 **`ingredient`** — a purchasable ingredient. `name`, `purchase_size` (nullable: not every
 ingredient comes in a fixed pack; `chk_ingredient_purchase_size_positive CHECK
 (purchase_size > 0)` when set), `unit_id` (how it is measured). Scoped by `household_id` (nullable). `uq_ingredient_household_name`.
+
+**`roll_preset`** — a saved set of Roll-page settings. `name`, `settings` (`JSONB`, opaque to
+the database), `is_default` (default `false`), nullable `household_id` (`ON DELETE CASCADE`).
+`uq_roll_preset_household_name` (`NULLS NOT DISTINCT`) and the partial unique index
+`uq_roll_preset_one_default` on `(household_id) WHERE is_default` allow at most one default
+preset per household.
 
 ### Recipe composition
 
@@ -284,9 +299,10 @@ cascades to its days and frees their recipes to be deleted; its shopping list an
 entries stay, unlinked (`SET NULL`).
 
 **`planned_meal`** — one dinner slot in a plan. `meal_plan_id` (`ON DELETE CASCADE`),
-`recipe_id` (`ON DELETE RESTRICT`), `scheduled_date`, `is_pinned` (the pin/keep feature),
-`target_difficulty` (nullable — the per-day difficulty override; `NULL` means use the day's
-default). `uq_planned_meal (meal_plan_id, scheduled_date)` — one dinner per day per plan;
+`recipe_id` (`ON DELETE RESTRICT`), `scheduled_date`, `is_pinned` (reserved for the pin/keep feature; nothing sets it yet, a roll writes `false`),
+`target_difficulty` (nullable; reserved for a per-day difficulty override and currently unused:
+the roll always writes `NULL` and nothing reads it. Difficulty is shaped by the week-level band
+rules in `meal_plan.roll_constraints`). `uq_planned_meal (meal_plan_id, scheduled_date)` — one dinner per day per plan;
 `uq_planned_meal_recipe (meal_plan_id, recipe_id)` — a recipe appears at most once per plan,
 whether the solver picked it or a swap chose it.
 

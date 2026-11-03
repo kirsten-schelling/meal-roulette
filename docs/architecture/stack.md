@@ -16,19 +16,21 @@
 
 ### Backend
 
-- **Rust** — Axum 0.8 + SQLx 0.9 (features: `postgres`, `macros`, `migrate`, `uuid`, `time`, `runtime-tokio`, `tls-rustls`).
+- **Rust** — Axum 0.8 + SQLx 0.9 (features: `postgres`, `macros`, `migrate`, `uuid`, `time`, `rust_decimal`, `json`, `runtime-tokio`, `tls-rustls`).
 - One root Cargo **workspace**: `api` (a library: state, error mapping, repositories and the REST
   router, plus a thin standalone binary) + `domain` (wire types shared api ↔ web ↔ future device)
   + `web` (the Dioxus app, whose server build embeds `api`) + `solver` (the meal roller written
   in **C**, called via FFI — see C/C++ projects).
 - Feature-oriented modules: `features/<x>/{ mod.rs = routes, handlers.rs, repository.rs }`;
-  request/response types live in the `domain` crate.
+  request/response types live in the `domain` crate. `roll` is the exception: `mod.rs` (routes:
+  `POST /roll`, `POST /planned-meals/{id}/reroll`), `handlers.rs` and `service.rs`, with no
+  repository of its own. The service orchestrates other features' repositories and the solver.
 - Logic that both the REST handlers and the web app's `#[server]` functions need (a transaction
   spanning tables, resolving an inline lookup value) lives in the repository, so both stay thin
   adapters over the same functions.
 - **UUIDv7** primary keys (`DEFAULT uuidv7()`, needs Postgres 18), plus `created_at` / `updated_at` with a shared `set_updated_at` trigger.
 - **SQL migrations** via `sqlx-cli` (`api/migrations`, reversible with `-r`). Migrations are the schema source of truth — never edit one that's been applied; add a new one.
-- **Only** `query_as!` **allowed** — `clippy.toml` (`disallowed-methods` + `disallowed-macros`) bans the unchecked and anonymous forms.
+- **Only the checked macros** `query_as!` / `query_scalar!` are allowed — `clippy.toml` (`disallowed-methods` + `disallowed-macros`) bans `sqlx::query`, `sqlx::query_as` and `query!`.
 
 ### Database
 
@@ -57,7 +59,7 @@
 - The resource-server half of the token-handler pattern (JWT validation against the issuer's
   JWKS via `jsonwebtoken` + JWKS, or a crate like `jwt-authorizer`) is only needed if an outside
   client — the device — calls the REST routes under `/api`.
-- OIDC client libs to evaluate: `openid-client` (most standards-compliant), **Auth.js**, **Better Auth**.
+- OIDC client libs to evaluate: Rust crates, since the client is the Rust server (e.g. `openidconnect`, `axum-oidc`, `oauth2`).
 
 ### Infra (intended)
 
@@ -65,7 +67,7 @@
 
 ### Tooling installed on this machine
 
-- Rust (rustup, MSVC toolchain), Node 24 via **fnm** (pinned in `.node-version`), **yarn**, Docker, **just**, **sqlx-cli**, **dioxus-cli** (`dx`).
+- Rust (rustup, MSVC toolchain), Docker, **just**, **sqlx-cli**, **dioxus-cli** (`dx`).
 - Task recipes live in the `justfile` — run `just` to list them.
 
 ---
@@ -80,18 +82,18 @@ Same recipes page (table + add form) built several ways to decide by _taste_:
 | SvelteKit + DaisyUI            | Opinionated, themed, **nice out of the box**; one `data-theme` swaps the whole look.                                                                |
 | Next 16 + Chakra v3            | Built. Renders, but has an SSR hydration warning to fix. The work-familiar stack.                                                                   |
 | Next 16 + Mantine / AntD / MUI | **Planned, not built** — each needs its own Next-16 SSR wiring; paused as low-value grind.                                                          |
-| **Dioxus 0.7** (Rust → WASM)   | **Chosen.** React-like, one codebase → web/desktop/mobile, `#[server]` fns. No OOB components (used Pico.css + hand-built `DifficultyBadge`). |
+| **Dioxus 0.7** (Rust → WASM)   | **Chosen.** React-like, one codebase → web/desktop/mobile, `#[server]` fns. No OOB components: the app uses its own `web/assets/primitives.css` ("Warm" theme tokens) and hand-built primitives in `web/src/components/ui/`. |
 
 **Status: DECIDED → Dioxus** (fullstack, `#[server]` functions), now the main app in **`web/`**. Trade-off accepted: **no ready-made component library → build your own** (which is wanted anyway).
 
-**Final layout:** `web/` = **Dioxus** (the app, committed) · `web2/` = SvelteKit · `web3/` = Next/React. `web2/` and `web3/` are kept as **gitignored reference spikes** (not built or committed) — delete anytime.
+**Final layout:** `web/` = **Dioxus** is the only frontend. The SvelteKit and Next spikes (`web2/`, `web3/`) were deleted.
 
 `web/` module structure: see [web.md](web.md) (normative). Run with `dx serve` → localhost:8080.
 
 ### Leptos vs Dioxus (if the frontend goes all-Rust)
 
 - Both compile Rust → WASM, both have `#[server]` functions = an elegant **all-Rust BFF on Axum** with natively shared types (no OpenAPI codegen).
-- **Dioxus** — React-like (hooks, `rsx!`, components), **one codebase → web/desktop/mobile**, VDOM. Best fit given the React background + multi-surface roadmap. ← current lean.
+- **Dioxus** — React-like (hooks, `rsx!`, components), **one codebase → web/desktop/mobile**, VDOM. Best fit given the React background + multi-surface roadmap. ← chosen.
 - **Leptos** — fine-grained signals (SolidJS-like), fastest, most mature fullstack — but a _new, non-React_ reactivity model to learn.
 - Shared downside: immature component ecosystems → build your own, or lean on CSS frameworks (Pico, DaisyUI) / headless kits (`dioxus-primitives`).
 
@@ -131,7 +133,7 @@ Goal: get real C/C++ reps (embedded hiring still expects them), done _coherently
 
 ## Open decisions
 
-- OIDC client library (`openid-client` / Auth.js / Better Auth).
+- OIDC client library (a Rust crate: `openidconnect` / `axum-oidc` / `oauth2`).
 - When to start the **auth** layer.
 - The full queue lives in [../decisions/pending.md](../decisions/pending.md).
 

@@ -11,10 +11,6 @@ target/
 .dioxus/
 /web/dist/
 
-# Reference-only frontend spikes — kept locally, NOT committed
-/web2/
-/web3/
-
 # Node (only inside the ignored spikes; kept as a safety net)
 node_modules/
 

@@ -6,29 +6,45 @@
 
 ---
 
-## The core loop (MVP — building now)
+## The core loop (MVP — mostly built)
 
 Roll a week of dinners from recipes in Postgres, weighted so **weeknight meals are
 quick/easy** and **weekend meals can run longer/ambitious**, then generate a **shopping
 list** for the week.
 
-Already scaffolded: Dioxus (Rust) fullstack frontend · Rust/Axum + SQLx backend with CRUD
-over the MVP tables (Cargo workspace with a shared `domain` crate) · Postgres, fully
-migrated. Stretch surface: ESP32 kitchen screen.
+Built: Dioxus (Rust) fullstack frontend · Rust/Axum + SQLx backend (Cargo workspace with a
+shared `domain` crate) · Postgres, fully migrated · the C solver, wired into `POST /roll` and
+the single-day re-roll. Stretch surface: ESP32 kitchen screen.
+
+**Status on `main`:**
+- Built: roll a week (`/roll`) under week-level rules (cuisine, protein, must-use ingredient and
+  difficulty-band counts, each Required or a High / Medium / Low preference), with unmet
+  preferences reported back; seeded rolls; re-roll a day; swap a day for a chosen recipe; roll
+  presets (one default per household); shopping-list generation and check-off; sleep for N
+  weeks and wake; plan history (favourite, archive, delete); Library page with the manage-lists
+  dialog; recipe create, edit in place and copy; toasts.
+- Partial: constraint-conflict prompts (see §1), difficulty by day (below).
+- Not built: pin (`planned_meal.is_pinned` exists, but nothing sets it and there is no UI);
+  cooking log (`/cooking-log` is a placeholder page; `cook_log` has REST CRUD only, nothing
+  writes to it from the app, and the roller does not use recency).
 
 Core sub-features:
 - Recipe attributes: difficulty, time-to-make, servings/yield, **main protein**, cuisine,
   tags, **healthiness**.
 - **Difficulty by day**: defaults to easier dishes on weeknights, harder on weekends —
-  but **user-overridable** per day / per plan.
+  but **user-overridable** per day / per plan. _Status: partial. What shipped is per-plan
+  difficulty-band count rules (e.g. "at least 2 Hard"); there is no weekday/weekend default
+  and no per-day override (`planned_meal.target_difficulty` is unused)._
 - Shopping list = union of ingredients across the week's recipes.
 - **Sleep ingredients (shopping list)** — **MVP**. The list still returns *every* ingredient
   the week needs, but you can choose **not to add specific items to the shopping list** when
   you know you don't need to buy them for a while (e.g. soy sauce). **Multi-select** items
-  and **sleep them for N weeks**, or **set the number of weeks to wait per item**.
+  and **sleep them for N weeks**, or **set the number of weeks to wait per item**. _Status:
+  built._
 - _(suggested)_ Seeded, reproducible rolls; **pin** meals you like, **re-roll a single day**,
   or **swap a day for a recipe you pick** — all before the shopping list is generated. Small
-  feature, but it's what makes this feel like a product instead of a script.
+  feature, but it's what makes this feel like a product instead of a script. _Status: seed,
+  re-roll and swap are built; pin is not._
 
 ---
 
@@ -102,7 +118,8 @@ The individual features get much more powerful when they close into loops:
   rule — e.g. the only recipe with an ingredient you want to use up is still inside its **min
   interval**, or every candidate is filtered out by available time — surface a **warning with
   choices** instead of silently failing: cook it anyway, add a new recipe, or pick a
-  different existing one.
+  different existing one. _Status: partial. The roll reports unmet or loosened rules back to
+  the Roll page; the "cook it anyway / add a recipe" choices are not built._
 
 ### 2 · Recipes & data entry
 - **Main protein** — **[Own]** S. Record each recipe's main protein as a first-class
@@ -139,7 +156,7 @@ The individual features get much more powerful when they close into loops:
   the library needs attention — unused or near-duplicate cuisines / proteins / units,
   ingredients with missing data — and clicking a finding jumps into the fix (the Library
   page's manage dialog). Invisible when everything is clean: the app points at problems
-  instead of offering admin lists to patrol.
+  instead of offering admin lists to patrol. _Status: not built (#17)._
 - _(suggested, high value)_ **Recipe import from URL** — **[Own]** M. Most recipe sites
   embed `schema.org/Recipe` as JSON-LD; parse title / ingredients / steps / time / yield
   straight out of the page. This kills the single biggest friction of any recipe app —
@@ -280,7 +297,8 @@ Front-loads value; each step is a clean learning milestone. Ordering is **author
 built for personal use, so it leads with what the author values most.
 
 0. **Core roller + shopping list** — includes difficulty-by-day (+ override)
-   and sleep-ingredients on the shopping list
+   and sleep-ingredients on the shopping list. _Roller, shopping list and sleep are built;
+   difficulty-by-day as specified is not (see above)._
 1. **Household + auth foundations** — users + auth on top of the `household_id` ownership
    already in the schema
 2. **Recipe import from URL** — removes the data-entry wall so the app is actually usable
@@ -317,7 +335,10 @@ built for personal use, so it leads with what the author values most.
   are thin name lists managed in a tabbed dialog, reached from the Library page and from
   "Manage …" portals in the recipe form's comboboxes. Creation stays inline at the point of
   use (type + Enter in a recipe field); cleanup work surfaces through the housekeeping card
-  (§2) rather than admin browsing.
+  (§2) rather than admin browsing. Built: rename and delete in the dialog (#16), usage counts (#15),
+  inline unit create (#20), a 409 on deleting an in-use entry (#14). Open follow-ups: merge
+  duplicates (#18), cascade delete (#23), a shared in-use message (#26), ingredient editing on
+  the Library page (#19), a recipe search bar (#22).
 
 ## Still open (deferred)
 

@@ -11,15 +11,15 @@ the tooling rationale.
 - `dioxus-cli` (`dx`) — the web app
 - `sqlx-cli` — migrations
 - `just` — the task recipes
-- Node 24 via fnm — only for the gitignored `web2/` / `web3/` spikes
 
 ## Services
 
-Two processes, one per terminal:
+Run the database, apply the migrations, then start the web server:
 
 | Service | Command | URL |
 | --- | --- | --- |
 | Database | `docker compose up -d` | Postgres on localhost:5432 |
+| Migrations | `just migrate` | — (first run, and after pulling new migrations) |
 | Web | `cd web && dx serve` | http://localhost:8080 |
 
 The web server is the whole backend: it renders the app, runs the `#[server]` functions, and
@@ -38,7 +38,9 @@ after changing a query or the schema).
 
 ## just recipes
 
-Task recipes live in the `justfile` — run `just` to list them.
+Task recipes live in the `justfile` — run `just` to list them. The main ones: `db`, `db-down`,
+`web`, `api`, `solver`, `migrate`, `migrate-down`, `new-migration`, `prepare`, `fmt`, `lint`,
+`check`. `cargo test --workspace` runs the tests.
 
 ## Solver
 
@@ -52,4 +54,6 @@ without the server.
 
 SQL migrations live in `api/migrations`, managed with `sqlx-cli` and reversible (`-r`).
 Migrations are the schema source of truth — never edit one that has been applied; add a new
-one. See [../architecture/data-model.md](../architecture/data-model.md).
+one. The app does not apply migrations at startup: `just migrate` runs the pending ones and then
+refreshes `.sqlx`; `just migrate-down` reverts the latest; `just new-migration <name>` creates a
+reversible pair. See [../architecture/data-model.md](../architecture/data-model.md).
