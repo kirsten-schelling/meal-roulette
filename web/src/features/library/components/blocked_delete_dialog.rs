@@ -66,7 +66,7 @@ fn ReferenceLink(reference: Reference) -> Element {
             Link { to: Route::RecipePage { id: reference.id }, class: "mr-refs__link", "{name}" }
         },
         ReferenceKind::Ingredient => rsx! {
-            Link { to: Route::Library {}, class: "mr-refs__link", "{name}" }
+            Link { to: Route::Library { manage: String::new() }, class: "mr-refs__link", "{name}" }
         },
         ReferenceKind::ShoppingList => rsx! {
             Link { to: Route::ShoppingList {}, class: "mr-refs__link", "{name}" }
