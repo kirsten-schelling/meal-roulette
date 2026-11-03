@@ -1365,3 +1365,17 @@ body { margin: 0; }
 .mr-line-edit__qty { display: flex; align-items: flex-start; gap: .4rem; }
 .mr-line-edit__qty .mr-input { width: 6rem; text-align: right; }
 .mr-line-edit__unit { padding-top: .65rem; color: var(--mr-text-muted); white-space: nowrap; }
+
+/* Home housekeeping card: one link row per library finding. */
+.mr-housekeeping { display: flex; flex-direction: column; }
+.mr-housekeeping__item {
+  display: flex; align-items: baseline; gap: .9rem;
+  padding: .55rem 0; border-bottom: 1px solid var(--mr-border);
+  color: inherit; text-decoration: none;
+}
+.mr-housekeeping__item:last-child { border-bottom: none; }
+.mr-housekeeping__item:hover { color: var(--mr-accent); }
+.mr-housekeeping__detail {
+  flex: 1; min-width: 0; color: var(--mr-text-muted); font-size: .85rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

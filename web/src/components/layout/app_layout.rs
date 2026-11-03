@@ -50,7 +50,9 @@ fn nav_entries() -> Vec<NavEntry> {
         NavEntry {
             icon: IconName::Carrot,
             label: "Library",
-            to: Route::Library {},
+            to: Route::Library {
+                manage: String::new(),
+            },
         },
         NavEntry {
             icon: IconName::Checklist,

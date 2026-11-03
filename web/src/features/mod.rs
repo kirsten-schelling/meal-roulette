@@ -1,5 +1,6 @@
 pub mod cuisine;
 pub mod history;
+pub mod housekeeping;
 pub mod ingredient;
 pub mod library;
 pub mod plan;
