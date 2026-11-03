@@ -23,8 +23,13 @@ pub fn AddCustomItem(busy: bool, on_add: EventHandler<String>) -> Element {
                 class: "mr-input",
                 r#type: "text",
                 value: "{text}",
-                placeholder: "Add your own item, e.g. bin bags",
-                aria_label: "Add your own item",
+                placeholder: "Item to add, e.g. bin bags",
+                aria_label: "Item to add",
+                onmounted: move |e: MountedEvent| {
+                    spawn(async move {
+                        let _ = e.data().set_focus(true).await;
+                    });
+                },
                 maxlength: "200",
                 oninput: move |e: FormEvent| text.set(e.value()),
             }

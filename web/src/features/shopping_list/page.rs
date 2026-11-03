@@ -7,7 +7,8 @@
 use std::collections::HashMap;
 
 use crate::components::ui::{
-    Alert, Badge, Button, ButtonVariant, Heading, Icon, IconName, Size, Spinner, Text, Tone,
+    ActionMenu, ActionMenuItem, Alert, Badge, Button, ButtonVariant, ConfirmDialog, Heading, Icon,
+    IconName, Size, Spinner, Text, Tone,
 };
 use crate::features::history::format::{dinner_count, week_label};
 use crate::features::shopping_list::components::{AddCustomItem, LineRow, SleepBar};
@@ -86,6 +87,8 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
     // lags the click. A failed save drops its entry, which puts the box back.
     let mut ticks = use_signal(HashMap::<Uuid, bool>::new);
     let mut adding = use_signal(|| false);
+    let mut add_open = use_signal(|| false);
+    let mut confirm_rebuild = use_signal(|| false);
     // The own-item line whose "Remove" is in flight.
     let mut removing = use_signal(|| None as Option<Uuid>);
 
@@ -111,7 +114,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
             .unwrap_or(line.is_purchased)
     };
 
-    let generate = move |_: MouseEvent| {
+    let mut generate = move || {
         let Some((plan_id, _)) = shown_plan else {
             return;
         };
@@ -124,7 +127,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                 Ok(_) => {
                     data.restart();
                     let (title, message) = if has_list {
-                        ("Regenerated", "The list matches the plan again.")
+                        ("Rebuilt", "The list matches the plan again.")
                     } else {
                         ("Shopping list ready", "Every ingredient the week needs.")
                     };
@@ -311,16 +314,26 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
 
     let own_item_action = move |line: &ShoppingListLine| {
         let target = line.clone();
-        let busy = removing() == Some(line.id);
+        let busy = removing().is_some();
         rsx! {
-            Button {
-                variant: ButtonVariant::Ghost,
-                size: Size::Sm,
-                loading: busy,
-                disabled: removing().is_some(),
-                onclick: move |_| remove_own_item(target.clone()),
-                "Remove"
+            ActionMenu { label: "More actions for {line.ingredient}",
+                ActionMenuItem {
+                    danger: true,
+                    disabled: busy,
+                    onclick: move |_| remove_own_item(target.clone()),
+                    "Remove from list"
+                }
             }
+        }
+    };
+
+    let mut toggle_sleep_pick = move |id: Uuid| {
+        let mut chosen = selected.write();
+        match chosen.iter().position(|&x| x == id) {
+            Some(at) => {
+                chosen.remove(at);
+            }
+            None => chosen.push(id),
         }
     };
 
@@ -347,11 +360,18 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                         }
                     }
                     if has_list {
+                        button {
+                            r#type: "button",
+                            class: "mr-btn mr-btn--outline mr-btn--md",
+                            aria_expanded: add_open(),
+                            onclick: move |_| add_open.set(!add_open()),
+                            "Add item"
+                        }
                         Button {
                             variant: ButtonVariant::Outline,
                             loading: generating(),
-                            onclick: generate,
-                            "Regenerate"
+                            onclick: move |_| confirm_rebuild.set(true),
+                            "Rebuild from plan"
                         }
                     }
                 }
@@ -387,7 +407,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                             variant: ButtonVariant::Solid,
                             size: Size::Lg,
                             loading: generating(),
-                            onclick: generate,
+                            onclick: move |_| generate(),
                             "Make shopping list"
                         }
                     }
@@ -399,13 +419,13 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                                 tone: Tone::Amber,
                                 title: "The plan changed after this list was made",
                                 div { class: "mr-stale__body",
-                                    span { "Regenerate to match the current dinners. Ticked items stay ticked." }
+                                    span { "Rebuild to match the current dinners. Ticked items stay ticked." }
                                     Button {
                                         variant: ButtonVariant::Outline,
                                         size: Size::Sm,
                                         loading: generating(),
-                                        onclick: generate,
-                                        "Regenerate"
+                                        onclick: move |_| confirm_rebuild.set(true),
+                                        "Rebuild from plan"
                                     }
                                 }
                             }
@@ -414,33 +434,32 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                     p { class: "mr-listsummary",
                         "{to_buy} to buy, {purchased_count} purchased, {sleeping_count} sleeping"
                     }
-                    AddCustomItem { busy: adding(), on_add: add_own_item }
+                    if add_open() {
+                        AddCustomItem { busy: adding(), on_add: add_own_item }
+                    }
                     ul { class: "mr-linelist",
                         for line in items.iter().filter(|l| l.sleep_until.is_none() && !purchased(l)) {
                             LineRow {
                                 key: "{line.id}",
                                 line: line.clone(),
                                 checked: false,
+                                selected: selected().contains(&line.id),
                                 on_tick: tick(line),
                                 if line.ingredient_id.is_none() {
                                     {own_item_action(line)}
                                 } else {
-                                    Button {
-                                        variant: if selected().contains(&line.id) { ButtonVariant::Solid } else { ButtonVariant::Ghost },
-                                        size: Size::Sm,
-                                        onclick: {
-                                            let id = line.id;
-                                            move |_| {
-                                                let mut chosen = selected.write();
-                                                match chosen.iter().position(|&x| x == id) {
-                                                    Some(at) => {
-                                                        chosen.remove(at);
-                                                    }
-                                                    None => chosen.push(id),
-                                                }
+                                    ActionMenu { label: "More actions for {line.ingredient}",
+                                        ActionMenuItem {
+                                            onclick: {
+                                                let id = line.id;
+                                                move |_| toggle_sleep_pick(id)
+                                            },
+                                            if selected().contains(&line.id) {
+                                                "Don't sleep"
+                                            } else {
+                                                "Sleep for a while\u{2026}"
                                             }
-                                        },
-                                        if selected().contains(&line.id) { "Selected" } else { "Sleep" }
+                                        }
                                     }
                                 }
                             }
@@ -534,11 +553,32 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                 },
             }
 
+            if confirm_rebuild() {
+                ConfirmDialog {
+                    title: "Rebuild from plan?",
+                    confirm_label: "Rebuild",
+                    on_confirm: move |_| {
+                        confirm_rebuild.set(false);
+                        generate();
+                    },
+                    on_cancel: move |_| confirm_rebuild.set(false),
+                    p { class: "mr-confirm__line",
+                        strong { "Keeps: " }
+                        "items you added yourself, ticks on ingredients still in the plan, and sleeping ingredients."
+                    }
+                    p { class: "mr-confirm__line",
+                        strong { "Changes: " }
+                        "amounts are recalculated from this week's dinners, and ingredients no longer in the plan are removed."
+                    }
+                }
+            }
+
             if !selected().is_empty() {
                 SleepBar {
                     count: selected().len(),
                     busy: sleeping(),
                     on_sleep: sleep_selected,
+                    on_cancel: move |_| selected.set(Vec::new()),
                 }
             }
         }

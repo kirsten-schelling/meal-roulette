@@ -2,6 +2,7 @@
 //! the app composes. Styling lives in `assets/primitives.css` (design tokens);
 //! these files only apply the `mr-*` classes and expose a typed Rust API.
 
+pub mod action_menu;
 pub mod alert;
 pub mod badge;
 pub mod brand_mark;
@@ -35,6 +36,7 @@ pub mod textarea;
 pub mod toast;
 pub mod typography;
 
+pub use action_menu::{ActionMenu, ActionMenuItem};
 pub use alert::Alert;
 pub use badge::{Badge, Tone};
 pub use brand_mark::BrandMark;
