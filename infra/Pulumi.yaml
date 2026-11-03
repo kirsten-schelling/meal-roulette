@@ -1,0 +1,8 @@
+name: meal-roulette-infra
+description: Neon Postgres and Cloudflare DNS for Meal Roulette
+runtime:
+  name: nodejs
+  options:
+    packagemanager: npm
+packages:
+  neon: kislerdm/neon@0.13.0
