@@ -1,23 +1,22 @@
-//! A rolled week: one row per day with the dinner the roller picked. Each
+//! A rolled week: one card per day with the dinner the roller picked. Each
 //! day can be re-rolled (the solver picks again under the plan's rules) or
 //! swapped for a recipe chosen by hand. `/planned-meals` shows the latest
 //! active plan; `/planned-meals/:id` shows any plan, e.g. one opened from the
 //! history. Both render the same view.
 
-use crate::components::difficulty_badge::DifficultyBadge;
 use crate::components::ui::{
-    Alert, Badge, Button, ButtonVariant, CellAlign, Column, DataTable, Heading, Icon, IconButton,
-    IconName, Size, Spinner, Text, Tone,
+    Alert, Badge, Button, ButtonVariant, Heading, Icon, IconName, Spinner, Text, Tone,
 };
 use crate::features::history::components::FavouriteStar;
 use crate::features::history::format::{dinner_count, rolled_label};
 use crate::features::history::hooks::use_local_offset::use_local_offset;
-use crate::features::plan::components::SwapRecipeDialog;
+use crate::features::plan::components::{DayCard, SwapRecipeDialog};
 use crate::features::plan::hooks::use_plan::{
     reroll_planned_meal, set_plan_favourite, use_get_plan,
 };
 use crate::features::shopping_list::hooks::use_shopping_list::ensure_shopping_list;
 use crate::hooks::use_toast::use_toast;
+use crate::hooks::use_today::use_today;
 use crate::models::{date_label, day_label, error_message};
 use crate::router::Route;
 use dioxus::prelude::*;
@@ -66,6 +65,7 @@ fn plan_subtitle(detail: &MealPlanDetail) -> String {
 fn PlanView(id: ReadSignal<Option<Uuid>>) -> Element {
     let mut plan = use_get_plan(id);
     let offset = use_local_offset();
+    let today = use_today();
     let toast = use_toast();
     let navigator = use_navigator();
     // The day whose re-roll is in flight, so its button shows a spinner.
@@ -155,52 +155,6 @@ fn PlanView(id: ReadSignal<Option<Uuid>>) -> Element {
         );
     };
 
-    let columns: Vec<Column<PlannedMealDetail>> = vec![
-        Column::new("Day", |m: &PlannedMealDetail| {
-            rsx! {
-                span { class: "mr-cell-strong", "{day_label(m.scheduled_date)}" }
-            }
-        }),
-        Column::new("Dinner", |m: &PlannedMealDetail| rsx! { "{m.title}" }),
-        Column::new("Cuisine", |m: &PlannedMealDetail| {
-            lookup_cell(m.cuisine.as_deref())
-        }),
-        Column::new("Protein", |m: &PlannedMealDetail| {
-            lookup_cell(m.protein.as_deref())
-        }),
-        Column::new("Difficulty", |m: &PlannedMealDetail| {
-            rsx! {
-                DifficultyBadge { difficulty: m.difficulty }
-            }
-        }),
-        Column::new("Time", |m: &PlannedMealDetail| rsx! { "{m.time_mins} min" })
-            .align(CellAlign::End),
-        Column::new("", move |m: &PlannedMealDetail| {
-            let id = m.id;
-            let meal = m.clone();
-            let busy = rerolling() == Some(id);
-            rsx! {
-                div { class: "mr-rowactions",
-                    if busy {
-                        Spinner { size: Size::Sm }
-                    } else {
-                        IconButton {
-                            label: "Re-roll this day".to_string(),
-                            onclick: move |_| reroll(id),
-                            Icon { name: IconName::Dice }
-                        }
-                    }
-                    IconButton {
-                        label: "Swap for a recipe you pick".to_string(),
-                        onclick: move |_| swapping.set(Some(meal.clone())),
-                        Icon { name: IconName::Replace }
-                    }
-                }
-            }
-        })
-        .align(CellAlign::End),
-    ];
-
     let loaded = plan();
     let detail: Option<&MealPlanDetail> = match &loaded {
         Some(Ok(Some(d))) => Some(d),
@@ -284,11 +238,27 @@ fn PlanView(id: ReadSignal<Option<Uuid>>) -> Element {
                     }
                 },
                 Some(Ok(Some(d))) => rsx! {
-                    div { class: "mr-tablepanel",
-                        DataTable::<PlannedMealDetail> {
-                            columns: columns.clone(),
-                            rows: d.meals.clone(),
-                            empty: "This plan has no days.".to_string(),
+                    if d.meals.is_empty() {
+                        Text { muted: true, "This plan has no days." }
+                    } else {
+                        div { class: "mr-plan-week",
+                            for meal in d.meals.iter().cloned() {
+                                DayCard {
+                                    key: "{meal.id}",
+                                    tonight: today() == Some(meal.scheduled_date),
+                                    rerolling: rerolling() == Some(meal.id),
+                                    locked: rerolling().is_some(),
+                                    on_reroll: {
+                                        let id = meal.id;
+                                        move |_| reroll(id)
+                                    },
+                                    on_swap: {
+                                        let meal = meal.clone();
+                                        move |_| swapping.set(Some(meal.clone()))
+                                    },
+                                    meal,
+                                }
+                            }
                         }
                     }
                 },
@@ -303,17 +273,5 @@ fn PlanView(id: ReadSignal<Option<Uuid>>) -> Element {
                 }
             }
         }
-    }
-}
-
-/// A lookup name as a badge, or a quiet "none" when the recipe has no value.
-fn lookup_cell(name: Option<&str>) -> Element {
-    match name {
-        Some(name) => rsx! {
-            Badge { "{name}" }
-        },
-        None => rsx! {
-            span { class: "mr-text--muted", "none" }
-        },
     }
 }
