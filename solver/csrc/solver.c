@@ -20,8 +20,12 @@
 // order, and a forward check after every placement undoes a choice as soon as
 // some rule can no longer be met. Required rules are searched first; then each
 // preference is added, most important first, at the tightest count that still
-// leaves a valid week. Days are interchangeable, so the finished week is
-// shuffled before it is handed back.
+// leaves a valid week.
+//
+// A SlotLimit pins what one day may take (a difficulty band or a time cap for
+// that day), so those days are not interchangeable. The days with the
+// fewest allowed recipes are filled first. The finished week is shuffled only
+// among days that allow exactly the same recipes, which keeps every limit.
 //
 // Background reading:
 // https://www.geeksforgeeks.org/artificial-intelligence/constraint-satisfaction-problems-csp-in-artificial-intelligence/
@@ -57,6 +61,11 @@ typedef struct {
     // the list an earlier day is still working through.
     int32_t *candidates;
     int32_t *picks;
+    // eligible[day * num_recipes + recipe]: whether the day's limits allow it.
+    bool *eligible;
+    // The order days are filled in: fewest allowed recipes first.
+    int32_t *order;
+    bool has_slot_limits;
     long steps;
     bool gave_up;
     // splitmix64 state. The C library's rand() differs between platforms and
@@ -110,13 +119,17 @@ static bool fits_limits(const Search *search, int32_t recipe) {
     return true;
 }
 
-// The recipes the next day may still take: unused (no recipe twice), and not
-// pushing any rule past its maximum.
-static void filter_recipes(const Search *search, int32_t *filtered_recipe_indexes,
+static bool is_eligible(const Search *search, int32_t day, int32_t recipe) {
+    return search->eligible[(size_t)day * (size_t)search->input->num_recipes + (size_t)recipe];
+}
+
+// The recipes `day` may still take: allowed by its limits, unused (no recipe
+// twice), and not pushing any rule past its maximum.
+static void filter_recipes(const Search *search, int32_t day, int32_t *filtered_recipe_indexes,
     int32_t *filtered_recipe_length) {
     *filtered_recipe_length = 0;
     for (int32_t i = 0; i < search->input->num_recipes; i++) {
-        if (!search->used[i] && fits_limits(search, i)) {
+        if (!search->used[i] && is_eligible(search, day, i) && fits_limits(search, i)) {
             filtered_recipe_indexes[*filtered_recipe_length] = i;
             *filtered_recipe_length += 1;
         }
@@ -145,10 +158,22 @@ static void unplace_recipe(Search *search, int32_t recipe) {
 }
 
 // Forward check: false once a rule's minimum can no longer fit in the days left
-// or in the recipes not yet used, so the search can undo now instead of failing
-// several days later. Maximums are enforced by filter_recipes.
-static bool still_feasible(const Search *search, int32_t days_left) {
+// or in the recipes not yet used, or a day still to fill has no unused recipe
+// its limits allow, so the search can undo now instead of failing several days
+// later. Maximums are enforced by filter_recipes. `next` is the position in the
+// fill order of the first day still to fill.
+static bool still_feasible(const Search *search, int32_t next) {
     const Input *input = search->input;
+    int32_t days_left = input->num_recipes_to_pick - next;
+    for (int32_t p = next; search->has_slot_limits && p < input->num_recipes_to_pick; p++) {
+        bool open = false;
+        for (int32_t i = 0; i < input->num_recipes && !open; i++) {
+            open = !search->used[i] && is_eligible(search, search->order[p], i);
+        }
+        if (!open) {
+            return false;
+        }
+    }
     for (int32_t j = 0; j < input->num_requirements; j++) {
         if (!search->targets[j].on) {
             continue;
@@ -173,11 +198,11 @@ static bool still_feasible(const Search *search, int32_t days_left) {
     return true;
 }
 
-// Fills every day from `day` to the end of the week and returns true once each
-// day holds a recipe. The caller has already checked still_feasible() for the
-// days from `day` onwards.
-static bool select_recipes(Search *search, int32_t day) {
-    if (day == search->input->num_recipes_to_pick) {
+// Fills every day from fill-order position `position` to the end of the week
+// and returns true once each day holds a recipe. The caller has already checked
+// still_feasible() for the positions from `position` onwards.
+static bool select_recipes(Search *search, int32_t position) {
+    if (position == search->input->num_recipes_to_pick) {
         // The forward check after the last placement ran with 0 days left, so
         // every minimum is already met.
         return true;
@@ -186,14 +211,15 @@ static bool select_recipes(Search *search, int32_t day) {
         search->gave_up = true;
         return false;
     }
-    int32_t *candidates = search->candidates + (size_t)day * (size_t)search->input->num_recipes;
+    int32_t day = search->order[position];
+    int32_t *candidates =
+        search->candidates + (size_t)position * (size_t)search->input->num_recipes;
     int32_t candidates_length = 0;
-    filter_recipes(search, candidates, &candidates_length);
+    filter_recipes(search, day, candidates, &candidates_length);
     shuffle_indices(search, candidates, candidates_length);
     for (int32_t i = 0; i < candidates_length; i++) {
         place_recipe(search, day, candidates[i]);
-        if (still_feasible(search, search->input->num_recipes_to_pick - day - 1) &&
-            select_recipes(search, day + 1)) {
+        if (still_feasible(search, position + 1) && select_recipes(search, position + 1)) {
             return true;
         }
         unplace_recipe(search, candidates[i]);
@@ -213,7 +239,7 @@ static Outcome attempt(Search *search) {
     memset(search->counts, 0, (size_t)input->num_requirements * sizeof(int32_t));
     search->steps = 0;
     search->gave_up = false;
-    if (still_feasible(search, input->num_recipes_to_pick) && select_recipes(search, 0)) {
+    if (still_feasible(search, 0) && select_recipes(search, 0)) {
         return FOUND;
     }
     return search->gave_up ? GAVE_UP : NOT_FOUND;
@@ -249,6 +275,88 @@ static void add_preference(Search *search, int32_t j, int32_t *week) {
     target->on = false;
 }
 
+static bool allowed_by_limits(const Input *input, int32_t day, int32_t recipe) {
+    for (int32_t j = 0; j < input->num_slot_limits; j++) {
+        const SlotLimit *limit = &input->slot_limits[j];
+        if (limit->day != day) {
+            continue;
+        }
+        int32_t value = input->attributes[(size_t)recipe * (size_t)input->num_attributes +
+                                          (size_t)limit->attribute];
+        if (value < limit->low || value > limit->high) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Kuhn's augmenting-path step: gives `day` a recipe its limits allow, moving
+// earlier days to other recipes if that is what it takes.
+static bool assign_day(const Search *search, int32_t day, bool *seen, int32_t *owner) {
+    for (int32_t i = 0; i < search->input->num_recipes; i++) {
+        if (!is_eligible(search, day, i) || seen[i]) {
+            continue;
+        }
+        seen[i] = true;
+        if (owner[i] < 0 || assign_day(search, owner[i], seen, owner)) {
+            owner[i] = day;
+            return true;
+        }
+    }
+    return false;
+}
+
+// False when no way of giving every day its own allowed recipe exists. The
+// search alone would only learn that after trying a great many weeks.
+static bool every_day_can_be_filled(const Search *search, bool *seen, int32_t *owner) {
+    const Input *input = search->input;
+    for (int32_t i = 0; i < input->num_recipes; i++) {
+        owner[i] = -1;
+    }
+    for (int32_t day = 0; day < input->num_recipes_to_pick; day++) {
+        memset(seen, 0, (size_t)input->num_recipes * sizeof(bool));
+        if (!assign_day(search, day, seen, owner)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int32_t allowed_count(const Search *search, int32_t day) {
+    int32_t count = 0;
+    for (int32_t i = 0; i < search->input->num_recipes; i++) {
+        count += is_eligible(search, day, i) ? 1 : 0;
+    }
+    return count;
+}
+
+static bool same_allowed_recipes(const Search *search, int32_t a, int32_t b) {
+    size_t n = (size_t)search->input->num_recipes;
+    return memcmp(search->eligible + (size_t)a * n, search->eligible + (size_t)b * n,
+               n * sizeof(bool)) == 0;
+}
+
+// Shuffles the picks among days that allow the same recipes, so a limit that
+// holds for one of them holds for all of them.
+static void shuffle_interchangeable_days(Search *search, int32_t *week) {
+    int32_t days = search->input->num_recipes_to_pick;
+    for (int32_t i = 0; i < days; i++) {
+        int32_t same = 0;
+        for (int32_t k = i; k < days; k++) {
+            same += same_allowed_recipes(search, i, k) ? 1 : 0;
+        }
+        int32_t pick = (int32_t)random_below(search, (uint64_t)same);
+        for (int32_t k = i; k < days; k++) {
+            if (same_allowed_recipes(search, i, k) && pick-- == 0) {
+                int32_t temp = week[i];
+                week[i] = week[k];
+                week[k] = temp;
+                break;
+            }
+        }
+    }
+}
+
 static bool validate_input(const Input *input, const Output *output) {
     if (input == NULL || output == NULL || output->recipe_indices == NULL) {
         return false;
@@ -260,6 +368,16 @@ static bool validate_input(const Input *input, const Output *output) {
     if ((input->num_attributes > 0 && input->attributes == NULL) ||
         (input->num_requirements > 0 && input->requirements == NULL)) {
         return false;
+    }
+    if (input->num_slot_limits < 0 || (input->num_slot_limits > 0 && input->slot_limits == NULL)) {
+        return false;
+    }
+    for (int32_t j = 0; j < input->num_slot_limits; j++) {
+        const SlotLimit *l = &input->slot_limits[j];
+        if (l->day < 0 || l->day >= input->num_recipes_to_pick || l->attribute < 0 ||
+            l->attribute >= input->num_attributes || l->low > l->high) {
+            return false;
+        }
     }
     for (int32_t j = 0; j < input->num_requirements; j++) {
         const Requirement *r = &input->requirements[j];
@@ -299,12 +417,45 @@ int32_t mr_solver_roll(const Input *input, Output *output) {
     search.used = alloc_at_least_one(num_recipes, sizeof(bool));
     search.candidates = alloc_at_least_one(num_days * num_recipes, sizeof(int32_t));
     search.picks = alloc_at_least_one(num_days, sizeof(int32_t));
+    search.eligible = alloc_at_least_one(num_days * num_recipes, sizeof(bool));
+    search.order = alloc_at_least_one(num_days, sizeof(int32_t));
+    search.has_slot_limits = input->num_slot_limits > 0;
     int32_t *preferences = alloc_at_least_one(num_requirements, sizeof(int32_t));
+    int32_t *allowed = alloc_at_least_one(num_days, sizeof(int32_t));
+    int32_t *owner = alloc_at_least_one(num_recipes, sizeof(int32_t));
+    bool *seen = alloc_at_least_one(num_recipes, sizeof(bool));
 
     int32_t status = MR_ERR_NO_MEMORY;
     if (!search.targets || !search.counts || !search.used || !search.candidates ||
-        !search.picks || !preferences) {
+        !search.picks || !search.eligible || !search.order || !preferences || !allowed ||
+        !owner || !seen) {
         goto cleanup;
+    }
+
+    for (size_t day = 0; day < num_days; day++) {
+        for (size_t recipe = 0; recipe < num_recipes; recipe++) {
+            search.eligible[day * num_recipes + recipe] =
+                allowed_by_limits(input, (int32_t)day, (int32_t)recipe);
+        }
+        allowed[day] = allowed_count(&search, (int32_t)day);
+        search.order[day] = (int32_t)day;
+    }
+    if (search.has_slot_limits) {
+        // Insertion sort keeps equal days in week order, so a week with no
+        // limits is filled front to back as before.
+        for (int32_t i = 1; i < input->num_recipes_to_pick; i++) {
+            int32_t current = search.order[i];
+            int32_t k = i;
+            while (k > 0 && allowed[search.order[k - 1]] > allowed[current]) {
+                search.order[k] = search.order[k - 1];
+                k--;
+            }
+            search.order[k] = current;
+        }
+        if (!every_day_can_be_filled(&search, seen, owner)) {
+            status = MR_ERR_UNSATISFIABLE;
+            goto cleanup;
+        }
     }
 
     int32_t num_preferences = 0;
@@ -341,7 +492,11 @@ int32_t mr_solver_roll(const Input *input, Output *output) {
 
     // The search leaves the picks a rule forces for the last days; shuffling
     // spreads them across the week.
-    shuffle_indices(&search, output->recipe_indices, input->num_recipes_to_pick);
+    if (search.has_slot_limits) {
+        shuffle_interchangeable_days(&search, output->recipe_indices);
+    } else {
+        shuffle_indices(&search, output->recipe_indices, input->num_recipes_to_pick);
+    }
     status = MR_OK;
 
 cleanup:
@@ -350,10 +505,17 @@ cleanup:
     free(search.used);
     free(search.candidates);
     free(search.picks);
+    free(search.eligible);
+    free(search.order);
     free(preferences);
+    free(allowed);
+    free(owner);
+    free(seen);
     return status;
 }
 
 size_t mr_solver_input_size(void) { return sizeof(Input); }
 
 size_t mr_solver_requirement_size(void) { return sizeof(Requirement); }
+
+size_t mr_solver_slot_limit_size(void) { return sizeof(SlotLimit); }
