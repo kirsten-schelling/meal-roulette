@@ -11,7 +11,7 @@ use crate::features::recipe::components::ingredient_composer::{parse_qty, Ingred
 use crate::features::recipe::components::ingredient_line::RecipeLine;
 use crate::features::recipe::components::recipe_details::use_details_editor;
 use crate::features::recipe::components::recipe_fields::{options_from, use_recipe_catalogs};
-use crate::features::recipe::components::{CopyRecipeDialog, IngredientTable};
+use crate::features::recipe::components::{CookMode, CopyRecipeDialog, IngredientTable};
 use crate::features::recipe::hooks::use_recipe::{
     add_recipe_ingredient, delete_recipe, use_get_recipe_detail,
 };
@@ -37,6 +37,7 @@ pub fn RecipePage(id: Uuid) -> Element {
     let mut composing = use_signal(|| false);
     let mut adding_busy = use_signal(|| false);
     let mut copying = use_signal(|| false);
+    let mut cooking = use_signal(|| false);
     let mut confirm_delete = use_signal(|| false);
     let mut deleting = use_signal(|| false);
 
@@ -145,6 +146,10 @@ pub fn RecipePage(id: Uuid) -> Element {
                     Text { muted: true, "Added {added_on} · Click anything to change it" }
                 }
                 div { class: "mr-pagehead__actions",
+                    Button { onclick: move |_| cooking.set(true),
+                        Icon { name: IconName::ChefHat }
+                        "Cook"
+                    }
                     Button {
                         variant: ButtonVariant::Outline,
                         onclick: move |_| copying.set(true),
@@ -198,6 +203,14 @@ pub fn RecipePage(id: Uuid) -> Element {
                         }
                     }
                 }
+            }
+        }
+
+        if cooking() {
+            CookMode {
+                title: recipe.title.clone(),
+                ingredients: loaded.ingredients.clone(),
+                on_exit: move |_| cooking.set(false),
             }
         }
 
