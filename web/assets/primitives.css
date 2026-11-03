@@ -948,6 +948,12 @@ body { margin: 0; }
 }
 .mr-nav__link:hover { background: var(--mr-hover); color: var(--mr-text); }
 .mr-nav__link:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 2px; }
+.mr-nav__group {
+  margin: var(--mr-space-4) 0 .1rem; padding: 0 var(--mr-space-3);
+  font-size: var(--mr-text-xs, .75rem); font-weight: var(--mr-weight-semibold);
+  letter-spacing: .06em; text-transform: uppercase; color: var(--mr-text-muted);
+}
+.mr-nav__link--quiet { font-size: var(--mr-text-sm); }
 .mr-nav__link--active, .mr-nav__link--active:hover { background: var(--mr-pressed); color: var(--mr-text); }
 .mr-nav__icon { flex: none; display: flex; justify-content: center; width: var(--mr-icon-md); font-size: var(--mr-icon-md); }
 .mr-nav__label { line-height: 1; }
@@ -1022,18 +1028,63 @@ body { margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .mr-wheel--spin { animation: none; } }
 
-/* ── responsive: collapse the sidebar to a top strip on narrow screens ──── */
+/* ── phone navigation: top bar + left slide-out drawer ──────────────────── */
+.mr-topbar, .mr-scrim, .mr-drawer { display: none; }
+
+/* ── responsive: below 720px the sidebar gives way to the drawer ────────── */
 @media (max-width: 720px) {
-  .mr-shell { grid-template-columns: 1fr; grid-template-areas: "sidebar" "main"; }
-  .mr-sidebar { position: static; height: auto; overflow-y: visible; gap: var(--mr-space-3); padding: var(--mr-space-3); }
-  .mr-sidebar__foot { margin-top: 0; }
-  .mr-nav { flex-direction: row; flex-wrap: wrap; }
+  .mr-shell {
+    grid-template-columns: 1fr; grid-template-rows: auto 1fr;
+    grid-template-areas: "topbar" "main";
+  }
+  .mr-sidebar { display: none; }
+  .mr-main__inner {
+    padding: 1.25rem max(1rem, env(safe-area-inset-left)) calc(2rem + env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-right));
+  }
+  .mr-topbar {
+    grid-area: topbar; position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: var(--mr-space-2);
+    padding: env(safe-area-inset-top) max(var(--mr-space-3), env(safe-area-inset-right)) 0 max(var(--mr-space-3), env(safe-area-inset-left));
+    min-height: calc(3.25rem + env(safe-area-inset-top));
+    background: var(--mr-surface); border-bottom: 1px solid var(--mr-border-soft);
+  }
+  .mr-topbar__menu { width: 2.75rem; height: 2.75rem; font-size: 1.4rem; }
+  .mr-scrim {
+    display: block; position: fixed; inset: 0; z-index: 44;
+    background: rgba(0, 0, 0, .45);
+    opacity: 0; visibility: hidden;
+    transition: opacity var(--mr-dur-slow) var(--mr-ease), visibility 0s linear var(--mr-dur-slow);
+  }
+  .mr-scrim.mr-drawer--open {
+    opacity: 1; visibility: visible;
+    transition: opacity var(--mr-dur-slow) var(--mr-ease), visibility 0s;
+  }
+  .mr-drawer {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 45;
+    display: flex; flex-direction: column; gap: var(--mr-space-6);
+    width: min(20rem, 85vw); overflow-y: auto; overscroll-behavior: contain;
+    padding: calc(var(--mr-space-4) + env(safe-area-inset-top)) var(--mr-space-3)
+             calc(var(--mr-space-4) + env(safe-area-inset-bottom)) max(var(--mr-space-3), env(safe-area-inset-left));
+    background: var(--mr-surface); box-shadow: var(--mr-shadow-lg);
+    transform: translateX(-100%); visibility: hidden;
+    transition: transform var(--mr-dur-slow) var(--mr-ease-out), visibility 0s linear var(--mr-dur-slow);
+  }
+  .mr-drawer.mr-drawer--open {
+    transform: none; visibility: visible;
+    transition: transform var(--mr-dur-slow) var(--mr-ease-out), visibility 0s;
+  }
+  .mr-drawer__head { display: flex; align-items: center; justify-content: space-between; gap: var(--mr-space-2); }
+  .mr-drawer__foot { margin-top: auto; padding: 0 var(--mr-space-1); }
+  .mr-drawer .mr-nav__link { min-height: var(--mr-control-h-lg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mr-scrim, .mr-drawer { transition: none !important; }
 }
 @media (max-width: 520px) {
   .mr-header { padding-inline: 1.5rem; }
   .mr-sidebar { padding: .75rem 1rem; }
   .mr-nav { gap: .25rem .5rem; }
-  .mr-main__inner { padding: 1.5rem 1.5rem 3rem; }
+  .mr-main__inner { padding: 1.5rem max(1.5rem, env(safe-area-inset-left)) calc(3rem + env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-right)); }
   .mr-table thead th, .mr-table tbody td { padding-inline: var(--mr-space-4); white-space: nowrap; }
   .mr-table tbody td { height: 52px; }
   .mr-table th.mr-td--check, .mr-table td.mr-td--check { padding-right: 2px; }
