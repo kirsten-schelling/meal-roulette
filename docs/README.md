@@ -20,6 +20,7 @@ Reference and planning docs for Meal Roulette, organised by purpose.
 - **Decisions**
   - [0001 — Typed server functions over a generic proxy](decisions/0001-typed-server-functions-over-generic-proxy.md)
   - [0002 — One process for the web app and the data layer](decisions/0002-single-process.md)
+  - [0003 — Simple units: one unit per ingredient, no conversions](decisions/0003-simple-units.md)
   - [Pending decisions](decisions/pending.md) — queue of decisions to make / to record
 - **Guides**
   - [Local development](guides/local-dev.md)
