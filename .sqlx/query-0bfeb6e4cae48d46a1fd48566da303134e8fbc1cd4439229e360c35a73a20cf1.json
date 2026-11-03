@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE shopping_list_item\n        SET is_cleared = true\n        WHERE shopping_list_id = $1 AND ingredient_id IS NOT NULL AND is_purchased AND NOT is_cleared\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0bfeb6e4cae48d46a1fd48566da303134e8fbc1cd4439229e360c35a73a20cf1"
+}

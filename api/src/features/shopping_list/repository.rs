@@ -244,7 +244,9 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<ShoppingList, sqlx::Error
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::features::shopping_list_item::repository::{add_custom, lines, remove_custom};
+    use crate::features::shopping_list_item::repository::{
+        add_custom, clear_bought, lines, remove_custom, set_purchased,
+    };
 
     struct Fixture {
         plan_id: Uuid,
@@ -386,5 +388,25 @@ mod tests {
             .await
             .is_err());
         assert_eq!(lines(&pool, list.id).await.unwrap().len(), 3);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn clearing_bought_removes_only_ticked_custom_items(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let bags = add_custom(&pool, list.id, "Bin bags").await.unwrap();
+        add_custom(&pool, list.id, "Candles").await.unwrap();
+        let before = lines(&pool, list.id).await.unwrap();
+        set_purchased(&pool, before[0].id, true).await.unwrap();
+        set_purchased(&pool, bags.id, true).await.unwrap();
+
+        assert_eq!(clear_bought(&pool, list.id).await.unwrap(), 2);
+
+        let after = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&after), ["Spaghetti", "Candles"]);
+
+        generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let rebuilt = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&rebuilt), ["Spaghetti", "Candles"]);
     }
 }

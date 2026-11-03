@@ -1,5 +1,7 @@
 pub mod add_custom_item;
+pub mod line_row;
 pub mod sleep_bar;
 
 pub use add_custom_item::AddCustomItem;
+pub use line_row::LineRow;
 pub use sleep_bar::SleepBar;

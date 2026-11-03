@@ -7,17 +7,16 @@
 use std::collections::HashMap;
 
 use crate::components::ui::{
-    Alert, Badge, Button, ButtonVariant, CellAlign, Column, DataTable, Heading, Icon, IconName,
-    Size, Spinner, Text, Tone,
+    Alert, Badge, Button, ButtonVariant, Heading, Icon, IconName, Size, Spinner, Text, Tone,
 };
 use crate::features::history::format::{dinner_count, week_label};
-use crate::features::shopping_list::components::{AddCustomItem, SleepBar};
+use crate::features::shopping_list::components::{AddCustomItem, LineRow, SleepBar};
 use crate::features::shopping_list::hooks::use_shopping_list::{
-    add_custom_item, generate_shopping_list, remove_custom_item, set_item_purchased,
-    sleep_ingredients, use_get_shopping_list, wake_ingredient,
+    add_custom_item, clear_bought_items, generate_shopping_list, remove_custom_item,
+    set_item_purchased, sleep_ingredients, use_get_shopping_list, wake_ingredient,
 };
 use crate::hooks::use_toast::use_toast;
-use crate::models::{amount_label, date_label, error_message};
+use crate::models::{date_label, error_message};
 use crate::router::Route;
 use dioxus::prelude::*;
 use domain::shopping_list::ShoppingListForPlan;
@@ -52,19 +51,6 @@ fn lines(loaded: &Loaded) -> Vec<ShoppingListLine> {
     }
 }
 
-/// "2 x 500 g": whole packs of the ingredient's purchase size, as far as the amount
-/// and pack size are known.
-fn packs_label(line: &ShoppingListLine) -> String {
-    if line.ingredient_id.is_none() {
-        return String::new();
-    }
-    match (line.packs, line.purchase_size) {
-        (Some(packs), Some(size)) => format!("{packs} x {size} {}", line.unit),
-        (None, Some(size)) => format!("{size} {} packs", line.unit),
-        (_, None) => "No pack size".to_string(),
-    }
-}
-
 fn page_subtitle(view: Option<&ShoppingListForPlan>) -> String {
     match view {
         Some(view) => {
@@ -89,7 +75,10 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
     let mut data = use_get_shopping_list(plan_id);
     let toast = use_toast();
     let mut generating = use_signal(|| false);
-    let mut selected = use_signal(Vec::<usize>::new);
+    let mut selected = use_signal(Vec::<Uuid>::new);
+    let mut basket_open = use_signal(|| false);
+    let mut sleeping_open = use_signal(|| false);
+    let mut clearing = use_signal(|| false);
     let mut sleeping = use_signal(|| false);
     // The line whose "Add back" is in flight.
     let mut waking = use_signal(|| None as Option<Uuid>);
@@ -153,6 +142,9 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
 
     let mut toggle_purchased = move |line_id: Uuid, now: bool| {
         ticks.write().insert(line_id, now);
+        if now {
+            selected.write().retain(|id| *id != line_id);
+        }
         spawn(async move {
             if let Err(e) = set_item_purchased(line_id, now).await {
                 ticks.write().remove(&line_id);
@@ -207,6 +199,27 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         });
     };
 
+    let clear_bought = move |_: MouseEvent| {
+        let Some(list_id) = list_id else {
+            return;
+        };
+        if clearing() {
+            return;
+        }
+        clearing.set(true);
+        spawn(async move {
+            match clear_bought_items(list_id).await {
+                Ok(_) => data.restart(),
+                Err(e) => toast.show(
+                    Some("Couldn't clear them".to_string()),
+                    error_message(&e),
+                    Tone::Red,
+                ),
+            }
+            clearing.set(false);
+        });
+    };
+
     let mut add_back = move |line: ShoppingListLine| {
         let Some((_, household_id)) = shown_plan else {
             return;
@@ -245,11 +258,15 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         if sleeping() {
             return;
         }
-        let all = lines(&data.read());
-        let chosen: Vec<ShoppingListLine> = selected()
-            .iter()
-            .filter_map(|&i| all.get(i).cloned())
-            .filter(|line| line.ingredient_id.is_some())
+        let picked = selected();
+        let chosen: Vec<ShoppingListLine> = lines(&data.read())
+            .into_iter()
+            .filter(|line| {
+                picked.contains(&line.id)
+                    && line.ingredient_id.is_some()
+                    && line.sleep_until.is_none()
+                    && !purchased(line)
+            })
             .collect();
         if chosen.is_empty() {
             return;
@@ -262,6 +279,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                 .collect();
             match sleep_ingredients(household_id, ids, weeks).await {
                 Ok(slept) => {
+                    selected.set(Vec::new());
                     data.restart();
                     let what = match chosen.as_slice() {
                         [only] => only.ingredient.clone(),
@@ -286,125 +304,25 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         });
     };
 
-    let columns: Vec<Column<ShoppingListLine>> = vec![
-        Column::new("Bought", move |line: &ShoppingListLine| {
-            let id = line.id;
-            let checked = purchased(line);
-            rsx! {
-                input {
-                    class: "mr-buycheck",
-                    r#type: "checkbox",
-                    checked,
-                    aria_label: "Bought {line.ingredient}",
-                    onchange: move |_| toggle_purchased(id, !checked),
-                }
+    let tick = move |line: &ShoppingListLine| {
+        let id = line.id;
+        EventHandler::new(move |now: bool| toggle_purchased(id, now))
+    };
+
+    let own_item_action = move |line: &ShoppingListLine| {
+        let target = line.clone();
+        let busy = removing() == Some(line.id);
+        rsx! {
+            Button {
+                variant: ButtonVariant::Ghost,
+                size: Size::Sm,
+                loading: busy,
+                disabled: removing().is_some(),
+                onclick: move |_| remove_own_item(target.clone()),
+                "Remove"
             }
-        })
-        .interactive(),
-        Column::new("Ingredient", move |line: &ShoppingListLine| {
-            let state = if line.sleep_until.is_some() {
-                "mr-dim"
-            } else if purchased(line) {
-                "mr-struck"
-            } else {
-                ""
-            };
-            rsx! {
-                span { class: "mr-cell-strong {state}", "{line.ingredient}" }
-                if let Some(note) = &line.note {
-                    span { class: "mr-linenote", "{note}" }
-                }
-            }
-        }),
-        Column::new("Amount", |line: &ShoppingListLine| {
-            let dim = if line.sleep_until.is_some() {
-                "mr-dim"
-            } else {
-                ""
-            };
-            rsx! {
-                span { class: "mr-nowrap {dim}", "{amount_label(line.qty, &line.unit)}" }
-            }
-        })
-        .align(CellAlign::End),
-        Column::new("Packs", |line: &ShoppingListLine| {
-            let dim = if line.sleep_until.is_some() {
-                "mr-dim"
-            } else {
-                ""
-            };
-            rsx! {
-                span { class: "mr-nowrap {dim}", "{packs_label(line)}" }
-            }
-        })
-        .align(CellAlign::End),
-        Column::new("Used in", |line: &ShoppingListLine| {
-            let dim = if line.sleep_until.is_some() {
-                "mr-dim"
-            } else {
-                ""
-            };
-            let recipes = if line.ingredient_id.is_none() {
-                "Added by you".to_string()
-            } else if line.used_in.is_empty() {
-                "No longer on the plan".to_string()
-            } else {
-                line.used_in.join(", ")
-            };
-            rsx! {
-                span { class: "mr-usedin {dim}", "{recipes}" }
-            }
-        }),
-        Column::new("Status", move |line: &ShoppingListLine| {
-            if line.ingredient_id.is_none() {
-                let target = line.clone();
-                let busy = removing() == Some(line.id);
-                return rsx! {
-                    div { class: "mr-linestatus",
-                        if purchased(line) {
-                            Badge { tone: Tone::Green, "Purchased" }
-                        } else {
-                            span { class: "mr-text--muted", "To buy" }
-                        }
-                        Button {
-                            variant: ButtonVariant::Ghost,
-                            size: Size::Sm,
-                            loading: busy,
-                            disabled: removing().is_some(),
-                            onclick: move |_| remove_own_item(target.clone()),
-                            "Remove"
-                        }
-                    }
-                };
-            }
-            match line.sleep_until {
-                Some(until) => {
-                    let target = line.clone();
-                    let busy = waking() == Some(line.id);
-                    rsx! {
-                        div { class: "mr-linestatus",
-                            Badge { tone: Tone::Amber, "Not adding until {date_label(until)}" }
-                            Button {
-                                variant: ButtonVariant::Ghost,
-                                size: Size::Sm,
-                                loading: busy,
-                                disabled: waking().is_some(),
-                                onclick: move |_| add_back(target.clone()),
-                                "Add back"
-                            }
-                        }
-                    }
-                }
-                None if purchased(line) => rsx! {
-                    Badge { tone: Tone::Green, "Purchased" }
-                },
-                None => rsx! {
-                    span { class: "mr-text--muted", "To buy" }
-                },
-            }
-        })
-        .interactive(),
-    ];
+        }
+    };
 
     let sleeping_count = items.iter().filter(|l| l.sleep_until.is_some()).count();
     let purchased_count = items
@@ -497,13 +415,120 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                         "{to_buy} to buy, {purchased_count} purchased, {sleeping_count} sleeping"
                     }
                     AddCustomItem { busy: adding(), on_add: add_own_item }
-                    div { class: "mr-tablepanel",
-                        DataTable::<ShoppingListLine> {
-                            columns: columns.clone(),
-                            rows: items.clone(),
-                            empty: "None of this week's recipes list any ingredients yet.".to_string(),
-                            selectable: true,
-                            on_select: move |rows: Vec<usize>| selected.set(rows),
+                    ul { class: "mr-linelist",
+                        for line in items.iter().filter(|l| l.sleep_until.is_none() && !purchased(l)) {
+                            LineRow {
+                                key: "{line.id}",
+                                line: line.clone(),
+                                checked: false,
+                                on_tick: tick(line),
+                                if line.ingredient_id.is_none() {
+                                    {own_item_action(line)}
+                                } else {
+                                    Button {
+                                        variant: if selected().contains(&line.id) { ButtonVariant::Solid } else { ButtonVariant::Ghost },
+                                        size: Size::Sm,
+                                        onclick: {
+                                            let id = line.id;
+                                            move |_| {
+                                                let mut chosen = selected.write();
+                                                match chosen.iter().position(|&x| x == id) {
+                                                    Some(at) => {
+                                                        chosen.remove(at);
+                                                    }
+                                                    None => chosen.push(id),
+                                                }
+                                            }
+                                        },
+                                        if selected().contains(&line.id) { "Selected" } else { "Sleep" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if items.is_empty() {
+                        Text { muted: true, "None of this week's recipes list any ingredients yet." }
+                    } else if to_buy == 0 {
+                        Text { muted: true, "Nothing left to buy." }
+                    }
+                    if purchased_count > 0 {
+                        section { class: "mr-linegroup",
+                            div { class: "mr-linegroup__head",
+                                button {
+                                    class: "mr-linegroup__toggle",
+                                    r#type: "button",
+                                    aria_expanded: "{basket_open()}",
+                                    onclick: move |_| basket_open.set(!basket_open()),
+                                    span { class: "mr-linegroup__chev", aria_hidden: "true",
+                                        if basket_open() { "\u{25be}" } else { "\u{25b8}" }
+                                    }
+                                    "In basket ({purchased_count})"
+                                }
+                                Button {
+                                    variant: ButtonVariant::Outline,
+                                    size: Size::Sm,
+                                    loading: clearing(),
+                                    onclick: clear_bought,
+                                    "Clear bought"
+                                }
+                            }
+                            if basket_open() {
+                                ul { class: "mr-linelist",
+                                    for line in items.iter().filter(|l| l.sleep_until.is_none() && purchased(l)) {
+                                        LineRow {
+                                            key: "{line.id}",
+                                            line: line.clone(),
+                                            checked: true,
+                                            on_tick: tick(line),
+                                            if line.ingredient_id.is_none() {
+                                                {own_item_action(line)}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if sleeping_count > 0 {
+                        section { class: "mr-linegroup",
+                            div { class: "mr-linegroup__head",
+                                button {
+                                    class: "mr-linegroup__toggle",
+                                    r#type: "button",
+                                    aria_expanded: "{sleeping_open()}",
+                                    onclick: move |_| sleeping_open.set(!sleeping_open()),
+                                    span { class: "mr-linegroup__chev", aria_hidden: "true",
+                                        if sleeping_open() { "\u{25be}" } else { "\u{25b8}" }
+                                    }
+                                    "Sleeping ({sleeping_count})"
+                                }
+                            }
+                            if sleeping_open() {
+                                ul { class: "mr-linelist",
+                                    for line in items.iter().filter(|l| l.sleep_until.is_some()) {
+                                        LineRow {
+                                            key: "{line.id}",
+                                            line: line.clone(),
+                                            checked: false,
+                                            on_tick: None,
+                                            if let Some(until) = line.sleep_until {
+                                                Badge { tone: Tone::Amber, "Back {date_label(until)}" }
+                                                Button {
+                                                    variant: ButtonVariant::Ghost,
+                                                    size: Size::Sm,
+                                                    loading: waking() == Some(line.id),
+                                                    disabled: waking().is_some(),
+                                                    onclick: {
+                                                        let target = line.clone();
+                                                        move |_| add_back(target.clone())
+                                                    },
+                                                    "Add back"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 },
