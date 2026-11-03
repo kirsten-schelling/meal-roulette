@@ -116,7 +116,7 @@ Goal: get real C/C++ reps (embedded hiring still expects them), done _coherently
      csrc/{solver.c, solver.h}
      src/lib.rs             # unsafe extern "C" bindings + safe roll() wrapper + tests
    ```
-   Status: built. `solver.c` is a backtracking CSP search with its own seeded PRNG (splitmix64), so a seed reproduces a week on any platform. Rust owns every buffer that crosses the boundary; C allocates only internal scratch space (`calloc`, freed on every path). Teaches C discipline + struct layout + the C↔Rust ABI + host-side tests.
+   Status: built. `solver.c` is a backtracking CSP search with its own seeded PRNG (splitmix64), so a seed reproduces a week on any platform. Per-day limits (`SlotLimit`: day, column, low, high) restrict which recipes a given day may take; the solver fills the most restricted days first and only shuffles days that allow the same recipes. Rust owns every buffer that crosses the boundary; C allocates only internal scratch space (`calloc`, freed on every path). Teaches C discipline + struct layout + the C↔Rust ABI + host-side tests.
    _(A client-side `C → WASM` version was considered but **dropped** — it'd force shipping the whole recipe dataset to the browser. Only worth it if offline rolls ever become a goal.)_
 4. **(Stretch) C++ + OpenCV CLI** for receipt-OCR preprocessing (deskew / threshold before OCR) — ties into a ROADMAP feature.
 

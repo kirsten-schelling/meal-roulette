@@ -1,4 +1,6 @@
-use domain::roll::{Bound, DifficultyBand, DifficultyRule, Importance};
+use domain::roll::{
+    Bound, DayLimitPlan, DayLimits, DayLimitsAt, DifficultyBand, DifficultyRule, Importance,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -16,6 +18,8 @@ pub struct RollSettings {
     pub cuisines: Vec<LookupRule>,
     #[serde(default)]
     pub ingredients: Vec<LookupRule>,
+    #[serde(default)]
+    pub day_limits: DayLimitSettings,
     /// Presets saved before difficulty rules existed kept an exact per-level
     /// day mix instead. It is only read, and turned into band rules.
     #[serde(default, skip_serializing)]
@@ -49,6 +53,54 @@ impl RollSettings {
                 })
             })
             .collect()
+    }
+}
+
+/// The limit every day follows, and the days that have their own. Days are
+/// numbers from the first rolled day (0), so a preset fits any start date. Off
+/// by default, so a plain roll is unlimited.
+#[derive(Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct DayLimitSettings {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub default: DayLimits,
+    #[serde(default)]
+    pub overrides: Vec<DayLimitsAt>,
+}
+
+impl DayLimitSettings {
+    /// The own limits of rolled day `day`, if it has any.
+    pub fn override_for(&self, day: usize) -> Option<DayLimits> {
+        self.overrides
+            .iter()
+            .find(|o| usize::from(o.day) == day)
+            .map(|o| o.limits)
+    }
+
+    /// Sets or, with `None`, clears the own limits of rolled day `day`.
+    pub fn set_override(&mut self, day: usize, limits: Option<DayLimits>) {
+        let Ok(day) = u16::try_from(day) else {
+            return;
+        };
+        self.overrides.retain(|o| o.day != day);
+        if let Some(limits) = limits {
+            self.overrides.push(DayLimitsAt { day, limits });
+        }
+    }
+
+    /// The limits to send with a roll of `num_days`, or `None` when they are
+    /// switched off. Overrides past `num_days` are left out.
+    pub fn plan(&self, num_days: usize) -> Option<DayLimitPlan> {
+        self.enabled.then(|| DayLimitPlan {
+            default: self.default,
+            overrides: self
+                .overrides
+                .iter()
+                .filter(|o| usize::from(o.day) < num_days)
+                .copied()
+                .collect(),
+        })
     }
 }
 
@@ -142,6 +194,51 @@ mod tests {
             bands,
             [(DifficultyBand::Easy, 3), (DifficultyBand::Hard, 1)]
         );
+    }
+
+    #[test]
+    fn a_preset_without_day_limits_loads_with_them_off() {
+        let settings: RollSettings = serde_json::from_str(r#"{"num_days": "5"}"#).expect("parses");
+        assert!(!settings.day_limits.enabled);
+        assert!(settings.day_limits.plan(5).is_none());
+    }
+
+    #[test]
+    fn day_limits_round_trip_through_a_preset() {
+        let mut limits = DayLimitSettings {
+            enabled: true,
+            ..DayLimitSettings::default()
+        };
+        limits.default.max_time_mins = Some(30);
+        limits.set_override(
+            2,
+            Some(DayLimits {
+                min_difficulty: Some(DifficultyBand::Hard),
+                ..DayLimits::default()
+            }),
+        );
+        let settings = RollSettings {
+            day_limits: limits.clone(),
+            ..RollSettings::default()
+        };
+        let json = serde_json::to_value(&settings).expect("serialises");
+        let back: RollSettings = serde_json::from_value(json).expect("parses");
+        assert!(back.day_limits == limits);
+    }
+
+    #[test]
+    fn only_the_rolled_days_overrides_are_sent() {
+        let mut limits = DayLimitSettings {
+            enabled: true,
+            ..DayLimitSettings::default()
+        };
+        limits.set_override(2, Some(DayLimits::default()));
+        limits.set_override(9, Some(DayLimits::default()));
+        let plan = limits.plan(5).expect("enabled");
+        assert_eq!(plan.overrides.len(), 1);
+        assert_eq!(plan.overrides[0].day, 2);
+        limits.set_override(2, None);
+        assert!(limits.override_for(2).is_none());
     }
 
     #[test]

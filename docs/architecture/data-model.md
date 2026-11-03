@@ -291,7 +291,8 @@ recipe amounts and the ingredient are entered in the same unit, so no conversion
 `name` (nullable label), `roll_constraints` (`JSONB`, default `{}`: the rules the plan was
 rolled under, in the shape of `domain::roll::RollConstraints`, i.e. cuisine, protein,
 must-use-ingredient and difficulty-band counts, each at least or at most, each Required or a
-High / Medium / Low preference; kept so a single day can be re-rolled against the same rules.
+High / Medium / Low preference, plus optional per-day difficulty and cook-time limits by day
+number (`day_limits`); kept so a single day can be re-rolled against the same rules.
 Fields added later default when an older plan is read), `is_favourite` (default `false`),
 `archived_at` (nullable; `NULL` = active). An archived plan keeps its days but drops out of the
 active history and is never the "latest" plan the home and plan pages show. Deleting a plan
@@ -300,9 +301,9 @@ entries stay, unlinked (`SET NULL`).
 
 **`planned_meal`** — one dinner slot in a plan. `meal_plan_id` (`ON DELETE CASCADE`),
 `recipe_id` (`ON DELETE RESTRICT`), `scheduled_date`, `is_pinned` (reserved for the pin/keep feature; nothing sets it yet, a roll writes `false`),
-`target_difficulty` (nullable; reserved for a per-day difficulty override and currently unused:
-the roll always writes `NULL` and nothing reads it. Difficulty is shaped by the week-level band
-rules in `meal_plan.roll_constraints`). `uq_planned_meal (meal_plan_id, scheduled_date)` — one dinner per day per plan;
+`target_difficulty` (nullable; unused: the roll always writes `NULL` and nothing reads it.
+Per-day limits live in `meal_plan.roll_constraints.day_limits`, keyed by day number counted
+from the plan's `start_date`, as a default for all days plus per-day overrides). `uq_planned_meal (meal_plan_id, scheduled_date)` — one dinner per day per plan;
 `uq_planned_meal_recipe (meal_plan_id, recipe_id)` — a recipe appears at most once per plan,
 whether the solver picked it or a swap chose it.
 

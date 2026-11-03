@@ -65,6 +65,14 @@ struct RawRequirement {
 }
 
 #[repr(C)]
+struct RawSlotLimit {
+    day: i32,
+    attribute: i32,
+    low: i32,
+    high: i32,
+}
+
+#[repr(C)]
 struct Input {
     attributes: *const i32,
     num_recipes: i32,
@@ -72,6 +80,8 @@ struct Input {
     requirements: *const RawRequirement,
     num_requirements: i32,
     num_recipes_to_pick: i32,
+    slot_limits: *const RawSlotLimit,
+    num_slot_limits: i32,
     seed: u64,
 }
 
@@ -91,18 +101,39 @@ const MR_ERR_NO_MEMORY: i32 = 3;
 const MR_ERR_GAVE_UP: i32 = 4;
 const MR_NO_LIMIT: i32 = -1;
 
+/// "Day `day` (0-based) takes only a recipe whose value in column `attribute`
+/// is in `low..=high`." A day may carry several limits, all of which must hold;
+/// a day with none takes any recipe. Limits are always required.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SlotLimit {
+    pub day: usize,
+    pub attribute: usize,
+    pub low: i32,
+    pub high: i32,
+}
+
+impl SlotLimit {
+    pub fn allows(&self, row: &[i32]) -> bool {
+        row.get(self.attribute)
+            .is_some_and(|value| (self.low..=self.high).contains(value))
+    }
+}
+
 /// Everything one roll needs: each recipe as a row of attribute values (all
 /// rows the same length), the requirements over those columns, how many
-/// recipes to pick, and the seed for the solver's random choices.
+/// recipes to pick, per-day limits on what a given day may take, and the seed
+/// for the solver's random choices.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Problem {
     pub recipes: Vec<Vec<i32>>,
     pub requirements: Vec<Requirement>,
+    pub slot_limits: Vec<SlotLimit>,
     pub num_to_pick: usize,
     pub seed: u64,
 }
 
-/// A roll's result: `picks` holds positions into `Problem::recipes`, and
+/// A roll's result: `picks[d]` is the position into `Problem::recipes` chosen
+/// for day `d`, and
 /// `achieved[j]` how many picks match `Problem::requirements[j]`, so a caller
 /// can tell which preferences had to be loosened.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -128,6 +159,8 @@ pub enum SolveError {
     BadIndex(i32),
     /// The solver picked the same recipe (by pool index) more than once.
     Duplicate(usize),
+    /// The solver gave day `n` a recipe that day's limits do not allow.
+    BrokenLimit(usize),
 }
 
 impl fmt::Display for SolveError {
@@ -144,6 +177,12 @@ impl fmt::Display for SolveError {
                 write!(
                     f,
                     "the solver returned recipe index {index}, which is out of range"
+                )
+            }
+            SolveError::BrokenLimit(day) => {
+                write!(
+                    f,
+                    "the solver gave day {day} a recipe its limits do not allow"
                 )
             }
             SolveError::Duplicate(index) => {
@@ -170,6 +209,16 @@ fn raw(requirement: &Requirement) -> Result<RawRequirement, SolveError> {
     })
 }
 
+fn raw_slot_limit(limit: &SlotLimit) -> Result<RawSlotLimit, SolveError> {
+    let index = |n: usize| i32::try_from(n).map_err(|_| SolveError::InvalidInput);
+    Ok(RawSlotLimit {
+        day: index(limit.day)?,
+        attribute: index(limit.attribute)?,
+        low: limit.low,
+        high: limit.high,
+    })
+}
+
 /// Run the solver. On success the picks are `problem.num_to_pick` distinct
 /// positions into `problem.recipes`, in day order.
 pub fn roll(problem: &Problem) -> Result<Solution, SolveError> {
@@ -189,6 +238,10 @@ pub fn roll(problem: &Problem) -> Result<Solution, SolveError> {
             .requirements
             .iter()
             .any(|r| r.attribute >= num_attributes)
+        || problem
+            .slot_limits
+            .iter()
+            .any(|l| l.attribute >= num_attributes || l.day >= problem.num_to_pick)
     {
         return Err(SolveError::InvalidInput);
     }
@@ -200,6 +253,11 @@ pub fn roll(problem: &Problem) -> Result<Solution, SolveError> {
         .iter()
         .map(raw)
         .collect::<Result<Vec<_>, _>>()?;
+    let slot_limits = problem
+        .slot_limits
+        .iter()
+        .map(raw_slot_limit)
+        .collect::<Result<Vec<_>, _>>()?;
     let input = Input {
         attributes: attributes.as_ptr(),
         num_recipes: count(pool_size)?,
@@ -207,6 +265,8 @@ pub fn roll(problem: &Problem) -> Result<Solution, SolveError> {
         requirements: requirements.as_ptr(),
         num_requirements: count(requirements.len())?,
         num_recipes_to_pick: count(problem.num_to_pick)?,
+        slot_limits: slot_limits.as_ptr(),
+        num_slot_limits: count(slot_limits.len())?,
         seed: problem.seed,
     };
     let mut picks = vec![0i32; problem.num_to_pick];
@@ -231,7 +291,7 @@ pub fn roll(problem: &Problem) -> Result<Solution, SolveError> {
     }
 
     let mut seen = vec![false; pool_size];
-    let picks = picks
+    let picks: Vec<usize> = picks
         .iter()
         .map(|&raw| {
             let index = usize::try_from(raw)
@@ -243,7 +303,14 @@ pub fn roll(problem: &Problem) -> Result<Solution, SolveError> {
             }
             Ok(index)
         })
-        .collect::<Result<Vec<usize>, _>>()?;
+        .collect::<Result<_, _>>()?;
+    if let Some(limit) = problem
+        .slot_limits
+        .iter()
+        .find(|l| !l.allows(&problem.recipes[picks[l.day]]))
+    {
+        return Err(SolveError::BrokenLimit(limit.day));
+    }
     let achieved = problem
         .requirements
         .iter()
@@ -265,6 +332,7 @@ mod tests {
     unsafe extern "C" {
         fn mr_solver_input_size() -> usize;
         fn mr_solver_requirement_size() -> usize;
+        fn mr_solver_slot_limit_size() -> usize;
     }
 
     const CUISINE: usize = 0;
@@ -309,6 +377,7 @@ mod tests {
 
     fn mixed_problem(seed: u64) -> Problem {
         Problem {
+            slot_limits: Vec::new(),
             recipes: mixed_pool(),
             requirements: vec![
                 rule(CUISINE, 1, 2, Importance::Required),
@@ -338,6 +407,10 @@ mod tests {
         assert_eq!(
             unsafe { mr_solver_requirement_size() },
             std::mem::size_of::<RawRequirement>()
+        );
+        assert_eq!(
+            unsafe { mr_solver_slot_limit_size() },
+            std::mem::size_of::<RawSlotLimit>()
         );
     }
 
@@ -376,6 +449,7 @@ mod tests {
     #[test]
     fn a_requirement_on_a_missing_column_is_rejected() {
         let problem = Problem {
+            slot_limits: Vec::new(),
             recipes: pool(),
             requirements: vec![rule(7, 1, 1, Importance::Required)],
             num_to_pick: 1,
@@ -434,6 +508,7 @@ mod tests {
     #[test]
     fn a_minimum_above_the_maximum_is_rejected() {
         let problem = Problem {
+            slot_limits: Vec::new(),
             recipes: pool(),
             requirements: vec![Requirement {
                 at_least: 2,
@@ -481,6 +556,7 @@ mod tests {
         let (thai, italian, chicken, beef) = (1, 2, 1, 2);
         for seed in 0..50 {
             let problem = Problem {
+                slot_limits: Vec::new(),
                 recipes: vec![recipe(thai, chicken, 2), recipe(italian, beef, 2)],
                 requirements: vec![
                     rule(CUISINE, thai, 1, Importance::Required),
@@ -506,6 +582,7 @@ mod tests {
     #[test]
     fn too_few_recipes_of_a_protein_is_unsatisfiable() {
         let problem = Problem {
+            slot_limits: Vec::new(),
             recipes: pool(),
             requirements: vec![rule(PROTEIN, 1, 2, Importance::Required)],
             num_to_pick: 2,
@@ -517,6 +594,7 @@ mod tests {
     #[test]
     fn a_count_beyond_the_week_is_unsatisfiable() {
         let problem = Problem {
+            slot_limits: Vec::new(),
             recipes: pool(),
             requirements: vec![rule(CUISINE, 1, u32::MAX >> 1, Importance::Required)],
             num_to_pick: 2,
@@ -529,6 +607,7 @@ mod tests {
     fn at_most_caps_how_often_a_value_appears() {
         for seed in 0..50 {
             let problem = Problem {
+                slot_limits: Vec::new(),
                 recipes: mixed_pool(),
                 requirements: vec![at_most(PROTEIN, 1, 1, Importance::Required)],
                 num_to_pick: 6,
@@ -551,6 +630,7 @@ mod tests {
         };
         for seed in 0..50 {
             let problem = Problem {
+                slot_limits: Vec::new(),
                 recipes: mixed_pool(),
                 requirements: vec![hard],
                 num_to_pick: 4,
@@ -565,6 +645,7 @@ mod tests {
     fn a_preference_is_kept_when_it_fits() {
         for seed in 0..50 {
             let problem = Problem {
+                slot_limits: Vec::new(),
                 recipes: mixed_pool(),
                 requirements: vec![rule(CUISINE, 3, 3, Importance::Medium)],
                 num_to_pick: 4,
@@ -578,6 +659,7 @@ mod tests {
     #[test]
     fn a_preference_that_cannot_fit_is_loosened_not_failed() {
         let problem = Problem {
+            slot_limits: Vec::new(),
             recipes: vec![
                 recipe(1, 1, 1),
                 recipe(1, 2, 2),
@@ -597,6 +679,7 @@ mod tests {
     fn a_required_rule_beats_a_preference() {
         for seed in 0..30 {
             let problem = Problem {
+                slot_limits: Vec::new(),
                 recipes: mixed_pool(),
                 requirements: vec![
                     rule(PROTEIN, 1, 2, Importance::High),
@@ -614,6 +697,7 @@ mod tests {
     fn the_more_important_preference_wins_a_conflict() {
         for seed in 0..30 {
             let problem = Problem {
+                slot_limits: Vec::new(),
                 recipes: mixed_pool(),
                 requirements: vec![
                     at_most(CUISINE, 2, 0, Importance::Low),
@@ -624,6 +708,181 @@ mod tests {
             };
             let solution = roll(&problem).expect("preferences never fail a roll");
             assert_eq!(solution.achieved[1], 2, "seed {seed}");
+        }
+    }
+
+    fn limit(day: usize, attribute: usize, low: i32, high: i32) -> SlotLimit {
+        SlotLimit {
+            day,
+            attribute,
+            low,
+            high,
+        }
+    }
+
+    /// Easy days (0-2) and ambitious days (3-4) over `mixed_pool`.
+    fn day_limit_problem(seed: u64) -> Problem {
+        let mut slot_limits: Vec<SlotLimit> = (0..3).map(|d| limit(d, DIFFICULTY, 1, 2)).collect();
+        slot_limits.extend((3..5).map(|d| limit(d, DIFFICULTY, 4, 5)));
+        Problem {
+            recipes: mixed_pool(),
+            slot_limits,
+            num_to_pick: 5,
+            seed,
+            ..Problem::default()
+        }
+    }
+
+    #[test]
+    fn each_day_gets_a_recipe_its_limits_allow() {
+        for seed in 0..100 {
+            let problem = day_limit_problem(seed);
+            let solution = roll(&problem).expect("the pool has easy and hard recipes");
+            for (day, &pick) in solution.picks.iter().enumerate() {
+                let difficulty = problem.recipes[pick][DIFFICULTY];
+                if day < 3 {
+                    assert!((1..=2).contains(&difficulty), "seed {seed} day {day}");
+                } else {
+                    assert!((4..=5).contains(&difficulty), "seed {seed} day {day}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_day_can_have_a_band_and_a_time_cap() {
+        const TIME: usize = 3;
+        let recipes: Vec<Vec<i32>> = vec![
+            vec![1, 1, 1, 15],
+            vec![1, 1, 2, 60],
+            vec![1, 1, 2, 25],
+            vec![1, 1, 5, 25],
+            vec![1, 1, 5, 120],
+        ];
+        for seed in 0..50 {
+            let problem = Problem {
+                recipes: recipes.clone(),
+                slot_limits: vec![limit(0, DIFFICULTY, 1, 2), limit(0, TIME, 0, 30)],
+                num_to_pick: 2,
+                seed,
+                ..Problem::default()
+            };
+            let solution = roll(&problem).expect("two recipes are easy and quick");
+            assert!([0, 2].contains(&solution.picks[0]), "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn limited_weeks_repeat_for_a_seed_and_vary_across_seeds() {
+        let first = roll(&day_limit_problem(11)).expect("feasible");
+        assert_eq!(roll(&day_limit_problem(11)), Ok(first));
+        let weeks: std::collections::HashSet<Vec<usize>> = (0..40)
+            .map(|seed| roll(&day_limit_problem(seed)).expect("feasible").picks)
+            .collect();
+        assert!(weeks.len() > 1);
+    }
+
+    #[test]
+    fn days_with_the_same_limits_still_trade_places() {
+        let firsts: std::collections::HashSet<usize> = (0..60)
+            .map(|seed| {
+                let problem = Problem {
+                    recipes: vec![recipe(1, 1, 1), recipe(1, 2, 1), recipe(1, 3, 5)],
+                    slot_limits: vec![limit(2, DIFFICULTY, 5, 5)],
+                    num_to_pick: 3,
+                    seed,
+                    ..Problem::default()
+                };
+                let picks = roll(&problem).expect("two easy and one hard").picks;
+                assert_eq!(picks[2], 2, "seed {seed}");
+                picks[0]
+            })
+            .collect();
+        assert_eq!(firsts.len(), 2);
+    }
+
+    #[test]
+    fn counting_rules_and_day_limits_hold_together() {
+        for seed in 0..50 {
+            let mut problem = day_limit_problem(seed);
+            problem.requirements = vec![rule(PROTEIN, 3, 2, Importance::Required)];
+            let solution = roll(&problem).expect("protein 3 has easy and hard recipes");
+            assert!(solution.achieved[0] >= 2, "seed {seed}");
+            for l in &problem.slot_limits {
+                assert!(
+                    l.allows(&problem.recipes[solution.picks[l.day]]),
+                    "seed {seed}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_day_no_recipe_suits_is_unsatisfiable() {
+        let problem = Problem {
+            recipes: pool(),
+            slot_limits: vec![limit(1, DIFFICULTY, 4, 4)],
+            num_to_pick: 2,
+            seed: 0,
+            ..Problem::default()
+        };
+        assert_eq!(roll(&problem), Err(SolveError::Unsatisfiable));
+    }
+
+    #[test]
+    fn more_limited_days_than_suitable_recipes_is_unsatisfiable() {
+        let mut recipes: Vec<Vec<i32>> = (0..30).map(|_| recipe(1, 1, 5)).collect();
+        recipes.extend([recipe(1, 1, 1), recipe(1, 1, 2)]);
+        let problem = Problem {
+            recipes,
+            slot_limits: (0..3).map(|d| limit(d, DIFFICULTY, 1, 2)).collect(),
+            num_to_pick: 6,
+            seed: 3,
+            ..Problem::default()
+        };
+        assert_eq!(roll(&problem), Err(SolveError::Unsatisfiable));
+    }
+
+    #[test]
+    fn a_required_rule_that_clashes_with_the_day_limits_is_unsatisfiable() {
+        let problem = Problem {
+            recipes: pool(),
+            requirements: vec![rule(DIFFICULTY, 5, 1, Importance::Required)],
+            slot_limits: vec![limit(0, DIFFICULTY, 1, 2), limit(1, DIFFICULTY, 1, 2)],
+            num_to_pick: 2,
+            seed: 0,
+        };
+        assert_eq!(roll(&problem), Err(SolveError::Unsatisfiable));
+    }
+
+    #[test]
+    fn a_preference_that_clashes_with_the_day_limits_is_loosened() {
+        let problem = Problem {
+            recipes: pool(),
+            requirements: vec![rule(DIFFICULTY, 5, 1, Importance::High)],
+            slot_limits: vec![limit(0, DIFFICULTY, 1, 2), limit(1, DIFFICULTY, 1, 3)],
+            num_to_pick: 2,
+            seed: 0,
+        };
+        let solution = roll(&problem).expect("day limits alone fit");
+        assert_eq!(solution.achieved, [0]);
+    }
+
+    #[test]
+    fn malformed_day_limits_are_rejected() {
+        for bad in [
+            limit(2, DIFFICULTY, 1, 5),
+            limit(0, 9, 1, 5),
+            limit(0, DIFFICULTY, 5, 1),
+        ] {
+            let problem = Problem {
+                recipes: pool(),
+                slot_limits: vec![bad],
+                num_to_pick: 2,
+                seed: 0,
+                ..Problem::default()
+            };
+            assert_eq!(roll(&problem), Err(SolveError::InvalidInput), "{bad:?}");
         }
     }
 }

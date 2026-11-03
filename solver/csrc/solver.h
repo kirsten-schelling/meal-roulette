@@ -12,7 +12,7 @@
  * Recipes arrive as a grid of attribute values, one row per recipe and one
  * column per attribute (cuisine code, protein code, difficulty, "uses
  * ingredient X" as 0/1, ...). Every rule is the same Requirement shape over one
- * column. Rust decides what the columns mean, so a new kind of rule is a new
+ * column; a SlotLimit narrows which recipes one specific day may take. Rust decides what the columns mean, so a new kind of rule is a new
  * column and/or requirement on the Rust side; nothing here changes.
  *
  * The Rust mirror of these types lives in solver/src/lib.rs. The layout tests
@@ -25,7 +25,8 @@ enum {
     /* Null pointers, negative counts, an attribute out of range, a rule whose
        min_count exceeds its max_count, no picks, or more picks than recipes. */
     MR_ERR_INVALID_INPUT = 1,
-    /* The required rules cannot all be met from the recipes given. */
+    /* The required rules, or the day limits, cannot all be met from the
+       recipes given. */
     MR_ERR_UNSATISFIABLE = 2,
     /* The solver could not allocate its working memory. */
     MR_ERR_NO_MEMORY = 3,
@@ -56,6 +57,16 @@ typedef struct {
     int32_t importance;
 } Requirement;
 
+/* "Day `day` (0-based) takes only a recipe whose value in column `attribute`
+   is in [low, high]." A day may have several limits; all must hold. A day with
+   none takes any recipe. Always required. */
+typedef struct {
+    int32_t day;
+    int32_t attribute;
+    int32_t low;
+    int32_t high;
+} SlotLimit;
+
 typedef struct {
     /* num_recipes rows of num_attributes values: recipe r's value for column a
        is attributes[r * num_attributes + a]. */
@@ -65,21 +76,24 @@ typedef struct {
     const Requirement* requirements;
     int32_t num_requirements;
     int32_t num_recipes_to_pick;
+    const SlotLimit* slot_limits;
+    int32_t num_slot_limits;
     /* Seeds the solver's random choices so a roll can be reproduced. */
     uint64_t seed;
 } Input;
 
 typedef struct {
-    /* num_recipes_to_pick slots; each receives a row index into the attribute
-       grid. No row is picked twice. */
+    /* num_recipes_to_pick slots; slot d receives the row index picked for day
+       d. No row is picked twice. */
     int32_t* recipe_indices;
 } Output;
 
 int32_t mr_solver_roll(const Input* input, Output* output);
 
-/* sizeof(Input) and sizeof(Requirement) as compiled on the C side, so Rust can
-   check both layouts agree. */
+/* sizeof(Input), sizeof(Requirement) and sizeof(SlotLimit) as compiled on the C side, so Rust can
+   check the layouts agree. */
 size_t mr_solver_input_size(void);
 size_t mr_solver_requirement_size(void);
+size_t mr_solver_slot_limit_size(void);
 
 #endif

@@ -7,13 +7,15 @@ use crate::components::ui::*;
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
 use crate::features::protein::hooks::use_protein::use_get_proteins;
+use crate::features::roll::components::DayLimitsCard;
 use crate::features::roll::hooks::use_roll::roll_week;
 use crate::features::roll::hooks::use_roll_preset::{
     add_roll_preset, delete_roll_preset, set_default_roll_preset, update_roll_preset,
     use_get_roll_presets,
 };
 use crate::features::roll::settings::{
-    band_label, bound_label, importance_label, LookupRule, RollSettings, IMPORTANCE_LEVELS,
+    band_label, bound_label, importance_label, DayLimitSettings, LookupRule, RollSettings,
+    IMPORTANCE_LEVELS,
 };
 use crate::hooks::use_toast::use_toast;
 use crate::models::{error_message, parse_iso_date};
@@ -54,6 +56,7 @@ pub fn Roll() -> Element {
 
     // Difficulty: how many dinners land in each band.
     let mut difficulty_rules = use_signal(Vec::<DifficultyRule>::new);
+    let day_limits = use_signal(DayLimitSettings::default);
 
     // Required proteins: add one, then set how many times it should appear.
     let mut protein_picker = use_signal(Picker::default);
@@ -95,6 +98,7 @@ pub fn Roll() -> Element {
         proteins: protein_rules,
         cuisines: cuisine_rules,
         ingredients: ingredient_rules,
+        day_limits,
     };
 
     // Presets: the current selection and the "save as" name.
@@ -485,6 +489,8 @@ pub fn Roll() -> Element {
                     }
                 }
 
+                DayLimitsCard { limits: day_limits, day_count }
+
                 Card { header: "Proteins".to_string(),
                     VStack { gap: 0.75,
                         Text { small: true, muted: true,
@@ -587,6 +593,7 @@ pub fn Roll() -> Element {
                                 proteins: count_rules(&protein_rules.read()),
                                 ingredients: count_rules(&ingredient_rules.read()),
                                 difficulties: difficulty_rules(),
+                                day_limits: day_limits().plan(usize::from(num_days)),
                             };
                             let names = RuleNames::of(form);
                             let seed = seed().trim().parse::<i64>().ok();
@@ -770,6 +777,7 @@ struct RollForm {
     proteins: Signal<Vec<LookupRule>>,
     cuisines: Signal<Vec<LookupRule>>,
     ingredients: Signal<Vec<LookupRule>>,
+    day_limits: Signal<DayLimitSettings>,
 }
 
 /// The rows for one protein / cuisine / ingredient list; edits write back into it.
@@ -886,6 +894,7 @@ fn current_settings(form: RollForm) -> RollSettings {
         proteins: (form.proteins)(),
         cuisines: (form.cuisines)(),
         ingredients: (form.ingredients)(),
+        day_limits: (form.day_limits)(),
         ..RollSettings::default()
     }
 }
@@ -897,4 +906,5 @@ fn apply_settings(s: RollSettings, mut form: RollForm) {
     form.proteins.set(s.proteins);
     form.cuisines.set(s.cuisines);
     form.ingredients.set(s.ingredients);
+    form.day_limits.set(s.day_limits);
 }

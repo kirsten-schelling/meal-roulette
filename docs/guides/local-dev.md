@@ -46,7 +46,7 @@ Task recipes live in the `justfile` — run `just` to list them. The main ones: 
 
 The C solver in `solver/csrc` is compiled by cargo through `solver/build.rs`, so any `cargo`
 command that builds `api` or the web server build also builds it. `cargo test -p solver` runs
-the solver tests (the C/Rust struct layouts agree, plus behaviour tests for validation, required rules, caps, difficulty bands, seeding and preference loosening). `just solver` compiles
+the solver tests (the C/Rust struct layouts agree, plus behaviour tests for validation, required rules, caps, difficulty bands, per-day limits, seeding and preference loosening). `just solver` compiles
 the standalone host harness and runs it against `solver/input.txt` for printf-style debugging
 without the server.
 
