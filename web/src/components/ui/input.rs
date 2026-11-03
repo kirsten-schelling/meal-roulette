@@ -1,4 +1,4 @@
-use crate::components::ui::Field;
+use crate::components::ui::{field::error_id, field::use_control_id, Field};
 use dioxus::prelude::*;
 
 #[component]
@@ -16,17 +16,27 @@ pub fn Input(
     error: Option<String>,
     #[props(optional)] onblur: Option<EventHandler<FocusEvent>>,
     #[props(default)] required: bool,
+    #[props(default)] disabled: bool,
     /// Takes focus when it appears, for a field the user just opened by clicking.
     #[props(default)]
     autofocus: bool,
 ) -> Element {
+    let id = use_control_id();
+    let has_error = error.is_some();
+
     rsx! {
-        Field { label, error, required,
+        Field { label, error, required, control_id: id.clone(),
             input {
+                id: "{id}",
                 class: "mr-input",
                 r#type: "{kind}",
                 value: "{value}",
                 placeholder: placeholder.clone().unwrap_or_default(),
+                required,
+                disabled,
+                aria_required: required.then_some("true"),
+                aria_invalid: has_error.then_some("true"),
+                aria_describedby: has_error.then(|| error_id(&id)),
                 onmounted: move |e: MountedEvent| async move {
                     if autofocus {
                         let _ = e.set_focus(true).await;

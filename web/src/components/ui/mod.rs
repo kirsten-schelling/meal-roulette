@@ -17,6 +17,7 @@ pub mod field;
 pub mod icon;
 pub mod icon_button;
 pub mod input;
+pub mod menu_nav;
 pub mod modal;
 pub mod popover;
 pub mod rating;
