@@ -159,7 +159,7 @@ These rules apply to every table and migration in the project.
 ### Tables & columns
 
 - **Table names**: `snake_case`, **singular**, named for the entity (`recipe`, not
-  `recipes` or `recipe_entity`). A row *is* one recipe.
+  `recipes` or `recipe_entity`). A row _is_ one recipe.
 - **Junction tables**: `parent_child`, both singular (`recipe_ingredient`, `recipe_tag`).
 - **Primary key**: `id`, UUIDv7 (`DEFAULT uuidv7()`; requires Postgres 18).
 - **Foreign keys**: `<referenced_table>_id` (`unit_id`, `recipe_id`, `main_protein_id`).
@@ -185,13 +185,13 @@ These rules apply to every table and migration in the project.
 Named explicitly (never left to Postgres auto-naming) so error messages are legible and
 `ALTER`/`DROP` targets are predictable:
 
-| Object | Prefix | Example |
-| --- | --- | --- |
-| Primary key | `pk_` | `pk_recipe` |
-| Foreign key | `fk_` | `fk_recipe_household` |
-| Unique | `uq_` | `uq_recipe_household_title` |
-| Check | `chk_` | `chk_recipe_difficulty_range` |
-| Index | `idx_` | `idx_planned_meal_scheduled_date` |
+| Object      | Prefix | Example                           |
+| ----------- | ------ | --------------------------------- |
+| Primary key | `pk_`  | `pk_recipe`                       |
+| Foreign key | `fk_`  | `fk_recipe_household`             |
+| Unique      | `uq_`  | `uq_recipe_household_title`       |
+| Check       | `chk_` | `chk_recipe_difficulty_range`     |
+| Index       | `idx_` | `idx_planned_meal_scheduled_date` |
 
 ### Reserved words (forward note)
 
@@ -225,7 +225,7 @@ Uniqueness on catalog tables is scoped by household — e.g. one recipe title pe
 CONSTRAINT uq_recipe_household_title UNIQUE NULLS NOT DISTINCT (household_id, title)
 ```
 
-`NULLS NOT DISTINCT` (Postgres 15+) makes two `NULL` household ids count as *equal* for the
+`NULLS NOT DISTINCT` (Postgres 15+) makes two `NULL` household ids count as _equal_ for the
 constraint, so it also blocks duplicate **global** presets. Without it, Postgres treats each
 `NULL` as distinct and would allow many global recipes with the same title.
 
@@ -261,15 +261,15 @@ preset per household.
 
 **`recipe`** — recipe header and roll attributes.
 
-| Column | Notes |
-| --- | --- |
-| `title` | `uq_recipe_household_title` with `household_id` |
-| `difficulty` | `smallint`, `chk_recipe_difficulty_range CHECK (difficulty BETWEEN 1 AND 5)` |
-| `time_mins` | `smallint`, `chk_recipe_time_mins_positive CHECK (time_mins > 0)` |
-| `servings` | `smallint`, `> 0` — feeds leftovers planning later |
-| `healthiness` | `smallint`, nullable, `BETWEEN 1 AND 5` |
-| `main_protein_id` | FK → `protein`, nullable |
-| `cuisine_id` | FK → `cuisine`, nullable |
+| Column            | Notes                                                                        |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `title`           | `uq_recipe_household_title` with `household_id`                              |
+| `difficulty`      | `smallint`, `chk_recipe_difficulty_range CHECK (difficulty BETWEEN 1 AND 5)` |
+| `time_mins`       | `smallint`, `chk_recipe_time_mins_positive CHECK (time_mins > 0)`            |
+| `servings`        | `smallint`, `> 0` — feeds leftovers planning later                           |
+| `healthiness`     | `smallint`, nullable, `BETWEEN 1 AND 5`                                      |
+| `main_protein_id` | FK → `protein`, nullable                                                     |
+| `cuisine_id`      | FK → `cuisine`, nullable                                                     |
 
 The old `last_cooked` column is **removed** — recency now derives from `cook_log`
 (`MAX(cooked_on)`), so there is a single source of truth.
@@ -338,7 +338,7 @@ list is generated, ingredients with an active sleep are still shown but flagged 
 
 ## Key design decisions
 
-- **`cook_log` is separate from `planned_meal`.** A plan is *intent*; a cook is *fact*. The
+- **`cook_log` is separate from `planned_meal`.** A plan is _intent_; a cook is _fact_. The
   split keeps the metrics log clean, lets unplanned cooking be recorded, and makes `cook_log`
   the single source of truth for recency/interval logic.
 - **`recipe.last_cooked` removed**, derived from `cook_log` instead.

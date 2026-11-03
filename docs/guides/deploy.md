@@ -5,10 +5,10 @@ a Neon Postgres project, and a Cloudflare DNS record, with Neon and Cloudflare m
 Pulumi. See [../architecture/stack.md](../architecture/stack.md) and
 [../decisions/0002-single-process.md](../decisions/0002-single-process.md).
 
-| Piece | Where it is defined |
-| --- | --- |
-| Web server image | `Dockerfile` (repo root) |
-| Fly app | `fly.toml` (repo root) |
+| Piece                               | Where it is defined           |
+| ----------------------------------- | ----------------------------- |
+| Web server image                    | `Dockerfile` (repo root)      |
+| Fly app                             | `fly.toml` (repo root)        |
 | Neon project, Cloudflare DNS record | `infra/` (Pulumi, TypeScript) |
 
 The Pulumi program is TypeScript because the Cloudflare provider is first-class there and the

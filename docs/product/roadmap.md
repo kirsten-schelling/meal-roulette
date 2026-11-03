@@ -17,6 +17,7 @@ shared `domain` crate) · Postgres, fully migrated · the C solver, wired into `
 the single-day re-roll. Stretch surface: ESP32 kitchen screen.
 
 **Status on `main`:**
+
 - Built: roll a week (`/roll`) under week-level rules (cuisine, protein, must-use ingredient and
   difficulty-band counts, each Required or a High / Medium / Low preference), with unmet
   preferences reported back; seeded rolls; re-roll a day; swap a day for a chosen recipe; roll
@@ -29,6 +30,7 @@ the single-day re-roll. Stretch surface: ESP32 kitchen screen.
   writes to it from the app, and the roller does not use recency).
 
 Core sub-features:
+
 - Recipe attributes: difficulty, time-to-make, servings/yield, **main protein**, cuisine,
   tags, **healthiness**.
 - **Difficulty by day**: defaults to easier dishes on weeknights, harder on weekends —
@@ -36,7 +38,7 @@ Core sub-features:
   difficulty-band count rules (e.g. "at least 2 Hard"); there is no weekday/weekend default
   and no per-day override (`planned_meal.target_difficulty` is unused)._
 - Shopping list = union of ingredients across the week's recipes.
-- **Sleep ingredients (shopping list)** — **MVP**. The list still returns *every* ingredient
+- **Sleep ingredients (shopping list)** — **MVP**. The list still returns _every_ ingredient
   the week needs, but you can choose **not to add specific items to the shopping list** when
   you know you don't need to buy them for a while (e.g. soy sauce). **Multi-select** items
   and **sleep them for N weeks**, or **set the number of weeks to wait per item**. _Status:
@@ -50,10 +52,10 @@ Core sub-features:
 
 ## Legend
 
-| Tag | Meaning |
-|-----|---------|
-| **[Own]** | Fully in your control — buildable anytime. |
-| **[Fiddly]** | Feasible but messy — parsing, mobile, or hardware work. |
+| Tag            | Meaning                                                                          |
+| -------------- | -------------------------------------------------------------------------------- |
+| **[Own]**      | Fully in your control — buildable anytime.                                       |
+| **[Fiddly]**   | Feasible but messy — parsing, mobile, or hardware work.                          |
 | **[External]** | Depends on third parties with **no official API** — research-grade, ToS caveats. |
 
 Size = rough effort (S / M / L).
@@ -67,7 +69,7 @@ The individual features get much more powerful when they close into loops:
 1. **Inventory loop** — purchases (receipt scan / barcode / confirm) → **pantry state** →
    shopping list subtracts what you already have → "use it up" biases the roller → cooking
    decrements the pantry. Nail this and the app stops being a randomizer and starts
-   *managing your kitchen*.
+   _managing your kitchen_.
 2. **Preference loop** — cook → rate → the roller weights future weeks. Turns randomness
    into recommendation.
 3. **Cost loop** — pricing → budget constraint + ingredient-overlap batch-cooking → cheaper,
@@ -78,6 +80,7 @@ The individual features get much more powerful when they close into loops:
 ## Feature catalog
 
 ### 1 · Planning & the roller
+
 - **Leftovers-aware planning** — **[Own]** M. Recipes declare a yield; mark surplus
   servings as weekday lunches; the roller guarantees enough coverage for the week.
 - **Roll from a chosen ingredient** — **[Own]** M. The user names an ingredient they want to
@@ -91,7 +94,7 @@ The individual features get much more powerful when they close into loops:
   rolls toward liked, away from disliked; recency derives from `cook_log`.
 - **Min/max cook interval** — **[Own]** M. Per-recipe **minimum gap** ("don't repeat within
   N weeks") and **maximum gap** ("cook at least every M weeks"), on top of the recency
-  weighting. Default to friendly presets (e.g. *rarely / sometimes / often*), with an
+  weighting. Default to friendly presets (e.g. _rarely / sometimes / often_), with an
   **advanced setting** to specify exact weeks per recipe.
 - _(suggested)_ **Busy-day / calendar awareness** — **[Own→Fiddly]** M. "Eating out
   Friday" → roll 6 days not 7; optional Google Calendar push of the plan.
@@ -103,7 +106,7 @@ The individual features get much more powerful when they close into loops:
   This is the manual foundation the budget constraint uses; automatic pricing — the **base
   ingredient library** (§2) fed by scraped data (§4) — would replace the manual entry later.
 - _(suggested)_ **Batch-cook / ingredient-overlap optimisation** — **[Own]** L. Bias the
-  week toward recipes that *share* ingredients, to cut cost and waste. A genuinely
+  week toward recipes that _share_ ingredients, to cut cost and waste. A genuinely
   interesting solver objective to write in Rust.
 - _(suggested)_ **Prep-ahead / defrost awareness** — **[Own]** M. Flag recipes that need an
   overnight step (marinate / soak / defrost) and surface a "do this tonight" nudge the day
@@ -112,7 +115,7 @@ The individual features get much more powerful when they close into loops:
   (cheaper, fresher) via a season→ingredient map; a deeper version leans on scraped pricing
   (§4).
 - _(suggested)_ **Exploration ↔ comfort dial** — **[Own]** S. A "surprise me ↔ safe" slider
-  trading novelty against known favourites — leans into the *roulette* identity; pairs with
+  trading novelty against known favourites — leans into the _roulette_ identity; pairs with
   ratings.
 - **Constraint-conflict prompts** — **[Own]** M. When honouring a request collides with a
   rule — e.g. the only recipe with an ingredient you want to use up is still inside its **min
@@ -122,11 +125,12 @@ The individual features get much more powerful when they close into loops:
   the Roll page; the "cook it anyway / add a recipe" choices are not built._
 
 ### 2 · Recipes & data entry
+
 - **Main protein** — **[Own]** S. Record each recipe's main protein as a first-class
   attribute (chicken / beef / tofu / …). The roller uses it to **rotate proteins across the
   week** (no chicken four nights running).
 - **Healthiness rating** — **[Own]** S. A per-meal healthiness rating (simple scale for
-  now); the roller can **cap or balance less-healthy meals per week**. *Future:* derive the
+  now); the roller can **cap or balance less-healthy meals per week**. _Future:_ derive the
   rating from the recipe's **ingredients** rather than a manual per-meal score — ideally
   without making the user rate every ingredient by hand — via the **base ingredient library**
   (below).
@@ -134,8 +138,8 @@ The individual features get much more powerful when they close into loops:
   every-pan-you-own), as a simple per-recipe scale. A roll setting ("keep the dishes down")
   biases or caps high-cleanup meals — per plan or per day, in the same spirit as
   difficulty-by-day.
-- **Flavour profile** - **[Own]** S. A flavour profile per ingredient (eg Sugar = Sweet, 
-  Tomato = Acidic) to classify flavour profiles of recipes. Can be used for future recipe 
+- **Flavour profile** - **[Own]** S. A flavour profile per ingredient (eg Sugar = Sweet,
+  Tomato = Acidic) to classify flavour profiles of recipes. Can be used for future recipe
   recommendations, based on a user's favourite or commonly cooked dishes.
 - **Base ingredient library** — **[Own→External]** L. A canonical, app-maintained set of
   common ingredients that users **extend with their own** when something's missing. Each
@@ -167,21 +171,22 @@ The individual features get much more powerful when they close into loops:
   selected for the week, let the user **swap one of its ingredients** for another; the change
   flows straight into the shopping list. Start with users defining their own subs; how this
   generalises depends on the **base ingredient library** direction (above). The immediate
-  point is building the list from *your* version of the selected recipes.
+  point is building the list from _your_ version of the selected recipes.
 - _(suggested)_ **Cooking notes over time** — **[Own]** S. A per-recipe running log of
   timestamped notes ("used less chili last time"). Separate from editing the recipe itself
   (users can also just adjust a recipe's ingredients) — this is the history, not the recipe.
 - _(suggested)_ **Nutrition (macros / calories)** — **[Own→External]** M. Beyond the health
-  *rating* above, per-recipe macros / calories derived from the **base ingredient library**.
+  _rating_ above, per-recipe macros / calories derived from the **base ingredient library**.
 
 ### 3 · Pantry & inventory
+
 - **Pantry tracking** — **[Own]** M. Track what you have based on confirmed purchases
   (user confirms they bought for a given recipe); the shopping list then subtracts pantry
   stock so you don't re-buy.
   - **Decrement on cooking**, driven by the recipe's ingredients.
   - **Always allow manual override** — the user can add an item to the list even when the
     app thinks it's still stocked.
-  - **Correctable estimates** — the pantry count is an *estimate* (it assumes you cooked
+  - **Correctable estimates** — the pantry count is an _estimate_ (it assumes you cooked
     what was planned), so let the user fix counts when they cooked something unplanned since
     the last purchase.
 - **Sleep as lightweight tracking** — **[Own]** S. Full pantry tracking (above) is
@@ -201,13 +206,14 @@ The individual features get much more powerful when they close into loops:
 - **Receipt OCR (mobile)** — **[Fiddly]** L. Camera → OCR (Google ML Kit on-device, or a
   cloud Vision API) → parse line items → update pantry. Parsing is the hard part
   (each retailer's receipt format differs). Note: the **digital receipts inside the loyalty
-  apps are already structured** — a cleaner data source than OCR *if* you can get at them
+  apps are already structured** — a cleaner data source than OCR _if_ you can get at them
   (see §4).
 - _(suggested)_ **Barcode scanning** — **[Fiddly]** M. Camera barcode + **Open Food Facts**
   (free, open product database with an API) for reliable per-item pantry adds. More accurate
   than OCR for individual items; complements it.
 
-### 4 · Money & shopping integrations — *the hard bucket*
+### 4 · Money & shopping integrations — _the hard bucket_
+
 > **Reality check:** none of the AU supermarkets or loyalty programs offer an official
 > public API for any of this. Everything here is research-grade — treat as spikes, not
 > commitments, and check the ToS.
@@ -224,12 +230,13 @@ The individual features get much more powerful when they close into loops:
   already exposes usable data.
 
 ### 5 · Surfaces
+
 - **Mobile app** — **[Fiddly]** M. Native Dioxus mobile target (same codebase as web/desktop).
   Unlocks the camera (OCR / barcode), share-sheet recipe import, push notifications, and an
   offline shopping list for in-store with bad signal.
 - **Kitchen screen** — **[Fiddly / Hardware]** L. Show day + planned meal; display the
   recipe while cooking; add recently-made recipes.
-  - **Display:** e-ink is lovely for a *passive, always-on "this week"* panel (low power)
+  - **Display:** e-ink is lovely for a _passive, always-on "this week"_ panel (low power)
     but refreshes too slowly to scroll a recipe — a small **TFT/LCD** or a repurposed
     **tablet** is better for interactive cook mode. Possibly two modes / two devices.
   - **Input:** a full keyboard is awkward on embedded. Simpler: a **rotary encoder +
@@ -244,6 +251,7 @@ The individual features get much more powerful when they close into loops:
   use it to decrement the pantry — an embedded alternative to barcode / OCR (§3).
 
 ### 6 · Household & collaboration
+
 - **Household with multiple members** — **[Own]** M. One household, several members. The
   **main cook** does most of the planning; other members can **suggest recipes** (into a
   shared pool the cook can pull into the roll or pin) and **veto** recipes or specific
@@ -251,10 +259,10 @@ The individual features get much more powerful when they close into loops:
   `household_id` is already on the core tables, so ownership isn't a retrofit.
 - **Per-day cook assignment** — **[Own]** M. Assign who's cooking on which days ("Tuesday
   is Sam's night"); the roll respects it.
-- **Per-user recipe affinity** — **[Own]** M. Track which recipes each member *likes to
-  make* / is comfortable cooking. When a slot is assigned to a member, the roller prefers
+- **Per-user recipe affinity** — **[Own]** M. Track which recipes each member _likes to
+  make_ / is comfortable cooking. When a slot is assigned to a member, the roller prefers
   from that member's recipes.
-- **Public recipes & recommended periods** — **[Own]** L. *Future.* Let users make recipes
+- **Public recipes & recommended periods** — **[Own]** L. _Future._ Let users make recipes
   **publicly available** beyond their household. On top of that pool, the app recommends a
   **full week (or any chosen period) in one shot** from the household's settings, goals and
   history — drawing on both the own library and public recipes, so a plan arrives ready to
@@ -264,28 +272,30 @@ The individual features get much more powerful when they close into loops:
 > become weighted **inputs to the roller** — which is where the interesting Rust logic lives.
 
 ### 7 · Shopping list
+
 > The list is generated from the week's recipes; **sleep ingredients** (MVP, core loop)
 > already lets you suppress items you don't need to buy yet.
 
 - _(suggested)_ **Quantity aggregation + unit math** — **[Own]** L. Sum quantities for the
   same ingredient across the week's recipes and reconcile units. Density makes ml↔g
   **product-specific** (water 1:1, flour not), so two modes:
-  - **Simple (default):** the user picks one unit per ingredient and enters *everything* —
+  - **Simple (default):** the user picks one unit per ingredient and enters _everything_ —
     recipe amounts and the ingredient itself — in that unit, so no conversion is needed.
   - **Advanced:** ship a set of standard conversions, and let users add their own
     **per-product** conversions where the standard ones don't fit.
 - _(suggested)_ **Customisable list display** — **[Own]** M. Let users define **their own
-  sections and grouping** for the list — one person groups into *Longlife / Fresh / Meat*,
+  sections and grouping** for the list — one person groups into _Longlife / Fresh / Meat_,
   another wants different buckets. Ingredient categories from the library feed this, but the
   grouping stays user-configurable.
 - _(suggested)_ **Ad-hoc / non-recipe items** — **[Own]** S. Manually add items that aren't
   tied to any recipe (bin bags, foil) to the week's list.
 
 ### 8 · Insights & goals
+
 - _(suggested)_ **Insights dashboard** — **[Own]** M. Trends that make the attributes pay
   off: protein mix, cuisine spread, healthiness over time, weekly spend, most / least cooked.
 - **Goals & targets** — **[Own]** M. Let the user set **per-meal or per-week goals** — e.g.
-  *max one Chinese dish per week*, *≥ 40 g protein per meal* — that constrain the roll. All
+  _max one Chinese dish per week_, _≥ 40 g protein per meal_ — that constrain the roll. All
   **overridable in advanced settings when they spin the wheel**. (A roller input, surfaced
   here alongside the insights that track progress against it.)
 
@@ -308,7 +318,7 @@ built for personal use, so it leads with what the author values most.
 6. **Ratings / feedback** — the roll gets smarter each week
 7. **Mobile wrap** — unlocks camera + offline; then receipt OCR / barcode for low-friction inventory
 8. **Kitchen screen** — the embedded payoff
-9. *(parallel research track, optional)* **base ingredient library + pricing + loyalty** —
+9. _(parallel research track, optional)_ **base ingredient library + pricing + loyalty** —
    multi-currency, scraped ingredient/price data; spikes, not promises
 
 ---
@@ -321,7 +331,7 @@ built for personal use, so it leads with what the author values most.
   ownership into the schema from the start (§6).
 - **Difficulty by day, overridable.** Easier weeknights, harder weekends by default; the
   user can override per day / per plan.
-- **Recipe sources: both** — hand-entered *and* imported from URL.
+- **Recipe sources: both** — hand-entered _and_ imported from URL.
 - **Pantry decrement: recipe-driven, with user override.** Cooking a planned recipe
   decrements its ingredients; the user can always add an item to the list even when the app
   thinks it's stocked, and can correct counts when they cooked unplanned things.
@@ -342,7 +352,7 @@ built for personal use, so it leads with what the author values most.
 
 ## Still open (deferred)
 
-- **Kitchen-screen hardware + input method** — a *later* hardware decision; nothing needed
+- **Kitchen-screen hardware + input method** — a _later_ hardware decision; nothing needed
   now. (Which device displays it — e-ink panel vs small TFT/LCD vs a repurposed tablet — and
   how you interact — a few buttons, a rotary encoder, a touchscreen, or just your phone as
   the remote.)

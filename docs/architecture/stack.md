@@ -19,8 +19,8 @@
 - **Rust** — Axum 0.8 + SQLx 0.9 (features: `postgres`, `macros`, `migrate`, `uuid`, `time`, `rust_decimal`, `json`, `runtime-tokio`, `tls-rustls`).
 - One root Cargo **workspace**: `api` (a library: state, error mapping, repositories and the REST
   router, plus a thin standalone binary) + `domain` (wire types shared api ↔ web ↔ future device)
-  + `web` (the Dioxus app, whose server build embeds `api`) + `solver` (the meal roller written
-  in **C**, called via FFI — see C/C++ projects).
+  - `web` (the Dioxus app, whose server build embeds `api`) + `solver` (the meal roller written
+    in **C**, called via FFI — see C/C++ projects).
 - Feature-oriented modules: `features/<x>/{ mod.rs = routes, handlers.rs, repository.rs }`;
   request/response types live in the `domain` crate. `roll` is the exception: `mod.rs` (routes:
   `POST /roll`, `POST /planned-meals/{id}/reroll`), `handlers.rs` and `service.rs`, with no
@@ -76,12 +76,12 @@
 
 Same recipes page (table + add form) built several ways to decide by _taste_:
 
-| Stack                          | Verdict / notes                                                                                                                                     |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SvelteKit + shadcn-svelte      | Neutral, composable, you own the components. Plain out of the box.                                                                                  |
-| SvelteKit + DaisyUI            | Opinionated, themed, **nice out of the box**; one `data-theme` swaps the whole look.                                                                |
-| Next 16 + Chakra v3            | Built. Renders, but has an SSR hydration warning to fix. The work-familiar stack.                                                                   |
-| Next 16 + Mantine / AntD / MUI | **Planned, not built** — each needs its own Next-16 SSR wiring; paused as low-value grind.                                                          |
+| Stack                          | Verdict / notes                                                                                                                                                                                                              |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SvelteKit + shadcn-svelte      | Neutral, composable, you own the components. Plain out of the box.                                                                                                                                                           |
+| SvelteKit + DaisyUI            | Opinionated, themed, **nice out of the box**; one `data-theme` swaps the whole look.                                                                                                                                         |
+| Next 16 + Chakra v3            | Built. Renders, but has an SSR hydration warning to fix. The work-familiar stack.                                                                                                                                            |
+| Next 16 + Mantine / AntD / MUI | **Planned, not built** — each needs its own Next-16 SSR wiring; paused as low-value grind.                                                                                                                                   |
 | **Dioxus 0.7** (Rust → WASM)   | **Chosen.** React-like, one codebase → web/desktop/mobile, `#[server]` fns. No OOB components: the app uses its own `web/assets/primitives.css` ("Warm" theme tokens) and hand-built primitives in `web/src/components/ui/`. |
 
 **Status: DECIDED → Dioxus** (fullstack, `#[server]` functions), now the main app in **`web/`**. Trade-off accepted: **no ready-made component library → build your own** (which is wanted anyway).
