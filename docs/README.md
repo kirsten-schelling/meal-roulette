@@ -11,5 +11,5 @@
 
 ## Conventions
 
-- One numbered ADR per decision. An accepted record is never rewritten; a later record supersedes it.
+- One numbered and dated ADR per decision. An accepted record is never rewritten; a later record supersedes it.
 - Docs are standalone reference.

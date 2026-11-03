@@ -2,7 +2,7 @@
 
 Companion to [the roadmap](../product/roadmap.md).
 
-## Principles
+## Guiding principles
 
 - Learning project: deepen Rust on the path to embedded. UI styling is delegated; frontend code is part of the learning.
 - Prefer compile-time errors.
@@ -47,7 +47,7 @@ Companion to [the roadmap](../product/roadmap.md).
 
 ## Frontend
 
-**Decided: Dioxus 0.7** (fullstack, Rust to WASM) in **`web/`**, the only frontend (the `web2/` and `web3/` spikes were deleted). React-like, one codebase for web/desktop/mobile. No ready-made components; it uses `web/assets/primitives.css` ("Warm" tokens) and primitives in `web/src/components/ui/`. Module structure: [web.md](web.md) (normative). Run with `dx serve` at localhost:8080.
+**Decided: Dioxus 0.7** (fullstack, Rust to WASM) in **`web/`**, the only frontend (the `web2/` and `web3/` spikes were deleted). Alternatives built or evaluated: SvelteKit (shadcn-svelte, DaisyUI), Next 16 (Chakra v3), Leptos (signals model, non-React). No ready-made components; it uses `web/assets/primitives.css` ("Warm" tokens) and primitives in `web/src/components/ui/`. Module structure: [web.md](web.md). Run with `dx serve`.
 
 ## C/C++ side-projects (embedded practice)
 
