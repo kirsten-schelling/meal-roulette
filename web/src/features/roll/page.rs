@@ -15,7 +15,7 @@ use crate::features::roll::hooks::use_roll_preset::{
 };
 use crate::features::roll::settings::{
     band_label, bound_label, importance_label, DayLimitSettings, LookupRule, RollSettings,
-    IMPORTANCE_LEVELS,
+    DEFAULT_NUM_DAYS, IMPORTANCE_LEVELS,
 };
 use crate::hooks::use_toast::use_toast;
 use crate::models::{error_message, parse_iso_date};
@@ -49,7 +49,7 @@ pub fn Roll() -> Element {
     let navigator = use_navigator();
 
     // The shape of the week. An empty date means today; an empty seed means random.
-    let mut num_days = use_signal(|| "7".to_string());
+    let mut num_days = use_signal(|| DEFAULT_NUM_DAYS.to_string());
     let mut start_date = use_signal(String::new);
     let mut seed = use_signal(String::new);
     let mut rolling = use_signal(|| false);

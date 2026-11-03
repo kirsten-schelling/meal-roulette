@@ -8,14 +8,15 @@ use crate::features::recipe::filter::{
     matching, CUISINE, DIFFICULTY, HEALTHINESS, MAX_TIME, PROTEIN, SERVINGS, TAG,
 };
 use crate::features::recipe::hooks::use_recipe::{delete_recipe, use_get_recipe_overviews};
+use crate::features::roll::settings::DEFAULT_NUM_DAYS;
 use crate::hooks::use_toast::use_toast;
 use crate::models::error_message;
 use crate::router::Route;
 use dioxus::prelude::*;
 use domain::recipe::{Recipe, RecipeOverview};
 
-/// Recipes needed to roll a first week; matches the roll page's default day count.
-const FIRST_WEEK_RECIPES: usize = 5;
+/// Recipes needed to roll a first week: one per day of the roll page's default.
+const FIRST_WEEK_RECIPES: usize = DEFAULT_NUM_DAYS;
 
 /// How many tags a table row shows before summarising the rest as "+N".
 const TAGS_SHOWN: usize = 3;
