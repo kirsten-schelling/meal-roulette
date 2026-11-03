@@ -245,7 +245,7 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<ShoppingList, sqlx::Error
 mod tests {
     use super::*;
     use crate::features::shopping_list_item::repository::{
-        add_custom, clear_bought_custom, lines, remove_custom, set_purchased,
+        add_custom, clear_bought, lines, remove_custom, set_purchased,
     };
 
     struct Fixture {
@@ -400,10 +400,13 @@ mod tests {
         set_purchased(&pool, before[0].id, true).await.unwrap();
         set_purchased(&pool, bags.id, true).await.unwrap();
 
-        assert_eq!(clear_bought_custom(&pool, list.id).await.unwrap(), 1);
+        assert_eq!(clear_bought(&pool, list.id).await.unwrap(), 2);
 
         let after = lines(&pool, list.id).await.unwrap();
-        assert_eq!(names(&after), ["Rice", "Spaghetti", "Candles"]);
-        assert!(after[0].is_purchased);
+        assert_eq!(names(&after), ["Spaghetti", "Candles"]);
+
+        generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let rebuilt = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&rebuilt), ["Spaghetti", "Candles"]);
     }
 }

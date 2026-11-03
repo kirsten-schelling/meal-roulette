@@ -142,6 +142,9 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
 
     let mut toggle_purchased = move |line_id: Uuid, now: bool| {
         ticks.write().insert(line_id, now);
+        if now {
+            selected.write().retain(|id| *id != line_id);
+        }
         spawn(async move {
             if let Err(e) = set_item_purchased(line_id, now).await {
                 ticks.write().remove(&line_id);
@@ -258,7 +261,12 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         let picked = selected();
         let chosen: Vec<ShoppingListLine> = lines(&data.read())
             .into_iter()
-            .filter(|line| picked.contains(&line.id) && line.ingredient_id.is_some())
+            .filter(|line| {
+                picked.contains(&line.id)
+                    && line.ingredient_id.is_some()
+                    && line.sleep_until.is_none()
+                    && !purchased(line)
+            })
             .collect();
         if chosen.is_empty() {
             return;
@@ -322,10 +330,6 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         .filter(|l| l.sleep_until.is_none() && purchased(l))
         .count();
     let to_buy = items.len() - sleeping_count - purchased_count;
-    let bought_own = items
-        .iter()
-        .filter(|l| l.ingredient_id.is_none() && purchased(l))
-        .count();
 
     rsx! {
         div { class: "mr-page",
@@ -460,14 +464,12 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                                     }
                                     "In basket ({purchased_count})"
                                 }
-                                if bought_own > 0 {
-                                    Button {
-                                        variant: ButtonVariant::Outline,
-                                        size: Size::Sm,
-                                        loading: clearing(),
-                                        onclick: clear_bought,
-                                        "Clear bought"
-                                    }
+                                Button {
+                                    variant: ButtonVariant::Outline,
+                                    size: Size::Sm,
+                                    loading: clearing(),
+                                    onclick: clear_bought,
+                                    "Clear bought"
                                 }
                             }
                             if basket_open() {

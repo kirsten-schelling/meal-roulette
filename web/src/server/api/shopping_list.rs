@@ -93,14 +93,14 @@ pub async fn remove_custom_item(
         .map_err(server_fn_error)
 }
 
-/// Drop the list's ticked free-text lines; returns how many went.
+/// Clear the list's ticked lines (free-text lines deleted, ingredient lines hidden); returns how many.
 #[server]
 pub async fn clear_bought_items(shopping_list_id: Uuid) -> Result<u64, ServerFnError> {
     use crate::server::{app_state, server_fn_error};
     use api::features::shopping_list_item::repository;
 
     let state = app_state()?;
-    repository::clear_bought_custom(&state.db, shopping_list_id)
+    repository::clear_bought(&state.db, shopping_list_id)
         .await
         .map_err(server_fn_error)
 }

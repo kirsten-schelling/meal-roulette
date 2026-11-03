@@ -67,6 +67,7 @@ pub async fn lines(
               AND slept_ingredient.ingredient_id = shopping_list_item.ingredient_id
               AND slept_ingredient.sleep_until >= CURRENT_DATE
         WHERE shopping_list_item.shopping_list_id = $1
+          AND NOT shopping_list_item.is_cleared
         ORDER BY slept_ingredient.id IS NOT NULL,
                  shopping_list_item.ingredient_id IS NULL,
                  COALESCE(ingredient.name, shopping_list_item.name)
@@ -138,12 +139,11 @@ pub async fn remove_custom(
     .await
 }
 
-/// Remove every ticked free-text line of a list and say how many went. Ingredient
-/// lines stay: the plan decides those.
-pub async fn clear_bought_custom(
-    pool: &PgPool,
-    shopping_list_id: Uuid,
-) -> Result<u64, sqlx::Error> {
+/// Clear every ticked line of a list and say how many went. Free-text lines are
+/// deleted; ingredient lines are hidden instead, so a rebuild from the plan does
+/// not bring them back.
+pub async fn clear_bought(pool: &PgPool, shopping_list_id: Uuid) -> Result<u64, sqlx::Error> {
+    let mut tx = pool.begin().await?;
     let removed = sqlx::query_scalar!(
         r#"
         DELETE FROM shopping_list_item
@@ -152,9 +152,21 @@ pub async fn clear_bought_custom(
         "#,
         shopping_list_id,
     )
-    .fetch_all(pool)
+    .fetch_all(&mut *tx)
     .await?;
-    Ok(removed.len() as u64)
+    let hidden = sqlx::query_scalar!(
+        r#"
+        UPDATE shopping_list_item
+        SET is_cleared = true
+        WHERE shopping_list_id = $1 AND ingredient_id IS NOT NULL AND is_purchased AND NOT is_cleared
+        RETURNING id
+        "#,
+        shopping_list_id,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok((removed.len() + hidden.len()) as u64)
 }
 
 pub async fn create(
