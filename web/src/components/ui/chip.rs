@@ -34,7 +34,7 @@ pub fn Chip(
                 button {
                     r#type: "button",
                     class: "mr-chip__x",
-                    aria_label: "Remove",
+                    aria_label: "Remove {label}",
                     onclick: move |_| remove.call(()),
                     Icon { name: IconName::X }
                 }
@@ -46,6 +46,7 @@ pub fn Chip(
             button {
                 r#type: "button",
                 class: "{cls}",
+                aria_pressed: "{active}",
                 onclick: move |_| {
                     if let Some(cb) = onclick {
                         cb.call(());

@@ -49,6 +49,10 @@ pub fn Button(
     loading: bool,
     #[props(default)] full_width: bool,
     #[props(default)] disabled: bool,
+    /// Submits the surrounding `<form>`. Off by default, so a button inside a form
+    /// doesn't submit it by accident.
+    #[props(default)]
+    submit: bool,
     /// Optional click handler. Omit for display-only buttons.
     onclick: Option<EventHandler<MouseEvent>>,
     children: Element,
@@ -59,16 +63,20 @@ pub fn Button(
     rsx! {
         button {
             class: "{class}",
+            r#type: if submit { "submit" } else { "button" },
             disabled: disabled || loading,
+            aria_busy: loading.then_some("true"),
             onclick: move |evt| {
                 if let Some(cb) = onclick {
                     cb.call(evt);
                 }
             },
+            // The label stays in the layout while loading (hidden), so the button
+            // keeps its width and the spinner sits over it.
+            span { class: "mr-btn__label", {children} }
             if loading {
-                span { class: "mr-spinner", aria_hidden: "true" }
+                span { class: "mr-spinner mr-btn__spinner", aria_hidden: "true" }
             }
-            {children}
         }
     }
 }

@@ -1,4 +1,5 @@
-use crate::components::ui::{Field, Icon, IconName};
+use crate::components::ui::menu_nav::{is_nav_key, next_index, option_class, option_id, reveal};
+use crate::components::ui::{field::use_control_id, Field, Icon, IconName};
 use dioxus::prelude::*;
 use uuid::Uuid;
 
@@ -105,6 +106,10 @@ impl Picker {
 /// `on_manage` pins a quiet "manage this list" row to the bottom of the popup:
 /// a portal to wherever the catalog is maintained. Without a `label` the field is
 /// announced by its placeholder, for spots where a label is already shown beside it.
+///
+/// Keyboard: Arrow Up/Down, Home and End move a highlight through the rows (the
+/// "Create" row included); Enter picks the highlighted row, or falls back to the
+/// exact-match / create behaviour when nothing is highlighted. Escape and Tab close.
 #[component]
 pub fn Combobox(
     label: Option<String>,
@@ -117,7 +122,10 @@ pub fn Combobox(
     manage_label: Option<String>,
     on_manage: Option<EventHandler<()>>,
 ) -> Element {
+    let id = use_control_id();
+    let list_id = format!("{id}-list");
     let mut open = use_signal(|| false);
+    let mut hl = use_signal(|| None as Option<usize>);
 
     let text = picker.read().query.clone();
     let trimmed = text.trim().to_string();
@@ -134,6 +142,12 @@ pub fn Combobox(
     let show_create = can_create && !trimmed.is_empty() && exact.is_none();
     let is_new = picker.read().is_new();
 
+    // Rows the arrow keys walk: the matches, then the "Create" row when offered.
+    let rows = filtered.len() + usize::from(show_create);
+    let create_row = filtered.len();
+    let hl_now = hl().filter(|i| *i < rows);
+    let active_id = hl_now.map(|i| option_id(&id, i));
+
     let combo_cls = match (open(), is_new) {
         (true, true) => "mr-combo mr-combo--open mr-combo--flagged",
         (true, false) => "mr-combo mr-combo--open",
@@ -144,43 +158,96 @@ pub fn Combobox(
     let aria = label.clone().unwrap_or_else(|| placeholder.clone());
     let kd_trimmed = trimmed.clone();
     let kd_exact = exact.clone();
+    let key_id = id.clone();
+
+    let pick_options = filtered.clone();
     let create_trimmed = trimmed.clone();
+    let pick = use_callback(move |i: usize| {
+        if let Some(opt) = pick_options.get(i) {
+            picker.write().pick(opt.clone());
+        } else {
+            picker.write().create(create_trimmed.clone());
+            if let Some(cb) = &on_create {
+                cb.call(create_trimmed.clone());
+            }
+        }
+        open.set(false);
+    });
 
     rsx! {
-        Field { label: label.clone(), required,
+        Field { label: label.clone(), required, control_id: id.clone(),
             div { class: "{combo_cls}",
                 input {
+                    id: "{id}",
                     class: "mr-input",
                     r#type: "text",
+                    role: "combobox",
+                    autocomplete: "off",
+                    aria_autocomplete: "list",
+                    aria_expanded: open(),
+                    aria_controls: "{list_id}",
+                    aria_activedescendant: active_id,
+                    aria_label: "{aria}",
+                    required,
                     value: "{text}",
                     placeholder: "{placeholder}",
-                    aria_label: "{aria}",
                     onclick: move |_| open.set(true),
                     oninput: move |e| {
                         picker.write().type_text(e.value());
+                        hl.set(None);
                         open.set(true);
                     },
-                    onkeydown: move |e: KeyboardEvent| match e.key() {
-                        Key::Enter => {
-                            if kd_trimmed.is_empty() {
-                                return;
+                    onkeydown: move |e: KeyboardEvent| {
+                        let key = e.key();
+                        if is_nav_key(&key) {
+                            e.prevent_default();
+                            if open() {
+                                let next = next_index(hl_now, rows, &key);
+                                hl.set(next);
+                                if let Some(i) = next {
+                                    reveal(&option_id(&key_id, i));
+                                }
+                            } else {
+                                open.set(true);
                             }
-                            match &kd_exact {
-                                Some(o) => picker.write().pick(o.clone()),
-                                None => {
-                                    if !can_create {
+                            return;
+                        }
+                        match key {
+                            Key::Enter => {
+                                if open() {
+                                    if let Some(i) = hl_now {
+                                        e.prevent_default();
+                                        pick.call(i);
                                         return;
                                     }
-                                    picker.write().create(kd_trimmed.clone());
-                                    if let Some(cb) = &on_create {
-                                        cb.call(kd_trimmed.clone());
+                                }
+                                if kd_trimmed.is_empty() {
+                                    return;
+                                }
+                                match &kd_exact {
+                                    Some(o) => picker.write().pick(o.clone()),
+                                    None => {
+                                        if !can_create {
+                                            return;
+                                        }
+                                        picker.write().create(kd_trimmed.clone());
+                                        if let Some(cb) = &on_create {
+                                            cb.call(kd_trimmed.clone());
+                                        }
                                     }
                                 }
+                                open.set(false);
                             }
-                            open.set(false);
+                            Key::Escape => {
+                                // only this menu closes, not a dialog around it
+                                if open() {
+                                    e.stop_propagation();
+                                    open.set(false);
+                                }
+                            }
+                            Key::Tab => open.set(false),
+                            _ => {}
                         }
-                        Key::Escape => open.set(false),
-                        _ => {}
                     },
                 }
                 if is_new {
@@ -192,40 +259,43 @@ pub fn Combobox(
                         onclick: move |_| open.set(false),
                     }
                     div { class: "mr-sel__popup",
-                        div { class: "mr-sel__list mr-scroll", role: "listbox",
-                            for o in filtered.iter() {
-                                {
-                                    let opt = o.clone();
-                                    rsx! {
-                                        div {
-                                            key: "{o.id}",
-                                            class: "mr-sel__opt",
-                                            role: "option",
-                                            onclick: move |_| {
-                                                picker.write().pick(opt.clone());
-                                                open.set(false);
-                                            },
-                                            span { "{o.label}" }
-                                            if o.pending {
-                                                span { class: "mr-combo__flag mr-combo__flag--inline", "New" }
-                                            } else if !o.hint.is_empty() {
-                                                span { class: "mr-combo__unit", "{o.hint}" }
-                                            }
+                        div {
+                            id: "{list_id}",
+                            class: "mr-sel__list mr-scroll",
+                            role: "listbox",
+                            for (i , o) in filtered.iter().enumerate() {
+                                div {
+                                    key: "{o.id}-{i}",
+                                    id: "{option_id(&id, i)}",
+                                    class: option_class(false, hl_now == Some(i)),
+                                    role: "option",
+                                    aria_selected: hl_now == Some(i),
+                                    onmousemove: move |_| {
+                                        if hl() != Some(i) {
+                                            hl.set(Some(i));
                                         }
+                                    },
+                                    onclick: move |_| pick.call(i),
+                                    span { "{o.label}" }
+                                    if o.pending {
+                                        span { class: "mr-combo__flag mr-combo__flag--inline", "New" }
+                                    } else if !o.hint.is_empty() {
+                                        span { class: "mr-combo__unit", "{o.hint}" }
                                     }
                                 }
                             }
                             if show_create {
                                 div {
-                                    class: "mr-sel__opt mr-combo__create",
+                                    id: "{option_id(&id, create_row)}",
+                                    class: "{option_class(false, hl_now == Some(create_row))} mr-combo__create",
                                     role: "option",
-                                    onclick: move |_| {
-                                        picker.write().create(create_trimmed.clone());
-                                        if let Some(cb) = &on_create {
-                                            cb.call(create_trimmed.clone());
+                                    aria_selected: hl_now == Some(create_row),
+                                    onmousemove: move |_| {
+                                        if hl() != Some(create_row) {
+                                            hl.set(Some(create_row));
                                         }
-                                        open.set(false);
                                     },
+                                    onclick: move |_| pick.call(create_row),
                                     Icon { name: IconName::Plus }
                                     "Create “{trimmed}”"
                                 }

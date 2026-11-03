@@ -177,6 +177,7 @@ pub fn DataTable<T: Clone + PartialEq + 'static>(
                                 key: "{i}",
                                 class: if on_row_click.is_some() { "mr-table__row--link" },
                                 tabindex: if on_row_click.is_some() { "0" },
+                                aria_selected: selectable.then(|| selected.read().contains(&i).to_string()),
                                 onclick: move |_| {
                                     if let Some(cb) = &on_row_click {
                                         cb.call(i);

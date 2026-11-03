@@ -1,4 +1,4 @@
-use crate::components::ui::Field;
+use crate::components::ui::{field::error_id, field::use_control_id, Field};
 use dioxus::prelude::*;
 
 /// Multi-line text field — the `Input` counterpart for notes and instructions.
@@ -16,13 +16,19 @@ pub fn Textarea(
     #[props(optional)]
     error: Option<String>,
 ) -> Element {
+    let id = use_control_id();
+    let has_error = error.is_some();
+
     rsx! {
-        Field { label, error,
+        Field { label, error, control_id: id.clone(),
             textarea {
+                id: "{id}",
                 class: "mr-input mr-textarea",
                 rows: "{rows}",
                 value: "{value}",
                 placeholder: placeholder.clone().unwrap_or_default(),
+                aria_invalid: has_error.then_some("true"),
+                aria_describedby: has_error.then(|| error_id(&id)),
                 oninput: move |e| oninput.call(e),
             }
         }

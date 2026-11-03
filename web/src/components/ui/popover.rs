@@ -1,6 +1,24 @@
 use dioxus::prelude::*;
 use std::rc::Rc;
 
+const SCROLL_SCRIPT: &str = "(async () => { for (;;) { const e = await new Promise((r) => window.addEventListener('scroll', r, { capture: true, once: true, passive: true })); if (!(e.target instanceof Element && e.target.closest('.mr-popover__pop'))) { dioxus.send(true); return; } } })();";
+
+/// Runs `on_scroll` whenever the page (or any scroller outside a popover card)
+/// scrolls, so floating cards don't hang in place over moved content.
+pub fn use_on_scroll(mut on_scroll: impl FnMut() + 'static) {
+    use_hook(move || {
+        spawn(async move {
+            loop {
+                let mut ev = document::eval(SCROLL_SCRIPT);
+                if ev.recv::<bool>().await.is_err() {
+                    break;
+                }
+                on_scroll();
+            }
+        })
+    });
+}
+
 /// A small floating card that shows while its trigger is hovered or focused.
 /// The trigger renders inside a real button, so keyboard users reach the card
 /// too: focus opens it, Escape closes it. `label` names that button for
@@ -33,6 +51,7 @@ pub fn Popover(label: String, trigger: Element, children: Element) -> Element {
         open.set(false);
         anchor.set(None);
     };
+    use_on_scroll(hide);
 
     rsx! {
         span {

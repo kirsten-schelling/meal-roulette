@@ -20,15 +20,12 @@ pub fn Toast(
         Tone::Red => "mr-toast--red",
         Tone::Neutral => "mr-toast--neutral",
     };
-    // Errors interrupt the screen reader; everything else waits its turn.
-    let role = if matches!(tone, Tone::Red) {
-        "alert"
-    } else {
-        "status"
-    };
+    // Errors interrupt the screen reader. Everything else is announced politely by
+    // the stack around it, a live region that is mounted before any toast appears.
+    let role = matches!(tone, Tone::Red).then_some("alert");
 
     rsx! {
-        div { class: "mr-toast {tone_cls}", role: "{role}",
+        div { class: "mr-toast {tone_cls}", role: role,
             span { class: "mr-toast__icon", aria_hidden: "true" }
             div { class: "mr-toast__body",
                 if let Some(t) = title.clone() {
