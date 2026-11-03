@@ -49,14 +49,10 @@ web/src/
 │
 └── features/                   # one folder per feature
     └── <feature>/
-        ├── page.rs             #   route-target component (optional; see Adding a feature)
+        ├── page.rs             #   route-target component
         ├── hooks/              #   client data hooks (wrap use_resource)
         └── components/         #   feature-specific UI
 ```
-
-A feature may also hold more route-target files (`recipe/detail_page.rs`; `plan/page.rs` and
-`shopping_list/page.rs` each export two pages) and pure helper modules (`recipe/filter.rs`,
-`ingredient/parse.rs`, `history/format.rs`, `roll/settings.rs`).
 
 Routes (`router.rs`): `/`, `/showcase`, `/recipes`, `/recipes/:id`, `/library`, `/shopping-list`,
 `/shopping-list/:plan_id`, `/cooking-log`, `/planned-meals`, `/planned-meals/:id`, `/history`,
@@ -125,9 +121,7 @@ them.
 
 ## Adding a feature
 
-1. Create `features/<feature>/` with `mod.rs`, `hooks/`, and `page.rs` if the feature has its own
-   screen (cuisine, ingredient, protein, tag and unit have none: they are managed from the
-   Library page and its dialog).
+1. Create `features/<feature>/` with `mod.rs`, `page.rs`, and `hooks/`.
 2. Add a `#[server]` function per data call in `server/api/<feature>.rs`, calling the feature's
    repository in `api/src/features/<feature>/repository.rs` (declare the module `pub` in the
    feature's `mod.rs` if it is not yet).

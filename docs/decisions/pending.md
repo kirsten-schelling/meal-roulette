@@ -17,8 +17,8 @@ list.
    stays as a documented layer.
 3. **Is `page.rs` mandatory per feature?** — cuisine, ingredient, protein, and unit ship
    hooks + a `#[server]` surface with no page, which web.md's "Adding a feature" steps
-   don't permit (tag ships hooks and a server surface with no page too). web.md now describes
-   `page.rs` as optional to match the code. Confirm that, or plan the pages.
+   don't permit (tag ships hooks and a server surface with no page too). Loosen the rule or
+   plan the pages.
 4. **Testing strategy** — there are 26 unit tests (`solver` 17, the `api` roll service 4, `web`
    `recipe/filter.rs` 3 and `roll/settings.rs` 2) and `just lint` runs clippy with
    `-D warnings`. Still missing: DB- or API-level tests and CI (issues #3, #4). Decide the
