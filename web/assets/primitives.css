@@ -444,16 +444,17 @@ body { margin: 0; }
   background: color-mix(in srgb, var(--mr-text-muted) 62%, transparent); background-clip: padding-box;
 }
 
-/* Options. The highlighted one (keyboard focus in the list) looks like hover. The
-   selected one is plain text in medium weight with a trailing tick, no tint. */
+/* Options. Hover and the keyboard-highlighted one share the warm muted fill; the
+   selected one gets the accent tint, medium weight and a trailing tick. */
 .mr-sel__opt {
   display: flex; align-items: center; justify-content: space-between; gap: var(--mr-space-2);
   min-height: var(--mr-control-h-sm); padding: 6px var(--mr-space-2); border-radius: var(--mr-radius-sm);
   cursor: pointer; font-size: var(--mr-text-base); color: var(--mr-text);
   transition: background var(--mr-dur-fast) var(--mr-ease);
 }
-.mr-sel__opt:hover, .mr-sel__opt--hl { background: var(--mr-hover); }
-.mr-sel__opt--active { font-weight: var(--mr-weight-medium); }
+.mr-sel__opt:hover, .mr-sel__opt--hl { background: var(--mr-surface-2); }
+.mr-sel__opt--active { font-weight: var(--mr-weight-medium); color: var(--mr-accent-text); background: color-mix(in srgb, var(--mr-accent) 16%, transparent); }
+.mr-sel__opt--active:hover, .mr-sel__opt--active.mr-sel__opt--hl { background: color-mix(in srgb, var(--mr-accent) 24%, transparent); }
 .mr-sel__opt--active::after {
   content: ""; flex: none; width: var(--mr-icon-md); height: var(--mr-icon-md); background-color: var(--mr-accent-text);
   -webkit-mask: var(--mr-ic-tick) center / 85% no-repeat;
@@ -632,7 +633,6 @@ body { margin: 0; }
   font-size: var(--mr-text-xs); font-weight: var(--mr-weight-medium);
   text-transform: uppercase; letter-spacing: var(--mr-tracking-caps);
   color: var(--mr-text-muted); padding: 0 var(--mr-space-3); border-bottom: 1px solid var(--mr-border);
-  background: color-mix(in srgb, var(--mr-surface-2) 40%, transparent);
 }
 .mr-table tbody td { height: 44px; padding: 0 var(--mr-space-3); border-bottom: 1px solid var(--mr-border); color: var(--mr-text); }
 .mr-table tbody tr:last-child td { border-bottom: none; }
@@ -1009,6 +1009,15 @@ body { margin: 0; }
   }
   .mr-sidebar { border-right: none; border-bottom: 1px solid var(--mr-border); padding: .6rem .75rem; }
   .mr-nav { flex-direction: row; flex-wrap: wrap; }
+}
+@media (max-width: 520px) {
+  .mr-header { padding-inline: 1.5rem; }
+  .mr-sidebar { padding: .75rem 1rem; }
+  .mr-nav { gap: .25rem .5rem; }
+  .mr-main__inner { padding: 1.5rem 1.5rem 3rem; }
+  .mr-table thead th, .mr-table tbody td { padding-inline: var(--mr-space-4); white-space: nowrap; }
+  .mr-table tbody td { height: 52px; }
+  .mr-table th.mr-td--check, .mr-table td.mr-td--check { padding-right: 2px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
