@@ -2,6 +2,9 @@ use domain::roll::{Bound, DifficultyBand, DifficultyRule, Importance};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// Days a fresh roll form asks for, and so the recipes a first week needs.
+pub const DEFAULT_NUM_DAYS: usize = 7;
+
 /// The whole roll form, serialised into a preset's JSON payload. Field values
 /// mirror the page's signals so a saved preset round-trips exactly.
 #[derive(Clone, PartialEq, Serialize, Deserialize, Default)]
