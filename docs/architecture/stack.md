@@ -63,7 +63,7 @@
 
 ### Infra (intended)
 
-- **Neon** (DB) + **Fly.io** (one app: the web server) + **Pulumi** (IaC, against Neon + Cloudflare). Cheap and transferable.
+- **Neon** (DB) + **Fly.io** (one app: the web server) + **Pulumi** (IaC, against Neon), reachable only over Tailscale ([deploy guide](../guides/deploy.md)). Cheap and transferable.
 
 ### Tooling installed on this machine
 

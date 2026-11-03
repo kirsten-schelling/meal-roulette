@@ -1,3 +1,6 @@
 # sqlx checksums each migration byte for byte, so a CRLF checkout of an applied
 # migration reads as an edit. Keep them LF whatever core.autocrlf says.
 api/migrations/*.sql text eol=lf
+
+# A CRLF start script fails inside the Linux container.
+deploy/start.sh text eol=lf

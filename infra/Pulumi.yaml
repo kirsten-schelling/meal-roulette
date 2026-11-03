@@ -1,5 +1,5 @@
 name: meal-roulette-infra
-description: Neon Postgres and Cloudflare DNS for Meal Roulette
+description: Neon Postgres for Meal Roulette
 runtime:
   name: nodejs
   options:
