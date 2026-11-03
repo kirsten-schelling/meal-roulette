@@ -71,8 +71,12 @@ fn value(field: DetailField, overview: &RecipeOverview) -> Element {
             DifficultyBadge { difficulty: recipe.difficulty }
         },
         DetailField::Healthiness => healthiness_badge(recipe.healthiness),
-        DetailField::Time => rsx! { "{recipe.time_mins} min" },
-        DetailField::Servings => rsx! { "{recipe.servings}" },
+        DetailField::Time => rsx! {
+            span { class: "mr-num", "{recipe.time_mins} min" }
+        },
+        DetailField::Servings => rsx! {
+            span { class: "mr-num", "{recipe.servings}" }
+        },
         DetailField::Cuisine => named(&overview.cuisine),
         DetailField::Protein => named(&overview.protein),
         DetailField::Tags if overview.tags.is_empty() => rsx! {

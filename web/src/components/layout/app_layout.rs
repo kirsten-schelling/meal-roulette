@@ -1,8 +1,7 @@
-//! The shell every page renders inside: a CSS-grid frame with the header
-//! across the top, the sidebar down the left, and the routed page in the
-//! main column. Owns only UI state (the light/dark toggle) — no app logic.
+//! The shell every page renders inside: a CSS-grid frame with the sidebar down
+//! the left and the routed page in the main column. No state of its own.
 
-use crate::components::layout::{Header, NavEntry, Sidebar};
+use crate::components::layout::{NavEntry, Sidebar};
 use crate::components::toast_master::ToastMaster;
 use crate::components::ui::IconName;
 use crate::router::Route;
@@ -10,17 +9,9 @@ use dioxus::prelude::*;
 
 #[component]
 pub fn AppLayout() -> Element {
-    // Light/dark is purely presentational, so the shell owns it. The token
-    // stylesheet swaps palettes off the `data-theme` attribute below.
-    let mut dark = use_signal(|| false);
-    let theme = if dark() { "dark" } else { "light" };
-
     rsx! {
-        div { class: "mr-scope mr-shell", "data-theme": "{theme}",
-            // Inside the themed shell so the toast stack follows the toggle,
-            // not the OS colour scheme.
+        div { class: "mr-scope mr-shell",
             ToastMaster {
-                Header { dark: dark(), on_toggle: move |v| dark.set(v) }
                 Sidebar { entries: nav_entries() }
                 main { class: "mr-main",
                     div { class: "mr-main__inner",
