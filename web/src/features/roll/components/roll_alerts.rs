@@ -18,7 +18,7 @@ pub fn ConflictAlert(conflicts: Vec<Conflict>, on_loosen: EventHandler<()>) -> E
                     variant: ButtonVariant::Outline,
                     size: Size::Sm,
                     onclick: move |_| on_loosen.call(()),
-                    "Make these nice-to-have"
+                    "Turn off Must for these"
                 }
             }
         }

@@ -1,6 +1,6 @@
 use domain::roll::{
-    Bound, CountRule, DayLimitPlan, DayLimits, DayLimitsAt, DifficultyBand, DifficultyRule,
-    Importance, RollConstraints, RuleFamily, UnmetRule,
+    Bound, CountRule, DayLimitPlan, DayLimits, DifficultyBand, DifficultyRule, Importance,
+    RollConstraints, RuleFamily, UnmetRule,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -11,9 +11,24 @@ pub const DEFAULT_NUM_DAYS: usize = 7;
 /// The most dinners one roll may ask for; the server refuses more.
 pub const MAX_ROLL_DAYS: u32 = 31;
 
-/// A rule added on the page starts as a preference, so a fresh rule cannot be
-/// what makes a roll impossible. Rules saved in presets keep what they had.
+/// What a rule with Must off is sent as. The page shows only Must on or off, so
+/// a fresh rule cannot be what makes a roll impossible.
 pub const NEW_RULE_IMPORTANCE: Importance = Importance::Medium;
+
+/// The importance a rule is sent with for a Must toggle.
+pub fn importance_for(must: bool) -> Importance {
+    if must {
+        Importance::Required
+    } else {
+        NEW_RULE_IMPORTANCE
+    }
+}
+
+/// The cook-time caps the "Every dinner" rule offers, in minutes.
+pub const COOK_TIME_CHOICES: [u32; 7] = [15, 20, 30, 45, 60, 90, 120];
+
+/// The cook-time cap a new "Every dinner" rule starts with.
+pub const DEFAULT_COOK_TIME_CAP: u32 = 45;
 
 /// The whole roll form, serialised into a preset's JSON payload. Field values
 /// mirror the page's signals so a saved preset round-trips exactly.
@@ -30,7 +45,11 @@ pub struct RollSettings {
     #[serde(default)]
     pub ingredients: Vec<LookupRule>,
     #[serde(default)]
-    pub day_limits: DayLimitSettings,
+    pub every_dinner: EveryDinner,
+    /// Presets saved before "Every dinner" kept per-day limits instead. Only
+    /// read, and turned into the every-dinner caps.
+    #[serde(default, skip_serializing)]
+    pub day_limits: OldDayLimits,
     /// Presets saved before difficulty rules existed kept an exact per-level
     /// day mix instead. It is only read, and turned into band rules.
     #[serde(default, skip_serializing)]
@@ -74,6 +93,58 @@ impl RuleTarget {
             RuleTarget::Lookup { family, id, .. } => format!("{family:?}-{id}"),
         }
     }
+
+    pub fn family(&self) -> RuleFamily {
+        match self {
+            RuleTarget::Band(_) => RuleFamily::Difficulty,
+            RuleTarget::Lookup { family, .. } => *family,
+        }
+    }
+
+    pub fn name(&self) -> String {
+        match self {
+            RuleTarget::Band(band) => band_label(*band).to_string(),
+            RuleTarget::Lookup { name, .. } => name.clone(),
+        }
+    }
+}
+
+/// Caps every rolled dinner follows. Sent to the solver as one set of day
+/// limits that applies to every day.
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+pub struct EveryDinner {
+    #[serde(default)]
+    pub max_time_mins: Option<u32>,
+    #[serde(default)]
+    pub max_difficulty: Option<DifficultyBand>,
+}
+
+impl EveryDinner {
+    pub fn plan(self) -> Option<DayLimitPlan> {
+        let limits = DayLimits {
+            min_difficulty: None,
+            max_difficulty: self.max_difficulty,
+            max_time_mins: self.max_time_mins,
+        };
+        limits.is_limited().then(|| DayLimitPlan {
+            default: limits,
+            overrides: Vec::new(),
+        })
+    }
+
+    pub fn count(self) -> usize {
+        usize::from(self.max_time_mins.is_some()) + usize::from(self.max_difficulty.is_some())
+    }
+}
+
+/// The per-day limits of an older preset. Only the limit for all days is kept;
+/// a day's own limits and the easiest band are dropped.
+#[derive(Clone, PartialEq, Deserialize, Default)]
+pub struct OldDayLimits {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub default: DayLimits,
 }
 
 /// A group of rules that cannot all hold, in words, and the rules to loosen.
@@ -115,12 +186,37 @@ impl RollSettings {
             .collect()
     }
 
-    /// The settings with an older preset's difficulty mix turned into rules and
-    /// dropped, so a loaded preset compares equal to what the page then holds.
+    /// The settings as the page holds them, so a loaded preset compares equal
+    /// to what the page then shows: an older preset's difficulty mix turned
+    /// into rules, its day limits into every-dinner caps, and any importance
+    /// other than Must read as Must off.
     pub fn normalized(mut self) -> Self {
         self.difficulties = self.difficulty_rules();
         self.difficulty_exact = false;
         self.difficulty_mix.clear();
+        let old = std::mem::take(&mut self.day_limits);
+        if old.enabled && self.every_dinner == EveryDinner::default() {
+            self.every_dinner = EveryDinner {
+                max_time_mins: old.default.max_time_mins.filter(|m| *m > 0),
+                max_difficulty: old.default.max_difficulty,
+            };
+        }
+        if self.every_dinner.max_difficulty == Some(DifficultyBand::Hard) {
+            self.every_dinner.max_difficulty = None;
+        }
+        let must_or_not = |i: &mut Importance| *i = importance_for(*i == Importance::Required);
+        self.difficulties
+            .iter_mut()
+            .for_each(|r| must_or_not(&mut r.importance));
+        for rules in [
+            &mut self.proteins,
+            &mut self.cuisines,
+            &mut self.ingredients,
+        ] {
+            rules
+                .iter_mut()
+                .for_each(|r| must_or_not(&mut r.importance));
+        }
         self
     }
 
@@ -200,12 +296,34 @@ impl RollSettings {
         }
     }
 
-    /// Adds a preference of "at least one" about `target`, unless it already has a rule.
-    pub fn add_rule(&mut self, target: &RuleTarget) {
+    /// Adds a rule about `target`, unless it already has one.
+    pub fn add_rule(
+        &mut self,
+        target: &RuleTarget,
+        times: u32,
+        bound: Bound,
+        importance: Importance,
+    ) {
+        if self.has_rule(target) {
+            return;
+        }
         match target {
-            RuleTarget::Band(band) => self.add_band(*band),
+            RuleTarget::Band(band) => self.difficulties.push(DifficultyRule {
+                band: *band,
+                times,
+                bound,
+                importance,
+            }),
             RuleTarget::Lookup { family, id, name } => {
-                self.add_lookup(*family, *id, name.clone());
+                if let Some(rules) = self.lookups_mut(*family) {
+                    rules.push(LookupRule {
+                        id: *id,
+                        name: name.clone(),
+                        times,
+                        bound,
+                        importance,
+                    });
+                }
             }
         }
     }
@@ -214,38 +332,6 @@ impl RollSettings {
     pub fn has_rule(&self, target: &RuleTarget) -> bool {
         let key = target.key();
         self.lines().iter().any(|l| l.key == key)
-    }
-
-    /// Adds "at least one" of a protein, cuisine or ingredient as a preference,
-    /// unless it already has a rule.
-    pub fn add_lookup(&mut self, family: RuleFamily, id: Uuid, name: String) {
-        let Some(rules) = self.lookups_mut(family) else {
-            return;
-        };
-        if rules.iter().any(|r| r.id == id) {
-            return;
-        }
-        rules.push(LookupRule {
-            id,
-            name,
-            times: 1,
-            bound: Bound::AtLeast,
-            importance: NEW_RULE_IMPORTANCE,
-        });
-    }
-
-    /// Adds "at least one" dinner in a difficulty band as a preference, unless
-    /// the band already has a rule.
-    pub fn add_band(&mut self, band: DifficultyBand) {
-        if self.difficulties.iter().any(|r| r.band == band) {
-            return;
-        }
-        self.difficulties.push(DifficultyRule {
-            band,
-            times: 1,
-            bound: Bound::AtLeast,
-            importance: NEW_RULE_IMPORTANCE,
-        });
     }
 
     /// Turns the named required rules into ordinary preferences.
@@ -264,14 +350,14 @@ impl RollSettings {
         }
     }
 
-    /// What to send the solver for a roll of `days` dinners.
-    pub fn constraints(&self, days: usize) -> RollConstraints {
+    /// What to send the solver.
+    pub fn constraints(&self) -> RollConstraints {
         RollConstraints {
             cuisines: count_rules(&self.cuisines),
             proteins: count_rules(&self.proteins),
             ingredients: count_rules(&self.ingredients),
             difficulties: self.difficulties.clone(),
-            day_limits: self.day_limits.plan(days),
+            day_limits: self.every_dinner.plan(),
         }
     }
 
@@ -298,25 +384,31 @@ impl RollSettings {
     /// One line about the rules, for when the rules panel is folded.
     pub fn rules_summary(&self) -> String {
         let lines = self.lines();
-        if lines.is_empty() {
+        let mut names: Vec<String> = lines.iter().map(|l| l.name.clone()).collect();
+        if let Some(mins) = self.every_dinner.max_time_mins {
+            names.push(format!("max {mins} min"));
+        }
+        if let Some(band) = self.every_dinner.max_difficulty {
+            names.push(format!("max {}", band_label(band)));
+        }
+        if names.is_empty() {
             return "No rules yet".to_string();
         }
         let must = lines
             .iter()
             .filter(|l| l.importance == Importance::Required)
             .count();
-        let shown: Vec<&str> = lines.iter().take(3).map(|l| l.name.as_str()).collect();
-        let more = lines.len().saturating_sub(3);
+        let more = names.len().saturating_sub(3);
         format!(
             "{} rule{}{}: {}{}",
-            lines.len(),
-            if lines.len() == 1 { "" } else { "s" },
+            names.len(),
+            if names.len() == 1 { "" } else { "s" },
             if must > 0 {
                 format!(", {must} Must")
             } else {
                 String::new()
             },
-            shown.join(", "),
+            names[..names.len().min(3)].join(", "),
             if more > 0 {
                 format!(" +{more} more")
             } else {
@@ -388,6 +480,27 @@ impl RollSettings {
                 rules: ceilings.iter().map(|l| (l.family, l.index)).collect(),
             });
         }
+
+        if let Some(cap) = self.every_dinner.max_difficulty {
+            for (index, rule) in self.difficulties.iter().enumerate() {
+                let above_cap = rule.band.levels().0 > cap.levels().1;
+                if above_cap
+                    && rule.importance == Importance::Required
+                    && rule.bound == Bound::AtLeast
+                    && rule.times > 0
+                {
+                    found.push(Conflict {
+                        message: format!(
+                            "{}: at least {} dinners, but every dinner is at most {}.",
+                            band_label(rule.band),
+                            rule.times,
+                            band_label(cap),
+                        ),
+                        rules: vec![(RuleFamily::Difficulty, index)],
+                    });
+                }
+            }
+        }
         found
     }
 }
@@ -402,54 +515,6 @@ fn count_rules(rules: &[LookupRule]) -> Vec<CountRule> {
             importance: rule.importance,
         })
         .collect()
-}
-
-/// The limit every day follows, and the days that have their own. Days are
-/// numbers from the first rolled day (0), so a preset fits any start date. Off
-/// by default, so a plain roll is unlimited.
-#[derive(Clone, PartialEq, Serialize, Deserialize, Default)]
-pub struct DayLimitSettings {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default)]
-    pub default: DayLimits,
-    #[serde(default)]
-    pub overrides: Vec<DayLimitsAt>,
-}
-
-impl DayLimitSettings {
-    /// The own limits of rolled day `day`, if it has any.
-    pub fn override_for(&self, day: usize) -> Option<DayLimits> {
-        self.overrides
-            .iter()
-            .find(|o| usize::from(o.day) == day)
-            .map(|o| o.limits)
-    }
-
-    /// Sets or, with `None`, clears the own limits of rolled day `day`.
-    pub fn set_override(&mut self, day: usize, limits: Option<DayLimits>) {
-        let Ok(day) = u16::try_from(day) else {
-            return;
-        };
-        self.overrides.retain(|o| o.day != day);
-        if let Some(limits) = limits {
-            self.overrides.push(DayLimitsAt { day, limits });
-        }
-    }
-
-    /// The limits to send with a roll of `num_days`, or `None` when they are
-    /// switched off. Overrides past `num_days` are left out.
-    pub fn plan(&self, num_days: usize) -> Option<DayLimitPlan> {
-        self.enabled.then(|| DayLimitPlan {
-            default: self.default,
-            overrides: self
-                .overrides
-                .iter()
-                .filter(|o| usize::from(o.day) < num_days)
-                .copied()
-                .collect(),
-        })
-    }
 }
 
 /// How many days an older preset wanted at a difficulty level (1 = Very easy .. 5 = Ambitious).
@@ -479,22 +544,6 @@ pub struct LookupRule {
     pub importance: Importance,
 }
 
-pub const IMPORTANCE_LEVELS: [Importance; 4] = [
-    Importance::Required,
-    Importance::High,
-    Importance::Medium,
-    Importance::Low,
-];
-
-pub fn importance_label(importance: Importance) -> &'static str {
-    match importance {
-        Importance::Required => "Must",
-        Importance::High => "Strongly prefer",
-        Importance::Medium => "Prefer",
-        Importance::Low => "If possible",
-    }
-}
-
 pub fn bound_phrase(bound: Bound) -> &'static str {
     match bound {
         Bound::AtLeast => "at least",
@@ -507,6 +556,25 @@ pub fn band_label(band: DifficultyBand) -> &'static str {
         DifficultyBand::Easy => "Easy",
         DifficultyBand::Medium => "Medium",
         DifficultyBand::Hard => "Hard",
+    }
+}
+
+pub fn family_label(family: RuleFamily) -> &'static str {
+    match family {
+        RuleFamily::Difficulty => "Difficulty",
+        RuleFamily::Protein => "Protein",
+        RuleFamily::Cuisine => "Cuisine",
+        RuleFamily::Ingredient => "Ingredient",
+    }
+}
+
+/// What a count rule counts, after its number: "Beef dinners", "dinner with Spinach".
+pub fn rule_noun(family: RuleFamily, name: &str, times: u32) -> String {
+    let dinners = if times == 1 { "dinner" } else { "dinners" };
+    if family == RuleFamily::Ingredient {
+        format!("{dinners} with {name}")
+    } else {
+        format!("{name} {dinners}")
     }
 }
 
@@ -578,51 +646,6 @@ mod tests {
     }
 
     #[test]
-    fn a_preset_without_day_limits_loads_with_them_off() {
-        let settings: RollSettings = serde_json::from_str(r#"{"num_days": "5"}"#).expect("parses");
-        assert!(!settings.day_limits.enabled);
-        assert!(settings.day_limits.plan(5).is_none());
-    }
-
-    #[test]
-    fn day_limits_round_trip_through_a_preset() {
-        let mut limits = DayLimitSettings {
-            enabled: true,
-            ..DayLimitSettings::default()
-        };
-        limits.default.max_time_mins = Some(30);
-        limits.set_override(
-            2,
-            Some(DayLimits {
-                min_difficulty: Some(DifficultyBand::Hard),
-                ..DayLimits::default()
-            }),
-        );
-        let settings = RollSettings {
-            day_limits: limits.clone(),
-            ..RollSettings::default()
-        };
-        let json = serde_json::to_value(&settings).expect("serialises");
-        let back: RollSettings = serde_json::from_value(json).expect("parses");
-        assert!(back.day_limits == limits);
-    }
-
-    #[test]
-    fn only_the_rolled_days_overrides_are_sent() {
-        let mut limits = DayLimitSettings {
-            enabled: true,
-            ..DayLimitSettings::default()
-        };
-        limits.set_override(2, Some(DayLimits::default()));
-        limits.set_override(9, Some(DayLimits::default()));
-        let plan = limits.plan(5).expect("enabled");
-        assert_eq!(plan.overrides.len(), 1);
-        assert_eq!(plan.overrides[0].day, 2);
-        limits.set_override(2, None);
-        assert!(limits.override_for(2).is_none());
-    }
-
-    #[test]
     fn saving_drops_the_old_difficulty_fields() {
         let json = serde_json::to_string(&RollSettings::default()).expect("settings serialise");
         assert!(!json.contains("difficulty_mix") && !json.contains("difficulty_exact"));
@@ -637,58 +660,6 @@ mod tests {
         let held = old.clone().normalized();
         assert_eq!(held.difficulties.len(), 1);
         assert!(held == held.clone().normalized());
-    }
-
-    #[test]
-    fn a_new_rule_is_a_preference_but_a_saved_rule_keeps_its_importance() {
-        let mut settings = RollSettings::default();
-        settings.add_lookup(RuleFamily::Protein, Uuid::now_v7(), "Beef".to_string());
-        settings.add_band(DifficultyBand::Hard);
-        assert!(settings
-            .lines()
-            .iter()
-            .all(|l| l.importance == Importance::Medium));
-        let saved: RollSettings = serde_json::from_str(
-            r#"{"proteins": [{"id": "01a04351-39b7-7761-8bfb-58dad6017b5e", "name": "Beef", "times": 2}]}"#,
-        )
-        .expect("parses");
-        assert_eq!(saved.lines()[0].importance, Importance::Required);
-    }
-
-    #[test]
-    fn adding_the_same_rule_twice_keeps_one() {
-        let id = Uuid::now_v7();
-        let mut settings = RollSettings::default();
-        settings.add_lookup(RuleFamily::Cuisine, id, "Thai".to_string());
-        settings.add_lookup(RuleFamily::Cuisine, id, "Thai".to_string());
-        settings.add_band(DifficultyBand::Easy);
-        settings.add_band(DifficultyBand::Easy);
-        assert_eq!(settings.lines().len(), 2);
-    }
-
-    #[test]
-    fn rules_are_listed_by_family_and_edited_by_position() {
-        let mut settings = RollSettings::default();
-        settings.add_lookup(
-            RuleFamily::Ingredient,
-            Uuid::now_v7(),
-            "Spinach".to_string(),
-        );
-        settings.add_lookup(RuleFamily::Protein, Uuid::now_v7(), "Beef".to_string());
-        settings.add_band(DifficultyBand::Hard);
-        let names: Vec<String> = settings.lines().into_iter().map(|l| l.name).collect();
-        assert_eq!(names, ["Hard", "Beef", "Spinach"]);
-        settings.set_rule(
-            RuleFamily::Protein,
-            0,
-            3,
-            Bound::AtMost,
-            Importance::Required,
-        );
-        let beef = &settings.lines()[1];
-        assert_eq!((beef.times, beef.bound), (3, Bound::AtMost));
-        settings.remove_rule(RuleFamily::Difficulty, 0);
-        assert_eq!(settings.lines().len(), 2);
     }
 
     #[test]
@@ -772,12 +743,190 @@ mod tests {
         assert_eq!(sentences, ["Beef: wanted at least 3, got 1."]);
     }
 
+    fn protein(name: &str) -> RuleTarget {
+        RuleTarget::Lookup {
+            family: RuleFamily::Protein,
+            id: Uuid::now_v7(),
+            name: name.to_string(),
+        }
+    }
+
     #[test]
-    fn the_folded_summary_counts_the_rules() {
+    fn a_preset_without_caps_rolls_without_day_limits() {
+        let settings: RollSettings = serde_json::from_str(r#"{"num_days": "5"}"#).expect("parses");
+        assert!(settings.normalized().constraints().day_limits.is_none());
+    }
+
+    #[test]
+    fn an_old_presets_day_limits_become_every_dinner_caps() {
+        let saved = r#"{
+            "num_days": "5",
+            "day_limits": {
+                "enabled": true,
+                "default": {"min_difficulty": "Easy", "max_difficulty": "Medium", "max_time_mins": 40},
+                "overrides": [{"day": 2, "limits": {"min_difficulty": "Hard"}}]
+            }
+        }"#;
+        let settings = serde_json::from_str::<RollSettings>(saved)
+            .expect("old presets parse")
+            .normalized();
+        assert!(
+            settings.every_dinner
+                == EveryDinner {
+                    max_time_mins: Some(40),
+                    max_difficulty: Some(DifficultyBand::Medium),
+                }
+        );
+        let plan = settings.constraints().day_limits.expect("capped");
+        assert!(plan.overrides.is_empty());
+        assert_eq!(plan.default.min_difficulty, None);
+        let json = serde_json::to_string(&settings).expect("serialises");
+        assert!(!json.contains("day_limits"));
+    }
+
+    #[test]
+    fn switched_off_day_limits_and_a_hard_cap_mean_no_cap() {
+        let off: RollSettings = serde_json::from_str(
+            r#"{"day_limits": {"enabled": false, "default": {"max_time_mins": 30}}}"#,
+        )
+        .expect("parses");
+        assert!(off.normalized().every_dinner == EveryDinner::default());
+        let hard: RollSettings =
+            serde_json::from_str(r#"{"every_dinner": {"max_difficulty": "Hard"}}"#)
+                .expect("parses");
+        assert!(hard.normalized().constraints().day_limits.is_none());
+    }
+
+    #[test]
+    fn every_dinner_caps_round_trip_through_a_preset() {
+        let settings = RollSettings {
+            every_dinner: EveryDinner {
+                max_time_mins: Some(30),
+                max_difficulty: Some(DifficultyBand::Easy),
+            },
+            ..RollSettings::default()
+        };
+        let json = serde_json::to_value(&settings).expect("serialises");
+        let back: RollSettings = serde_json::from_value(json).expect("parses");
+        assert!(back.normalized() == settings);
+    }
+
+    #[test]
+    fn levels_other_than_must_load_as_must_off() {
+        let saved: RollSettings = serde_json::from_str(
+            r#"{
+                "proteins": [
+                    {"id": "01a04351-39b7-7761-8bfb-58dad6017b5e", "name": "Beef", "times": 2},
+                    {"id": "01a04351-39b7-7761-8bfb-58dad6017b5f", "name": "Fish", "importance": "High"}
+                ],
+                "difficulties": [{"band": "Easy", "times": 1, "importance": "Low"}]
+            }"#,
+        )
+        .expect("parses");
+        let levels: Vec<Importance> = saved
+            .normalized()
+            .lines()
+            .iter()
+            .map(|l| l.importance)
+            .collect();
+        assert_eq!(
+            levels,
+            [Importance::Medium, Importance::Required, Importance::Medium]
+        );
+    }
+
+    #[test]
+    fn the_must_toggle_maps_to_required_or_the_middle_level() {
+        assert_eq!(importance_for(true), Importance::Required);
+        assert_eq!(importance_for(false), Importance::Medium);
+    }
+
+    #[test]
+    fn adding_the_same_rule_twice_keeps_one() {
+        let thai = protein("Thai");
+        let mut settings = RollSettings::default();
+        settings.add_rule(&thai, 1, Bound::AtLeast, Importance::Medium);
+        settings.add_rule(&thai, 3, Bound::AtMost, Importance::Required);
+        settings.add_rule(
+            &RuleTarget::Band(DifficultyBand::Easy),
+            1,
+            Bound::AtLeast,
+            Importance::Medium,
+        );
+        let lines = settings.lines();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[1].times, 1);
+    }
+
+    #[test]
+    fn rules_are_listed_by_family_and_edited_by_position() {
+        let mut settings = RollSettings::default();
+        let spinach = RuleTarget::Lookup {
+            family: RuleFamily::Ingredient,
+            id: Uuid::now_v7(),
+            name: "Spinach".to_string(),
+        };
+        settings.add_rule(&spinach, 1, Bound::AtLeast, Importance::Medium);
+        settings.add_rule(&protein("Beef"), 2, Bound::AtLeast, Importance::Medium);
+        settings.add_rule(
+            &RuleTarget::Band(DifficultyBand::Hard),
+            1,
+            Bound::AtMost,
+            Importance::Medium,
+        );
+        let names: Vec<String> = settings.lines().into_iter().map(|l| l.name).collect();
+        assert_eq!(names, ["Hard", "Beef", "Spinach"]);
+        settings.set_rule(
+            RuleFamily::Protein,
+            0,
+            3,
+            Bound::AtMost,
+            Importance::Required,
+        );
+        let beef = &settings.lines()[1];
+        assert_eq!((beef.times, beef.bound), (3, Bound::AtMost));
+        settings.remove_rule(RuleFamily::Difficulty, 0);
+        assert_eq!(settings.lines().len(), 2);
+    }
+
+    #[test]
+    fn a_must_floor_above_the_difficulty_cap_conflicts() {
+        let mut settings = RollSettings {
+            difficulties: vec![band(
+                DifficultyBand::Hard,
+                1,
+                Bound::AtLeast,
+                Importance::Required,
+            )],
+            every_dinner: EveryDinner {
+                max_time_mins: None,
+                max_difficulty: Some(DifficultyBand::Medium),
+            },
+            ..RollSettings::default()
+        };
+        let found = settings.conflicts(7);
+        assert_eq!(found.len(), 1);
+        settings.make_nice_to_have(&found[0].rules);
+        assert!(settings.conflicts(7).is_empty());
+    }
+
+    #[test]
+    fn the_folded_summary_counts_the_rules_and_caps() {
         let mut settings = RollSettings::default();
         assert_eq!(settings.rules_summary(), "No rules yet");
         settings.proteins = vec![lookup("Beef", 2, Bound::AtLeast, Importance::Required)];
-        settings.add_band(DifficultyBand::Easy);
+        settings.add_rule(
+            &RuleTarget::Band(DifficultyBand::Easy),
+            1,
+            Bound::AtLeast,
+            Importance::Medium,
+        );
         assert_eq!(settings.rules_summary(), "2 rules, 1 Must: Easy, Beef");
+        settings.every_dinner.max_time_mins = Some(30);
+        settings.every_dinner.max_difficulty = Some(DifficultyBand::Medium);
+        assert_eq!(
+            settings.rules_summary(),
+            "4 rules, 1 Must: Easy, Beef, max 30 min +1 more"
+        );
     }
 }
