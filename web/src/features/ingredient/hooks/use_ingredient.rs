@@ -1,4 +1,5 @@
 use crate::server::api::ingredient::{add_ingredient, get_ingredients};
+pub use crate::server::api::ingredient::{delete_ingredient_cascade, get_ingredient_references};
 use dioxus::prelude::*;
 use domain::ingredient::{Ingredient, NewIngredient};
 

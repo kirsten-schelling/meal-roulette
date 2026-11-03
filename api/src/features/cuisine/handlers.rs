@@ -4,10 +4,11 @@ use axum::{
 };
 use uuid::Uuid;
 
-use super::repository::{create, delete, get, list, update};
+use super::repository::{create, delete, delete_detaching, get, list, references, update};
 use crate::error::AppError;
 use crate::state::AppState;
 use domain::cuisine::{Cuisine, CuisineWithRecipeList, NewCuisine, UpdateCuisine};
+use domain::usage::Reference;
 
 pub async fn get_cuisines(
     State(state): State<AppState>,
@@ -47,4 +48,20 @@ pub async fn delete_cuisine(
 ) -> Result<Json<Cuisine>, AppError> {
     let cuisine = delete(&state.db, id).await?;
     Ok(Json(cuisine))
+}
+
+pub async fn get_cuisine_references(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<Reference>>, AppError> {
+    let found = references(&state.db, id).await?;
+    Ok(Json(found))
+}
+
+pub async fn delete_cuisine_cascade(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Cuisine>, AppError> {
+    let deleted = delete_detaching(&state.db, id).await?;
+    Ok(Json(deleted))
 }

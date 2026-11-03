@@ -1,4 +1,5 @@
 use crate::server::api::cuisine::{add_cuisine, delete_cuisine, get_cuisines, update_cuisine};
+pub use crate::server::api::cuisine::{delete_cuisine_cascade, get_cuisine_references};
 use dioxus::prelude::*;
 use domain::cuisine::{Cuisine, CuisineWithRecipeList, NewCuisine, UpdateCuisine};
 use uuid::Uuid;

@@ -1,5 +1,6 @@
+use crate::references::{to_references, ReferenceRow};
 use domain::protein::{NewProtein, Protein, ProteinWithRecipeList, UpdateProtein};
-use domain::usage::UsageRef;
+use domain::usage::{Reference, ReferenceKind, UsageRef};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -129,4 +130,44 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<Protein, sqlx::Error> {
     .fetch_one(pool)
     .await?;
     Ok(protein)
+}
+
+pub async fn references(pool: &PgPool, id: Uuid) -> Result<Vec<Reference>, sqlx::Error> {
+    let rows = sqlx::query_as!(
+        ReferenceRow,
+        r#"
+        SELECT recipe.id, recipe.title AS name
+        FROM recipe
+        WHERE recipe.main_protein_id = $1
+        ORDER BY recipe.title, recipe.id
+        "#,
+        id,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(to_references(rows, ReferenceKind::Recipe))
+}
+
+/// Detaches the recipes (their protein becomes empty) and deletes the protein in one transaction.
+pub async fn delete_detaching(pool: &PgPool, id: Uuid) -> Result<Protein, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    sqlx::query_scalar!(
+        "UPDATE recipe SET main_protein_id = NULL WHERE main_protein_id = $1 RETURNING id",
+        id,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+    let deleted = sqlx::query_as!(
+        Protein,
+        r#"
+        DELETE FROM protein
+        WHERE id = $1
+        RETURNING id, household_id, name, created_at, updated_at
+        "#,
+        id,
+    )
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(deleted)
 }

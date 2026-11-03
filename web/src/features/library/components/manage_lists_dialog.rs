@@ -3,16 +3,19 @@ use crate::components::ui::{
     Spinner, Tabs, Text, Tone,
 };
 use crate::features::cuisine::hooks::use_cuisine::{
-    use_add_cuisine, use_delete_cuisine, use_edit_cuisine, use_get_cuisines,
+    delete_cuisine_cascade, get_cuisine_references, use_add_cuisine, use_delete_cuisine,
+    use_edit_cuisine, use_get_cuisines,
 };
+use crate::features::library::components::BlockedDeleteDialog;
 use crate::features::protein::hooks::use_protein::{
-    use_add_protein, use_delete_protein, use_edit_protein, use_get_proteins,
+    delete_protein_cascade, get_protein_references, use_add_protein, use_delete_protein,
+    use_edit_protein, use_get_proteins,
 };
 use crate::features::tag::hooks::use_tag::{
     use_add_tag, use_delete_tag, use_edit_tag, use_get_tags,
 };
 use crate::features::unit::hooks::use_unit::{
-    use_add_unit, use_delete_unit, use_edit_unit, use_get_units,
+    get_unit_references, use_add_unit, use_delete_unit, use_edit_unit, use_get_units,
 };
 use crate::models::error_message;
 use dioxus::prelude::*;
@@ -20,7 +23,7 @@ use domain::cuisine::{NewCuisine, UpdateCuisine};
 use domain::protein::{NewProtein, UpdateProtein};
 use domain::tag::{NewTag, UpdateTag};
 use domain::unit::{NewUnit, UpdateUnit};
-use domain::usage::UsageRef;
+use domain::usage::{Reference, UsageRef};
 use uuid::Uuid;
 
 /// Which list the dialog opens on. Callers deep-link straight to the list
@@ -51,6 +54,14 @@ impl ManageTab {
             _ => ManageTab::Cuisines,
         }
     }
+}
+
+/// A delete the server refused, with what still uses the value.
+#[derive(Clone, PartialEq)]
+struct Blocked {
+    id: Uuid,
+    name: String,
+    references: Vec<Reference>,
 }
 
 /// One entry of whichever list is showing, flattened to what the rows render.
@@ -133,6 +144,11 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
     let mut editing = use_signal(|| None as Option<(Uuid, String)>);
     // Row id + name awaiting delete confirmation.
     let mut confirming = use_signal(|| None as Option<(Uuid, String)>);
+    // The delete just submitted, so a refusal can fetch what is in the way.
+    let mut pending_delete = use_signal(|| None as Option<(Uuid, String)>);
+    let mut blocked = use_signal(|| None as Option<Blocked>);
+    let mut cascade_busy = use_signal(|| false);
+    let mut cascade_error = use_signal(|| None as Option<String>);
 
     // A successful add clears the draft, a successful rename closes the
     // editor, and every success refetches the list it changed.
@@ -203,6 +219,70 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
         results.0.set(None);
         results.1.set(None);
         results.2.set(None);
+    };
+
+    // A refused delete turns into the "still used by" dialog, unless nothing
+    // turns up to show (then the plain error alert stays).
+    use_effect(move || {
+        let refused = matches!(&*delete_cuisine.result.read(), Some(Err(_)))
+            || matches!(&*delete_protein.result.read(), Some(Err(_)))
+            || matches!(&*delete_unit.result.read(), Some(Err(_)));
+        if !refused {
+            return;
+        }
+        let Some((id, name)) = pending_delete.peek().clone() else {
+            return;
+        };
+        pending_delete.set(None);
+        let which = ManageTab::from_index(*tab.peek());
+        spawn(async move {
+            let fetched = match which {
+                ManageTab::Cuisines => get_cuisine_references(id).await,
+                ManageTab::Proteins => get_protein_references(id).await,
+                ManageTab::Units => get_unit_references(id).await,
+                ManageTab::Tags => return,
+            };
+            if let Ok(references) = fetched {
+                if !references.is_empty() {
+                    clear_results();
+                    blocked.set(Some(Blocked {
+                        id,
+                        name,
+                        references,
+                    }));
+                }
+            }
+        });
+    });
+
+    let run_cascade = move |_| {
+        let Some(Blocked { id, .. }) = blocked() else {
+            return;
+        };
+        if cascade_busy() {
+            return;
+        }
+        cascade_busy.set(true);
+        let which = ManageTab::from_index(tab());
+        spawn(async move {
+            let outcome = match which {
+                ManageTab::Cuisines => delete_cuisine_cascade(id).await.map(|_| ()),
+                ManageTab::Proteins => delete_protein_cascade(id).await.map(|_| ()),
+                ManageTab::Units | ManageTab::Tags => {
+                    cascade_busy.set(false);
+                    return;
+                }
+            };
+            match outcome {
+                Ok(()) => {
+                    cuisines.restart();
+                    proteins.restart();
+                }
+                Err(e) => cascade_error.set(Some(error_message(&e))),
+            }
+            blocked.set(None);
+            cascade_busy.set(false);
+        });
     };
 
     let current = ManageTab::from_index(tab());
@@ -312,11 +392,15 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
         ManageTab::Tags => edit_tag.submit(id, UpdateTag { name: Some(name) }),
     };
 
-    let submit_delete = move |id: Uuid| match ManageTab::from_index(tab()) {
-        ManageTab::Cuisines => delete_cuisine.submit(id),
-        ManageTab::Proteins => delete_protein.submit(id),
-        ManageTab::Units => delete_unit.submit(id),
-        ManageTab::Tags => delete_tag.submit(id),
+    let mut submit_delete = move |id: Uuid, name: String| {
+        pending_delete.set(Some((id, name)));
+        cascade_error.set(None);
+        match ManageTab::from_index(tab()) {
+            ManageTab::Cuisines => delete_cuisine.submit(id),
+            ManageTab::Proteins => delete_protein.submit(id),
+            ManageTab::Units => delete_unit.submit(id),
+            ManageTab::Tags => delete_tag.submit(id),
+        }
     };
 
     rsx! {
@@ -338,6 +422,7 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
                         editing.set(None);
                         confirming.set(None);
                         new_name.set(String::new());
+                        cascade_error.set(None);
                         clear_results();
                     },
                 }
@@ -376,6 +461,9 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
                         Alert { tone: Tone::Red, title: "Couldn't rename that", "{msg}" }
                     }
                     if let Some(msg) = delete_error {
+                        Alert { tone: Tone::Red, title: "Couldn't delete that", "{msg}" }
+                    }
+                    if let Some(msg) = cascade_error() {
                         Alert { tone: Tone::Red, title: "Couldn't delete that", "{msg}" }
                     }
 
@@ -425,15 +513,41 @@ pub fn ManageListsDialog(initial_tab: ManageTab, on_close: EventHandler<()>) -> 
 
         if let Some((id, name)) = confirming() {
             ConfirmDeleteRow {
-                name,
+                name: name.clone(),
                 used_by_noun: used_by_noun.to_string(),
                 on_cancel: move |_| confirming.set(None),
                 on_confirm: move |_| {
                     confirming.set(None);
-                    submit_delete(id);
+                    submit_delete(id, name.clone());
                 },
             }
         }
+
+        if let Some(Blocked { name, references, .. }) = blocked() {
+            BlockedDeleteDialog {
+                name,
+                references,
+                cascade_warning: detach_warning(current, used_by_noun),
+                busy: cascade_busy(),
+                on_cascade: run_cascade,
+                on_close: move |_| {
+                    if !cascade_busy() {
+                        blocked.set(None);
+                    }
+                },
+            }
+        }
+    }
+}
+
+/// What "Delete anyway" does for a list, or `None` when it is not offered: a unit
+/// cannot be removed from the ingredients measured in it without losing them.
+fn detach_warning(tab: ManageTab, noun: &str) -> Option<String> {
+    match tab {
+        ManageTab::Cuisines | ManageTab::Proteins => Some(format!(
+            "Delete anyway removes it from these {noun}s and deletes it. The {noun}s themselves are kept."
+        )),
+        ManageTab::Units | ManageTab::Tags => None,
     }
 }
 

@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use domain::cuisine::{Cuisine, CuisineWithRecipeList, NewCuisine, UpdateCuisine};
+use domain::usage::Reference;
 use uuid::Uuid;
 
 #[server]
@@ -40,6 +41,28 @@ pub async fn delete_cuisine(id: Uuid) -> Result<Cuisine, ServerFnError> {
 
     let state = app_state()?;
     repository::delete(&state.db, id)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
+pub async fn get_cuisine_references(id: Uuid) -> Result<Vec<Reference>, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::cuisine::repository;
+
+    let state = app_state()?;
+    repository::references(&state.db, id)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
+pub async fn delete_cuisine_cascade(id: Uuid) -> Result<Cuisine, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::cuisine::repository;
+
+    let state = app_state()?;
+    repository::delete_detaching(&state.db, id)
         .await
         .map_err(server_fn_error)
 }

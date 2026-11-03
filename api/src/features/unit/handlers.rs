@@ -4,10 +4,11 @@ use axum::{
 };
 use uuid::Uuid;
 
-use super::repository::{create, delete, get, list, update};
+use super::repository::{create, delete, get, list, references, update};
 use crate::error::AppError;
 use crate::state::AppState;
 use domain::unit::{NewUnit, Unit, UnitWithIngredientList, UpdateUnit};
+use domain::usage::Reference;
 
 pub async fn get_units(
     State(state): State<AppState>,
@@ -47,4 +48,12 @@ pub async fn delete_unit(
 ) -> Result<Json<Unit>, AppError> {
     let unit = delete(&state.db, id).await?;
     Ok(Json(unit))
+}
+
+pub async fn get_unit_references(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<Reference>>, AppError> {
+    let found = references(&state.db, id).await?;
+    Ok(Json(found))
 }

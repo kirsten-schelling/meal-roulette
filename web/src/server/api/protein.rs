@@ -1,5 +1,6 @@
 use dioxus::prelude::*;
 use domain::protein::{NewProtein, Protein, ProteinWithRecipeList, UpdateProtein};
+use domain::usage::Reference;
 use uuid::Uuid;
 
 #[server]
@@ -40,6 +41,28 @@ pub async fn delete_protein(id: Uuid) -> Result<Protein, ServerFnError> {
 
     let state = app_state()?;
     repository::delete(&state.db, id)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
+pub async fn get_protein_references(id: Uuid) -> Result<Vec<Reference>, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::protein::repository;
+
+    let state = app_state()?;
+    repository::references(&state.db, id)
+        .await
+        .map_err(server_fn_error)
+}
+
+#[server]
+pub async fn delete_protein_cascade(id: Uuid) -> Result<Protein, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::protein::repository;
+
+    let state = app_state()?;
+    repository::delete_detaching(&state.db, id)
         .await
         .map_err(server_fn_error)
 }

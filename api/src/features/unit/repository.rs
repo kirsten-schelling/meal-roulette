@@ -1,5 +1,6 @@
+use crate::references::{to_references, ReferenceRow};
 use domain::unit::{NewUnit, Unit, UnitEntry, UnitWithIngredientList, UpdateUnit};
-use domain::usage::UsageRef;
+use domain::usage::{Reference, ReferenceKind, UsageRef};
 use sqlx::{PgConnection, PgPool};
 use uuid::Uuid;
 
@@ -161,4 +162,35 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<Unit, sqlx::Error> {
     .fetch_one(pool)
     .await?;
     Ok(unit)
+}
+
+pub async fn references(pool: &PgPool, id: Uuid) -> Result<Vec<Reference>, sqlx::Error> {
+    let ingredients = sqlx::query_as!(
+        ReferenceRow,
+        r#"
+        SELECT id, name FROM ingredient WHERE unit_id = $1 ORDER BY name, id
+        "#,
+        id,
+    )
+    .fetch_all(pool)
+    .await?;
+    let lists = sqlx::query_as!(
+        ReferenceRow,
+        r#"
+        SELECT shopping_list.id, COALESCE(shopping_list.name, 'Shopping list') AS "name!"
+        FROM shopping_list
+        WHERE EXISTS (
+            SELECT 1 FROM shopping_list_item
+            WHERE shopping_list_item.shopping_list_id = shopping_list.id
+              AND shopping_list_item.unit_id = $1
+        )
+        ORDER BY 2, shopping_list.id
+        "#,
+        id,
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut found = to_references(ingredients, ReferenceKind::Ingredient);
+    found.extend(to_references(lists, ReferenceKind::ShoppingList));
+    Ok(found)
 }

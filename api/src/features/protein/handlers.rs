@@ -4,10 +4,11 @@ use axum::{
 };
 use uuid::Uuid;
 
-use super::repository::{create, delete, get, list, update};
+use super::repository::{create, delete, delete_detaching, get, list, references, update};
 use crate::error::AppError;
 use crate::state::AppState;
 use domain::protein::{NewProtein, Protein, ProteinWithRecipeList, UpdateProtein};
+use domain::usage::Reference;
 
 pub async fn get_proteins(
     State(state): State<AppState>,
@@ -47,4 +48,20 @@ pub async fn delete_protein(
 ) -> Result<Json<Protein>, AppError> {
     let protein = delete(&state.db, id).await?;
     Ok(Json(protein))
+}
+
+pub async fn get_protein_references(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Vec<Reference>>, AppError> {
+    let found = references(&state.db, id).await?;
+    Ok(Json(found))
+}
+
+pub async fn delete_protein_cascade(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<Protein>, AppError> {
+    let deleted = delete_detaching(&state.db, id).await?;
+    Ok(Json(deleted))
 }

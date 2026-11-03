@@ -2,7 +2,10 @@ mod handlers;
 pub mod repository;
 
 use crate::state::AppState;
-use axum::{routing::get, Router};
+use axum::{
+    routing::{delete, get},
+    Router,
+};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
@@ -15,5 +18,13 @@ pub fn routes() -> Router<AppState> {
             get(handlers::get_ingredient)
                 .put(handlers::update_ingredient)
                 .delete(handlers::delete_ingredient),
+        )
+        .route(
+            "/ingredients/{id}/references",
+            get(handlers::get_ingredient_references),
+        )
+        .route(
+            "/ingredients/{id}/cascade",
+            delete(handlers::delete_ingredient_cascade),
         )
 }

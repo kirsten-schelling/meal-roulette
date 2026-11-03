@@ -1,4 +1,5 @@
 use crate::server::api::protein::{add_protein, delete_protein, get_proteins, update_protein};
+pub use crate::server::api::protein::{delete_protein_cascade, get_protein_references};
 use dioxus::prelude::*;
 use domain::protein::{NewProtein, Protein, ProteinWithRecipeList, UpdateProtein};
 use uuid::Uuid;
