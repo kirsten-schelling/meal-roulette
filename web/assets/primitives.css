@@ -948,7 +948,7 @@ body { margin: 0; }
 /* ── theme control: System / Light / Dark ───────────────────────────────── */
 .mr-theme {
   display: flex; gap: 2px; padding: 2px; margin: 0; border: 0; min-width: 0;
-  background: var(--mr-pressed); border-radius: var(--mr-radius-md);
+  background: var(--mr-hover); border-radius: var(--mr-radius-md);
 }
 .mr-theme__opt {
   flex: 1; height: var(--mr-control-h-sm); padding: 0 var(--mr-space-2);
