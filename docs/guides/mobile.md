@@ -59,3 +59,13 @@ just android
 ```
 
 `MR_SERVER_URL` is read at compile time; changing it means rebuilding.
+
+## App identity
+
+`web/Dioxus.toml` sets the package id (`dev.kirsten.mealroulette`) and publisher. The launcher
+label comes from `web/android/AndroidManifest.xml`, because dx otherwise derives it from the
+crate name. dx has no Android icon setting and always writes its stock icons, so after
+`dx build --android` run `bash web/android/apply-icon.sh` (same `CARGO_TARGET_DIR`) to swap in
+`web/assets/pwa/icon-192.png` and rebuild the APK. `dx serve` / `just android` install with the
+stock icon. The package id differs from the old `com.example.Web`, so it installs as a separate
+app; the old "Web" app can be uninstalled.
