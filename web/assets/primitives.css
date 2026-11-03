@@ -712,8 +712,12 @@ body { margin: 0; }
   animation: mr-fade var(--mr-dur) var(--mr-ease-out);
 }
 @keyframes mr-fade { from { opacity: 0; } to { opacity: 1; } }
+/* The dialog never grows past the visible viewport (dvh tracks the phone's browser
+   chrome; vh is the fallback where dvh is unknown). Its body scrolls instead. */
 .mr-modal {
-  width: 100%; max-width: 30rem; max-height: calc(100dvh - 32px);
+  width: 100%; max-width: 30rem;
+  max-height: calc(100vh - 2 * var(--mr-space-4));
+  max-height: calc(100dvh - 2 * var(--mr-space-4));
   display: flex; flex-direction: column;
   background: var(--mr-surface-3); color: var(--mr-text);
   border: 1px solid var(--mr-border); border-radius: var(--mr-radius-xl);
@@ -722,9 +726,6 @@ body { margin: 0; }
 }
 @keyframes mr-modal-in { from { opacity: 0; transform: translateY(4px) scale(.96); } to { opacity: 1; transform: none; } }
 .mr-modal--wide { max-width: 40rem; }
-/* Let descendant popups (dropdowns, comboboxes) spill out of the dialog box
-   instead of being clipped by its rounded overflow. */
-.mr-modal--overflow { overflow: visible; }
 .mr-modal:focus { outline: none; }
 .mr-modal__header {
   flex: none; display: flex; align-items: center; justify-content: space-between;
@@ -732,14 +733,19 @@ body { margin: 0; }
   font-size: var(--mr-text-lg); font-weight: var(--mr-weight-semibold); font-family: var(--mr-font-heading);
 }
 .mr-modal__header .mr-iconbtn { margin: -6px -8px 0 0; }
-.mr-modal__body { padding: var(--mr-space-2) var(--mr-space-6) var(--mr-space-6); overflow-y: auto; min-height: 0; }
-.mr-modal--overflow .mr-modal__body { overflow: visible; }
+.mr-modal__body {
+  flex: 1 1 auto; min-height: 0; padding: var(--mr-space-2) var(--mr-space-6) var(--mr-space-6);
+  overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+}
 
-/* Pinned action row at the bottom of a dialog body (Cancel / Confirm). */
+/* Action row at the bottom of a dialog body (Cancel / Confirm). It sticks to the
+   bottom of the scrolling body, so the actions stay in reach on a long form; the
+   offset cancels the body's bottom padding. Opaque, since content scrolls under it. */
 .mr-dialog-foot {
+  position: sticky; bottom: calc(-1 * var(--mr-space-6));
   flex: none; display: flex; justify-content: flex-end; gap: var(--mr-space-2);
   padding: var(--mr-space-4) var(--mr-space-6); margin: var(--mr-space-6) calc(-1 * var(--mr-space-6)) calc(-1 * var(--mr-space-6));
-  background: color-mix(in srgb, var(--mr-surface-2) 50%, transparent);
+  background: color-mix(in srgb, var(--mr-surface-2) 50%, var(--mr-surface-3));
   border-radius: 0 0 var(--mr-radius-xl) var(--mr-radius-xl);
 }
 @media (max-width: 480px) { .mr-dialog-foot { flex-direction: column-reverse; } .mr-dialog-foot .mr-btn { width: 100%; } }
@@ -748,9 +754,8 @@ body { margin: 0; }
 .mr-dialog-form { display: flex; flex-direction: column; gap: var(--mr-space-4); }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   ADD-RECIPE DIALOG — a two-step form inside the Modal. Each step is short
-   enough to size to its content, so the dialog itself doesn't scroll and its
-   dropdowns (which escape the box via `mr-modal--overflow`) stay fully visible.
+   ADD-RECIPE DIALOG — a two-step form inside the Modal. A step taller than the
+   screen (say, a long imported ingredient list) scrolls in the Modal body.
    ═══════════════════════════════════════════════════════════════════════ */
 .mr-recipe-dialog { display: flex; flex-direction: column; gap: 1rem; }
 .mr-recipe-dialog__content { display: flex; flex-direction: column; gap: 1rem; }
@@ -1536,7 +1541,7 @@ button.mr-chip--active::before {
   margin: -.2rem -.4rem; padding: .2rem .4rem; border-radius: var(--mr-radius-md);
   cursor: pointer; transition: background var(--mr-dur-fast) var(--mr-ease);
 }
-.mr-editable:hover { background: var(--mr-hover); }
+@media (hover: hover) { .mr-editable:hover { background: var(--mr-hover); } }
 .mr-editable:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 2px; }
 .mr-editable__value { min-width: 0; }
 .mr-editable__icon {
@@ -1545,6 +1550,8 @@ button.mr-chip--active::before {
 }
 .mr-editable:hover .mr-editable__icon,
 .mr-editable:focus-visible .mr-editable__icon { opacity: 1; }
+/* No hover on a touch screen, so the pencil is always shown there. */
+@media (hover: none) { .mr-editable__icon { opacity: 1; } }
 
 .mr-inline-editor { display: flex; flex-direction: column; gap: .45rem; min-width: 0; }
 .mr-inline-editor__actions { display: flex; align-items: center; gap: .4rem; }

@@ -241,7 +241,6 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
     rsx! {
         Modal {
             wide: true,
-            overflow_visible: true,
             on_close: move |_| request_close(),
             title: modal_title.to_string(),
 

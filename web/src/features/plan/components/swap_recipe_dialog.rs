@@ -138,7 +138,6 @@ pub fn SwapRecipeDialog(
     rsx! {
         Modal {
             wide: true,
-            overflow_visible: true,
             title: format!("Swap {}", dinner_day_label(meal.day_index, meal.scheduled_date)),
             on_close: move |_| on_close.call(()),
 
