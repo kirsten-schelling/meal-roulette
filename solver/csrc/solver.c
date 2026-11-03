@@ -29,6 +29,7 @@
 
 #include "solver.h"
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -58,11 +59,32 @@ typedef struct {
     int32_t *picks;
     long steps;
     bool gave_up;
+    // splitmix64 state. The C library's rand() differs between platforms and
+    // shares one state across threads, so a seed would not reproduce a week.
+    uint64_t rng;
 } Search;
 
-static void shuffle_indices(int32_t *array, int32_t array_size) {
+static uint64_t next_random(Search *search) {
+    uint64_t z = (search->rng += UINT64_C(0x9E3779B97F4A7C15));
+    z = (z ^ (z >> 30)) * UINT64_C(0xBF58476D1CE4E5B9);
+    z = (z ^ (z >> 27)) * UINT64_C(0x94D049BB133111EB);
+    return z ^ (z >> 31);
+}
+
+// Uniform in [0, bound), bound > 0. Draws that land in the uneven tail of the
+// 64-bit range are thrown away so no value is favoured.
+static uint64_t random_below(Search *search, uint64_t bound) {
+    uint64_t limit = UINT64_MAX - UINT64_MAX % bound;
+    uint64_t value;
+    do {
+        value = next_random(search);
+    } while (value >= limit);
+    return value % bound;
+}
+
+static void shuffle_indices(Search *search, int32_t *array, int32_t array_size) {
     for (int32_t i = 0; i < array_size; i++) {
-        int32_t j = i + (rand() % (array_size - i));
+        int32_t j = i + (int32_t)random_below(search, (uint64_t)(array_size - i));
         int32_t temp = array[i];
         array[i] = array[j];
         array[j] = temp;
@@ -167,7 +189,7 @@ static bool select_recipes(Search *search, int32_t day) {
     int32_t *candidates = search->candidates + (size_t)day * (size_t)search->input->num_recipes;
     int32_t candidates_length = 0;
     filter_recipes(search, candidates, &candidates_length);
-    shuffle_indices(candidates, candidates_length);
+    shuffle_indices(search, candidates, candidates_length);
     for (int32_t i = 0; i < candidates_length; i++) {
         place_recipe(search, day, candidates[i]);
         if (still_feasible(search, search->input->num_recipes_to_pick - day - 1) &&
@@ -186,7 +208,7 @@ static bool select_recipes(Search *search, int32_t day) {
 // depend only on the seed and the targets, not on earlier attempts.
 static Outcome attempt(Search *search) {
     const Input *input = search->input;
-    srand((unsigned int)input->seed);
+    search->rng = input->seed;
     memset(search->used, 0, (size_t)input->num_recipes * sizeof(bool));
     memset(search->counts, 0, (size_t)input->num_requirements * sizeof(int32_t));
     search->steps = 0;
@@ -242,7 +264,8 @@ static bool validate_input(const Input *input, const Output *output) {
     for (int32_t j = 0; j < input->num_requirements; j++) {
         const Requirement *r = &input->requirements[j];
         if (r->attribute < 0 || r->attribute >= input->num_attributes || r->low > r->high ||
-            r->min_count < 0 || r->max_count < MR_NO_LIMIT || r->importance < MR_LOW ||
+            r->min_count < 0 || r->max_count < MR_NO_LIMIT ||
+            (r->max_count != MR_NO_LIMIT && r->min_count > r->max_count) || r->importance < MR_LOW ||
             r->importance > MR_REQUIRED) {
             return false;
         }
@@ -251,8 +274,10 @@ static bool validate_input(const Input *input, const Output *output) {
 }
 
 // malloc(0) may return NULL, which would read as running out of memory.
+// calloc checks count * size for overflow, so a huge count fails instead of
+// wrapping into a buffer that is too small.
 static void *alloc_at_least_one(size_t count, size_t size) {
-    return malloc((count > 0 ? count : 1) * size);
+    return calloc(count > 0 ? count : 1, size);
 }
 
 int32_t mr_solver_roll(const Input *input, Output *output) {
@@ -263,6 +288,10 @@ int32_t mr_solver_roll(const Input *input, Output *output) {
     size_t num_days = (size_t)input->num_recipes_to_pick;
     size_t num_recipes = (size_t)input->num_recipes;
     size_t num_requirements = (size_t)input->num_requirements;
+    // The candidate lists hold num_days * num_recipes slots.
+    if (num_recipes > SIZE_MAX / num_days) {
+        return MR_ERR_NO_MEMORY;
+    }
     Search search = {0};
     search.input = input;
     search.targets = alloc_at_least_one(num_requirements, sizeof(Target));
@@ -312,7 +341,7 @@ int32_t mr_solver_roll(const Input *input, Output *output) {
 
     // The search leaves the picks a rule forces for the last days; shuffling
     // spreads them across the week.
-    shuffle_indices(output->recipe_indices, input->num_recipes_to_pick);
+    shuffle_indices(&search, output->recipe_indices, input->num_recipes_to_pick);
     status = MR_OK;
 
 cleanup:

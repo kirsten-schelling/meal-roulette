@@ -2,8 +2,8 @@
 # host harness (csrc/main.c) and runs it, so you can see printf output without
 # starting the API. Prefer `just solver`; this script is the engine behind it.
 #
-#   just solver                      # uses solver/input.json
-#   just solver path\to\input.json   # any input file
+#   just solver                      # uses solver/input.txt
+#   just solver path\to\input.txt    # any input file
 #
 # cl.exe (MSVC) is not on PATH globally — it lives inside the VS Developer
 # shell — so we locate the install with vswhere and enter that shell once.

@@ -22,8 +22,8 @@
 /* Status codes returned by mr_solver_roll. */
 enum {
     MR_OK = 0,
-    /* Null pointers, negative counts, an attribute out of range, no picks, or
-       more picks than recipes. */
+    /* Null pointers, negative counts, an attribute out of range, a rule whose
+       min_count exceeds its max_count, no picks, or more picks than recipes. */
     MR_ERR_INVALID_INPUT = 1,
     /* The required rules cannot all be met from the recipes given. */
     MR_ERR_UNSATISFIABLE = 2,

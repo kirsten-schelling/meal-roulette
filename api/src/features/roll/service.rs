@@ -15,16 +15,38 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::features::{household, meal_plan, planned_meal, recipe, recipe_ingredient};
 
-/// Roll a new plan: pick `num_days` recipes under the request's constraints,
-/// then store the plan and one dinner per day starting at `start_date`. The
-/// outcome lists the preferences the recipes could not fully meet.
-pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcome, AppError> {
-    let num_days = usize::from(request.num_days);
+/// The most days one roll may ask for. The solver's memory and recursion depth grow with
+/// the number of days, and a plan longer than a month has no use.
+const MAX_ROLL_DAYS: usize = 31;
+
+fn check_num_days(num_days: usize) -> Result<usize, AppError> {
     if num_days == 0 {
         return Err(AppError::BadRequest(
             "Pick at least one day to roll.".to_string(),
         ));
     }
+    if num_days > MAX_ROLL_DAYS {
+        return Err(AppError::BadRequest(format!(
+            "You can roll at most {MAX_ROLL_DAYS} days at a time."
+        )));
+    }
+    Ok(num_days)
+}
+
+/// The solver is CPU-bound and can run for seconds on a tangled rule set, so it
+/// runs on the blocking pool rather than on an async worker.
+async fn run_solver(problem: Problem) -> Result<solver::Solution, AppError> {
+    tokio::task::spawn_blocking(move || solver::roll(&problem))
+        .await
+        .map_err(|error| AppError::Internal(format!("the solver task failed: {error}")))?
+        .map_err(solver_error)
+}
+
+/// Roll a new plan: pick `num_days` recipes under the request's constraints,
+/// then store the plan and one dinner per day starting at `start_date`. The
+/// outcome lists the preferences the recipes could not fully meet.
+pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcome, AppError> {
+    let num_days = check_num_days(usize::from(request.num_days))?;
     let household_id = match request.household_id {
         Some(id) => id,
         None => household::repository::default_household(pool).await?.id,
@@ -32,13 +54,13 @@ pub async fn roll_week(pool: &PgPool, request: RollRequest) -> Result<RollOutcom
     let recipes = recipe::repository::list(pool).await?;
     let grid = Grid::build(pool, &recipes, &request.constraints).await?;
     let seed = request.seed.unwrap_or_else(fresh_seed);
-    let solution = solver::roll(&Problem {
+    let solution = run_solver(Problem {
         recipes: grid.rows.clone(),
         requirements: grid.requirements(),
         num_to_pick: num_days,
         seed: seed as u64,
     })
-    .map_err(solver_error)?;
+    .await?;
     let unmet = grid.unmet(&solution.achieved);
     let start_date = request
         .start_date
@@ -106,13 +128,13 @@ pub async fn reroll(pool: &PgPool, planned_meal_id: Uuid) -> Result<PlannedMealD
         .map(|(i, _)| i)
         .collect();
 
-    let solution = solver::roll(&Problem {
+    let solution = run_solver(Problem {
         recipes: candidates.iter().map(|&i| grid.rows[i].clone()).collect(),
         requirements: residual(&grid.requirements(), &kept_rows),
         num_to_pick: 1,
         seed: fresh_seed() as u64,
     })
-    .map_err(solver_error)?;
+    .await?;
     let replacement = recipes[candidates[solution.picks[0]]].id;
     Ok(planned_meal::repository::set_recipe(pool, meal.id, replacement).await?)
 }
@@ -331,7 +353,7 @@ fn solver_error(error: SolveError) -> AppError {
                 .to_string(),
         ),
         SolveError::InvalidInput => AppError::BadRequest(error.to_string()),
-        SolveError::Unknown(_) | SolveError::BadIndex(_) | SolveError::Duplicate(_) => {
+        SolveError::NoMemory | SolveError::Unknown(_) | SolveError::BadIndex(_) | SolveError::Duplicate(_) => {
             AppError::Internal(error.to_string())
         }
     }
@@ -374,6 +396,17 @@ mod tests {
             num_to_pick: days,
             seed,
         })
+    }
+
+    #[test]
+    fn num_days_must_be_between_one_and_the_cap() {
+        assert!(matches!(check_num_days(0), Err(AppError::BadRequest(_))));
+        assert_eq!(check_num_days(1).ok(), Some(1));
+        assert_eq!(check_num_days(MAX_ROLL_DAYS).ok(), Some(MAX_ROLL_DAYS));
+        assert!(matches!(
+            check_num_days(MAX_ROLL_DAYS + 1),
+            Err(AppError::BadRequest(_))
+        ));
     }
 
     #[test]
