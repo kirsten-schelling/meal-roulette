@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 /// Runs once the dialog is on screen. Moves focus into it (the first control in
 /// the body, so a confirm dialog lands on Cancel), keeps Tab and Shift+Tab inside
 /// it, and hands focus back to whatever had it before once the dialog is gone.
-const FOCUS_SCRIPT: &str = r#"
+pub(crate) const FOCUS_SCRIPT: &str = r#"
 const id = "__ID__";
 const dlg = document.getElementById(id);
 if (dlg) {
