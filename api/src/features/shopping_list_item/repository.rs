@@ -138,6 +138,25 @@ pub async fn remove_custom(
     .await
 }
 
+/// Remove every ticked free-text line of a list and say how many went. Ingredient
+/// lines stay: the plan decides those.
+pub async fn clear_bought_custom(
+    pool: &PgPool,
+    shopping_list_id: Uuid,
+) -> Result<u64, sqlx::Error> {
+    let removed = sqlx::query_scalar!(
+        r#"
+        DELETE FROM shopping_list_item
+        WHERE shopping_list_id = $1 AND ingredient_id IS NULL AND is_purchased
+        RETURNING id
+        "#,
+        shopping_list_id,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(removed.len() as u64)
+}
+
 pub async fn create(
     pool: &PgPool,
     new_item: NewShoppingListItem,
