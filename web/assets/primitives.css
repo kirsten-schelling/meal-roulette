@@ -271,6 +271,10 @@ body { margin: 0; }
 .mr-iconbtn:active { background: var(--mr-pressed); }
 .mr-iconbtn--danger:hover { color: var(--mr-danger); background: color-mix(in srgb, var(--mr-red-bg) 60%, transparent); }
 .mr-iconbtn:disabled { opacity: .5; cursor: not-allowed; }
+.mr-btn:focus-visible, .mr-iconbtn:focus-visible, .mr-rating__dot:focus-visible,
+.mr-fsearch__add:focus-visible, .mr-popover__trigger:focus-visible {
+  outline: 2px solid var(--mr-focus); outline-offset: 2px;
+}
 @media (pointer: coarse) { .mr-iconbtn { width: var(--mr-control-h-lg); height: var(--mr-control-h-lg); } }
 
 /* ═══════════════════════════════════════════════════════════════════════
