@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::components::layout::AppLayout;
 use crate::features::history::page::History;
 use crate::features::library::page::Library;
-use crate::features::plan::page::{PlanDetail, PlannedMeals};
+use crate::features::plan::page::PlanDetail;
 use crate::features::recipe::detail_page::RecipePage;
 use crate::features::recipe::page::Recipes;
 use crate::features::roll::page::Roll;
@@ -39,8 +39,7 @@ pub enum Route {
     PlanShoppingList { plan_id: Uuid },
     #[route("/cooking-log")]
     CookingLog {},
-    #[route("/planned-meals")]
-    PlannedMeals {},
+    #[redirect("/planned-meals", || Route::Home {})]
     #[route("/planned-meals/:id")]
     PlanDetail { id: Uuid },
     #[route("/history")]

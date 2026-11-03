@@ -1,7 +1,7 @@
 //! The one persistent sidebar: brand on top, section navigation in the middle,
 //! theme control at the foot. `Sidebar` is deliberately dumb: it renders
-//! whatever list of `NavEntry` it's handed. The links themselves come from
-//! `AppLayout`.
+//! whatever lists of `NavEntry` it's handed, the second under a quieter
+//! "Manage" heading. The links themselves come from `AppLayout`.
 //!
 //! `Link` handles the routing and adds `mr-nav__link--active` to whichever entry
 //! matches the current URL, so the active-page highlight is free.
@@ -20,7 +20,7 @@ pub struct NavEntry {
 }
 
 #[component]
-pub fn Sidebar(entries: Vec<NavEntry>) -> Element {
+pub fn Sidebar(primary: Vec<NavEntry>, manage: Vec<NavEntry>) -> Element {
     rsx! {
         aside { class: "mr-sidebar",
             Link { class: "mr-brand", to: Route::Home {},
@@ -28,18 +28,32 @@ pub fn Sidebar(entries: Vec<NavEntry>) -> Element {
                 span { class: "mr-brand__name", "Meal Roulette" }
             }
             nav { class: "mr-nav", aria_label: "Sections",
-                for entry in entries {
-                    Link {
-                        key: "{entry.label}",
-                        class: "mr-nav__link",
-                        active_class: "mr-nav__link--active".to_string(),
-                        to: entry.to.clone(),
-                        span { class: "mr-nav__icon", Icon { name: entry.icon } }
-                        span { class: "mr-nav__label", "{entry.label}" }
-                    }
-                }
+                NavLinks { entries: primary }
+                div { class: "mr-nav__group", id: "mr-nav-manage", "Manage" }
+                NavLinks { entries: manage, quiet: true }
             }
             div { class: "mr-sidebar__foot", ThemeToggle {} }
+        }
+    }
+}
+
+#[component]
+fn NavLinks(entries: Vec<NavEntry>, #[props(default)] quiet: bool) -> Element {
+    let class = if quiet {
+        "mr-nav__link mr-nav__link--quiet"
+    } else {
+        "mr-nav__link"
+    };
+    rsx! {
+        for entry in entries {
+            Link {
+                key: "{entry.label}",
+                class,
+                active_class: "mr-nav__link--active".to_string(),
+                to: entry.to.clone(),
+                span { class: "mr-nav__icon", Icon { name: entry.icon } }
+                span { class: "mr-nav__label", "{entry.label}" }
+            }
         }
     }
 }

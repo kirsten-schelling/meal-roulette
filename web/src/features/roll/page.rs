@@ -622,7 +622,7 @@ pub fn Roll() -> Element {
                                     Ok(outcome) => {
                                         let (title, message, tone) = names.summary(&outcome);
                                         toast.show(Some(title), message, tone);
-                                        navigator.push(Route::PlannedMeals {});
+                                        navigator.push(Route::Home {});
                                     }
                                     Err(e) => {
                                         toast

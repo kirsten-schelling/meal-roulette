@@ -16,10 +16,9 @@ pub enum IconName {
     Check,
     Checklist,
     ChefHat,
-    ChevronRight,
     Dice,
+    Dots,
     Edit,
-    History,
     Plus,
     Replace,
     Star,
@@ -54,7 +53,6 @@ impl IconName {
                 "M12 3c1.918 0 3.52 1.35 3.91 3.151a4 4 0 0 1 2.09 7.723l0 7.126h-12v-7.126\
                  a4 4 0 1 1 2.092 -7.723a4 4 0 0 1 3.908 -3.151z M6.161 17.009l11.839 -.009"
             }
-            IconName::ChevronRight => "M9 6l6 6l-6 6",
             // Tabler draws the pips as filled circles; here each is a tiny
             // circle whose 2-unit stroke fills it in, so one path covers it all.
             IconName::Dice => {
@@ -63,11 +61,13 @@ impl IconName {
                  M11.5 12a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0 \
                  M15 15.5a.5 .5 0 1 0 1 0a.5 .5 0 1 0 -1 0"
             }
+            IconName::Dots => {
+                "M4 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 \n                 M11 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0 \n                 M18 12a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"
+            }
             IconName::Edit => {
                 "M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1 \
                  M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z M16 5l3 3"
             }
-            IconName::History => "M12 8l0 4l2 2 M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5",
             IconName::Plus => "M12 5l0 14 M5 12l14 0",
             IconName::Replace => {
                 "M3 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z \

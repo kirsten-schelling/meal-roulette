@@ -1,8 +1,8 @@
 //! A rolled week: one row per day with the dinner the roller picked. Each
 //! day can be re-rolled (the solver picks again under the plan's rules) or
-//! swapped for a recipe chosen by hand. `/planned-meals` shows the latest
-//! active plan; `/planned-meals/:id` shows any plan, e.g. one opened from the
-//! history. Both render the same view.
+//! swapped for a recipe chosen by hand. `/` (This week) shows the latest
+//! active plan; `/planned-meals/:id` shows any plan, e.g. a past week opened
+//! from the history. Both render the same view.
 
 use crate::components::difficulty_badge::DifficultyBadge;
 use crate::components::ui::{
@@ -26,7 +26,7 @@ use domain::planned_meal::PlannedMealDetail;
 use uuid::Uuid;
 
 #[component]
-pub fn PlannedMeals() -> Element {
+pub fn ThisWeek() -> Element {
     rsx! {
         PlanView { id: None }
     }
@@ -230,7 +230,7 @@ fn PlanView(id: ReadSignal<Option<Uuid>>) -> Element {
         div { class: "mr-page",
             div { class: "mr-pagehead",
                 div { class: "mr-pagehead__titles",
-                    Heading { level: 1, "Planned Meals" }
+                    Heading { level: 1, if id().is_some() { "Past week" } else { "This week" } }
                     Text { muted: true, "{subtitle}" }
                     if let Some(d) = detail {
                         div { class: "mr-planmeta",
@@ -276,7 +276,7 @@ fn PlanView(id: ReadSignal<Option<Uuid>>) -> Element {
                     div { class: "mr-empty",
                         div { class: "mr-empty__icon", Icon { name: IconName::Dice } }
                         Heading { level: 3, "No week rolled yet" }
-                        Text { muted: true, "Spin the roller and your dinners land here. Archived weeks are in History." }
+                        Text { muted: true, "Spin the roller and your dinners land here. Earlier weeks are in History." }
                         div { class: "mr-empty__actions",
                             Link { to: Route::Roll {}, class: "mr-btn mr-btn--solid mr-btn--lg", "Roll a week" }
                             Link { to: Route::History {}, class: "mr-btn mr-btn--outline mr-btn--lg", "Open History" }
