@@ -1,0 +1,11 @@
+[
+  {"@type": "BreadcrumbList", "itemListElement": []},
+  {
+    "@context": "https://schema.org/",
+    "@type": ["Recipe", "NewsArticle"],
+    "name": "Shakshuka",
+    "totalTime": "PT30M",
+    "recipeYield": 2,
+    "recipeIngredient": ["4 eggs", "1 (14 oz) can chopped tomatoes"]
+  }
+]

@@ -1,5 +1,6 @@
 pub mod add_recipe_dialog;
 pub mod copy_recipe_dialog;
+pub mod import_from_link;
 pub mod ingredient_composer;
 pub mod ingredient_line;
 pub mod ingredient_table;

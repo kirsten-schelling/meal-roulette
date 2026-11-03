@@ -7,6 +7,7 @@ pub mod meal_plan;
 pub mod planned_meal;
 pub mod protein;
 pub mod recipe;
+pub mod recipe_import;
 pub mod recipe_ingredient;
 pub mod recipe_tag;
 pub mod roll;

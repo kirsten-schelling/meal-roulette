@@ -4,6 +4,7 @@ use crate::components::ui::{
 };
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
 use crate::features::library::components::{ManageListsDialog, ManageTab};
+use crate::features::recipe::components::import_from_link::ImportFromLink;
 use crate::features::recipe::components::ingredient_composer::{parse_qty, IngredientComposer};
 use crate::features::recipe::components::ingredient_line::{IngredientLine, RecipeLine};
 use crate::features::recipe::components::recipe_fields::{
@@ -15,6 +16,7 @@ use crate::hooks::use_toast::use_toast;
 use crate::models::{amount_label, error_message};
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
+use domain::recipe_import::RecipeImport;
 use domain::recipe_ingredient::RecipeIngredientEntry;
 use domain::unit::UnitEntry;
 
@@ -132,6 +134,39 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
         }
     };
 
+    // Fills the form from an imported page for the user to review; nothing is saved until
+    // they press Save.
+    let apply_import = move |recipe: RecipeImport| {
+        let mut form = form;
+        form.title.set(recipe.title);
+        if let Some(mins) = recipe.time_mins {
+            form.time_mins.set(mins.to_string());
+        }
+        if let Some(servings) = recipe.servings {
+            form.servings.set(servings.to_string());
+        }
+        let imported: Vec<RecipeLine> = recipe
+            .ingredients
+            .into_iter()
+            .enumerate()
+            .map(|(i, ing)| RecipeLine {
+                id: i + 1,
+                name: ing.name,
+                unit: ing.unit,
+                qty: ing
+                    .qty
+                    .map(|q| q.normalize().to_string())
+                    .unwrap_or_default(),
+                note: ing.note.unwrap_or_default(),
+                optional: false,
+                ingredient: ing.ingredient,
+            })
+            .collect();
+        next_id.set(imported.len() + 1);
+        editing_id.set(None);
+        lines.set(imported);
+    };
+
     let modal_title = match panel() {
         Panel::Recipe => "Add recipe",
         Panel::Ingredients => "Add ingredients",
@@ -150,6 +185,7 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                         // ── Home: recipe details + a link into the ingredients ──
                         Panel::Recipe => rsx! {
                             div { class: "mr-recipe-dialog__content",
+                                ImportFromLink { on_import: apply_import }
                                 RecipeFields {
                                     form,
                                     cuisine_options: catalogs.cuisine_options(),
