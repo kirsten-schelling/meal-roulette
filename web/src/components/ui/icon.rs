@@ -20,6 +20,7 @@ pub enum IconName {
     Dice,
     Edit,
     History,
+    Menu,
     Plus,
     Replace,
     Star,
@@ -68,6 +69,7 @@ impl IconName {
                  M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z M16 5l3 3"
             }
             IconName::History => "M12 8l0 4l2 2 M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5",
+            IconName::Menu => "M4 6l16 0 M4 12l16 0 M4 18l16 0",
             IconName::Plus => "M12 5l0 14 M5 12l14 0",
             IconName::Replace => {
                 "M3 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z \

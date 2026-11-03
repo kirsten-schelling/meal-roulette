@@ -1,7 +1,8 @@
 //! The shell every page renders inside: a CSS-grid frame with the sidebar down
-//! the left and the routed page in the main column. No state of its own.
+//! the left and the routed page in the main column. Below 720px the sidebar is
+//! hidden and `MobileNav` (a top bar and slide-out drawer) takes over. No state of its own.
 
-use crate::components::layout::{NavEntry, Sidebar};
+use crate::components::layout::{MobileNav, NavEntry, Sidebar};
 use crate::components::toast_master::ToastMaster;
 use crate::components::ui::IconName;
 use crate::router::Route;
@@ -12,7 +13,8 @@ pub fn AppLayout() -> Element {
     rsx! {
         div { class: "mr-scope mr-shell",
             ToastMaster {
-                Sidebar { entries: nav_entries() }
+                Sidebar { primary: primary_entries(), manage: manage_entries() }
+                MobileNav { primary: primary_entries(), manage: manage_entries() }
                 main { class: "mr-main",
                     div { class: "mr-main__inner",
                         // The current route's page renders here.
@@ -24,9 +26,8 @@ pub fn AppLayout() -> Element {
     }
 }
 
-/// The sidebar's links. Hard-coded for the MVP — later this can come from
-/// config or be filtered per user/household.
-fn nav_entries() -> Vec<NavEntry> {
+/// The everyday links, in the order the sidebar lists them.
+fn primary_entries() -> Vec<NavEntry> {
     vec![
         NavEntry {
             icon: IconName::Dice,
@@ -37,13 +38,6 @@ fn nav_entries() -> Vec<NavEntry> {
             icon: IconName::ChefHat,
             label: "Recipes",
             to: Route::Recipes {},
-        },
-        NavEntry {
-            icon: IconName::Carrot,
-            label: "Library",
-            to: Route::Library {
-                manage: String::new(),
-            },
         },
         NavEntry {
             icon: IconName::Checklist,
@@ -59,6 +53,19 @@ fn nav_entries() -> Vec<NavEntry> {
             icon: IconName::CalendarWeek,
             label: "Planned Meals",
             to: Route::PlannedMeals {},
+        },
+    ]
+}
+
+/// Upkeep rather than daily use: shown quieter under a "Manage" heading.
+fn manage_entries() -> Vec<NavEntry> {
+    vec![
+        NavEntry {
+            icon: IconName::Carrot,
+            label: "Library",
+            to: Route::Library {
+                manage: String::new(),
+            },
         },
         NavEntry {
             icon: IconName::Archive,
