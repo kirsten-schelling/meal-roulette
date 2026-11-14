@@ -8,6 +8,7 @@ use dioxus::prelude::*;
 use uuid::Uuid;
 
 use crate::components::layout::AppLayout;
+use crate::features::cook_log::page::CookingLog;
 use crate::features::history::page::History;
 use crate::features::library::page::Library;
 use crate::features::plan::page::{PlanDetail, PlannedMeals};
@@ -15,7 +16,7 @@ use crate::features::recipe::detail_page::RecipePage;
 use crate::features::recipe::page::Recipes;
 use crate::features::roll::page::Roll;
 use crate::features::shopping_list::page::{PlanShoppingList, ShoppingList};
-use crate::pages::{CookingLog, Home};
+use crate::pages::Home;
 use crate::showcase::Showcase;
 
 #[derive(Routable, Clone, PartialEq)]

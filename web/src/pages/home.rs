@@ -2,6 +2,7 @@
 //! prompt to put the plan on days, plus shortcuts into the app.
 
 use crate::components::ui::*;
+use crate::features::cook_log::components::CookedButton;
 use crate::features::housekeeping::components::HousekeepingCard;
 use crate::features::plan::hooks::use_plan::use_get_latest_plan;
 use crate::hooks::use_today::use_today;
@@ -49,18 +50,19 @@ pub fn Home() -> Element {
                                         detail.meals.iter().find(|m| m.scheduled_date == Some(date))
                                     });
                                 match (tonight, today()) {
-                                    (Some(meal), _) => rsx! {
+                                    (Some(meal), Some(date)) => rsx! {
                                         div { class: "mr-week",
                                             div { class: "mr-week__row",
                                                 span { class: "mr-week__day", "Tonight" }
                                                 span { class: "mr-cell-strong", "{meal.title}" }
+                                                CookedButton { planned_meal_id: meal.id, recipe_id: meal.recipe_id, cooked_on: date }
                                             }
                                         }
                                     },
                                     (None, Some(_)) => rsx! {
                                         Text { muted: true, "Nothing is scheduled for today. Put the week on days to see tonight's dinner here." }
                                     },
-                                    (None, None) => rsx! {
+                                    (_, None) => rsx! {
                                         div { class: "mr-tablestate", Spinner {} }
                                     },
                                 }

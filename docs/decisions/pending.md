@@ -11,7 +11,7 @@ list.
    [stack.md](../architecture/stack.md); the client is the Rust server, so the candidates are Rust
    crates). Roadmap ordering puts this next; `household_id`
    already exists on the core tables.
-2. **Route-target layering in `web/`** — `pages/` (`home.rs`, a wired dashboard, and `cooking_log.rs`, still a stub) currently coexists with
+2. **Route-target layering in `web/`** — `pages/` (`home.rs`, a wired dashboard) currently coexists with
    `features/<f>/page.rs` (wired screens), which [web.md](../architecture/web.md) doesn't
    allow for. Decide whether `pages/` collapses into `features/` as screens get wired, or
    stays as a documented layer.

@@ -1,3 +1,4 @@
+pub mod cook_log;
 pub mod cuisine;
 pub mod history;
 pub mod housekeeping;

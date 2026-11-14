@@ -32,12 +32,10 @@ web/src/
 │   ├── ui/                     #   primitives (button, card, input, combobox, modal, ...)
 │   ├── layout/                 #   app shell (header, sidebar, app_layout)
 │   ├── difficulty_badge.rs     #   shared difficulty badge
-│   ├── toast_master.rs         #   toast host
-│   └── stub.rs                 #   shared placeholders
+│   └── toast_master.rs         #   toast host
 │
 ├── pages/                      # shell route pages outside a feature: home.rs (a wired
-│                               #   dashboard), cooking_log.rs (still a PageStub)
-│                               #   (their fate: docs/decisions/pending.md)
+│                               #   dashboard) (its fate: docs/decisions/pending.md)
 ├── hooks/                      # GENERIC, cross-feature client hooks
 │
 ├── server/                     # SERVER-SIDE boundary
