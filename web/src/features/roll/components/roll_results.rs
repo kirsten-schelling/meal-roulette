@@ -1,4 +1,6 @@
 use crate::components::ui::*;
+use crate::features::roll::components::FixButtons;
+use crate::features::roll::fix::{Fix, UnmetNote};
 use crate::models::difficulty_label;
 use dioxus::prelude::*;
 use domain::roll::PreviewMeal;
@@ -9,7 +11,9 @@ pub struct RolledWeek {
     pub seed: i64,
     pub meals: Vec<PreviewMeal>,
     /// The preferences the roll fell short of, already in words.
-    pub unmet: Vec<String>,
+    pub unmet: Vec<UnmetNote>,
+    /// A dinner was picked by hand, so `unmet` no longer describes the week.
+    pub edited: bool,
 }
 
 fn meta_line(meal: &PreviewMeal) -> String {
@@ -23,7 +27,8 @@ fn meta_line(meal: &PreviewMeal) -> String {
 }
 
 /// The rolled dinners, revealed in place. Keep stores them as a plan; roll
-/// again replaces them; each dinner can be swapped for another on its own.
+/// again replaces them; each dinner can be re-rolled or swapped for a recipe
+/// picked by hand.
 #[component]
 pub fn RollResults(
     week: RolledWeek,
@@ -34,6 +39,8 @@ pub fn RollResults(
     on_keep: EventHandler<()>,
     on_again: EventHandler<()>,
     on_reroll: EventHandler<usize>,
+    on_pick: EventHandler<usize>,
+    on_fix: EventHandler<Fix>,
 ) -> Element {
     let busy = rolling || keeping || rerolling.is_some();
     let count = week.meals.len();
@@ -53,17 +60,28 @@ pub fn RollResults(
                             span { class: "mr-result__title", "{meal.title}" }
                             span { class: "mr-result__meta", "{meta_line(meal)}" }
                         }
-                        if rerolling == Some(day) {
-                            Spinner {}
-                        } else {
+                        div { class: "mr-result__tools",
+                            if rerolling == Some(day) {
+                                Spinner {}
+                            } else {
+                                button {
+                                    r#type: "button",
+                                    class: "mr-iconbtn",
+                                    aria_label: "Roll day {day + 1} again",
+                                    title: "Roll this day again",
+                                    disabled: busy,
+                                    onclick: move |_| on_reroll.call(day),
+                                    Icon { name: IconName::Replace }
+                                }
+                            }
                             button {
                                 r#type: "button",
                                 class: "mr-iconbtn",
-                                aria_label: "Roll day {day + 1} again",
-                                title: "Roll this day again",
+                                aria_label: "Pick a recipe for day {day + 1}",
+                                title: "Pick a recipe for this day",
                                 disabled: busy,
-                                onclick: move |_| on_reroll.call(day),
-                                Icon { name: IconName::Replace }
+                                onclick: move |_| on_pick.call(day),
+                                Icon { name: IconName::Checklist }
                             }
                         }
                     }
@@ -72,10 +90,23 @@ pub fn RollResults(
             if !week.unmet.is_empty() {
                 Alert { tone: Tone::Amber, title: "Rolled, with some preferences loosened".to_string(),
                     ul { class: "mr-alert__list",
-                        for sentence in week.unmet.iter() {
-                            li { "{sentence}" }
+                        for note in week.unmet.iter() {
+                            li {
+                                "{note.sentence}"
+                                if let Some(fix) = note.fix.clone() {
+                                    FixButtons { fixes: vec![fix], on_fix }
+                                }
+                            }
                         }
                     }
+                    Text { small: true, muted: true,
+                        "Keep the week to cook it anyway, or pick another recipe for a day."
+                    }
+                }
+            }
+            if week.edited {
+                Text { small: true, muted: true,
+                    "You changed a dinner, so the rules were not checked again."
                 }
             }
             div { class: "mr-result__actions",

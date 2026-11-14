@@ -2,6 +2,7 @@ use crate::components::ui::{ComboOption, Combobox, Input, Picker, Rating, Rating
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::library::components::ManageTab;
 use crate::features::protein::hooks::use_protein::use_get_proteins;
+use crate::features::recipe::components::recipe_seed::RecipeSeed;
 use crate::features::recipe::components::tag_picker::{TagChoice, TagPicker};
 use crate::features::tag::hooks::use_tag::use_get_tags;
 use dioxus::prelude::*;
@@ -176,6 +177,21 @@ impl RecipeForm {
         self.time_touched.set(false);
         self.servings_touched.set(false);
         self.baseline.set(start);
+    }
+
+    /// Fills the fields `seed` names and counts them as the starting point, so
+    /// closing the form untouched does not ask to discard them.
+    pub fn prefill(mut self, seed: &RecipeSeed) {
+        if let Some(option) = &seed.cuisine {
+            self.cuisine.write().pick(option.clone());
+        }
+        if let Some(option) = &seed.protein {
+            self.protein.write().pick(option.clone());
+        }
+        if let Some(difficulty) = seed.difficulty {
+            self.difficulty.set(difficulty);
+        }
+        self.baseline.set(self.snapshot());
     }
 
     fn snapshot(&self) -> Snapshot {

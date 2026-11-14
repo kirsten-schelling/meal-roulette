@@ -7,7 +7,7 @@ use uuid::Uuid;
 /// text (e.g. an ingredient's unit). A `pending` option is one the form will
 /// create on save (typed as new elsewhere in it): it is tagged "New", and
 /// picking it records a create rather than an existing id.
-#[derive(Clone, PartialEq, Default)]
+#[derive(Clone, PartialEq, Default, Debug)]
 pub struct ComboOption {
     pub id: Uuid,
     pub label: String,
