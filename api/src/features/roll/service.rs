@@ -1211,6 +1211,64 @@ mod tests {
         }
     }
 
+    async fn stored_recipe(pool: &PgPool, title: &str) -> Uuid {
+        recipe::repository::create(
+            pool,
+            domain::recipe::InsertRecipe {
+                household_id: None,
+                title: title.to_string(),
+                difficulty: 2,
+                time_mins: 20,
+                servings: 2,
+                healthiness: None,
+                main_protein_id: None,
+                cuisine_id: None,
+            },
+        )
+        .await
+        .expect("recipe stored")
+        .id
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_roll_keeps_each_pinned_dinner_on_its_day(pool: PgPool) {
+        let mut ids = Vec::new();
+        for n in 0..8 {
+            ids.push(stored_recipe(&pool, &format!("Dinner {n}")).await);
+        }
+        let request = |pinned: Vec<PinnedDinner>, seed: i64| RollRequest {
+            household_id: None,
+            start_date: None,
+            num_days: 4,
+            seed: Some(seed),
+            constraints: RollConstraints::default(),
+            pinned,
+        };
+        for seed in 0..10 {
+            let pinned = vec![PinnedDinner {
+                day: 2,
+                recipe_id: ids[0],
+            }];
+            let preview = preview_roll(&pool, request(pinned, seed))
+                .await
+                .expect("rolls");
+            let week: Vec<Uuid> = preview.meals.iter().map(|m| m.recipe_id).collect();
+            assert_eq!(week[2], ids[0], "seed {seed}");
+            assert_eq!(week.iter().collect::<HashSet<_>>().len(), 4, "seed {seed}");
+        }
+        let every_day: Vec<PinnedDinner> = (0..4)
+            .map(|day| PinnedDinner {
+                day,
+                recipe_id: ids[usize::from(day) + 3],
+            })
+            .collect();
+        let preview = preview_roll(&pool, request(every_day, 1))
+            .await
+            .expect("rolls");
+        let week: Vec<Uuid> = preview.meals.iter().map(|m| m.recipe_id).collect();
+        assert_eq!(week, ids[3..7]);
+    }
+
     #[test]
     fn day_limits_no_recipe_could_meet_are_a_bad_request() {
         let backwards = DayLimitPlan {
