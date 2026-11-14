@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT cook_log.id, cook_log.recipe_id, recipe.title, cook_log.cooked_on\n        FROM cook_log\n        JOIN recipe ON recipe.id = cook_log.recipe_id\n        ORDER BY cook_log.cooked_on DESC, cook_log.created_at DESC\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "cook_log",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "recipe_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "cook_log",
+            "name": "recipe_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "cooked_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "cook_log",
+            "name": "cooked_on"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "1cef775e00c7052ec2de792974eaa93192c69a7cfcb48eab836cf3ac2a3172d3"
+}
