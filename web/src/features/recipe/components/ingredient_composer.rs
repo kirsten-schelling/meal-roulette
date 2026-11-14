@@ -40,6 +40,7 @@ pub fn IngredientComposer(
 ) -> Element {
     let root_id = use_control_id();
     let qty_id = format!("{root_id}-qty");
+    let unit_id = format!("{root_id}-unit");
     let mut ingredient = use_signal(Picker::default);
     let mut unit = use_signal(Picker::default);
     let mut purchase_size = use_signal(String::new);
@@ -80,12 +81,17 @@ pub fn IngredientComposer(
     let qty_error = qty_touched().then(|| qty_check.clone().err()).flatten();
     let size_error = size_touched().then(|| size_check.clone().err()).flatten();
 
-    // Picking a saved ingredient moves on to its quantity, so the list goes in by keyboard.
+    // Picking a saved ingredient moves on to its quantity, and creating a new one to its
+    // unit, so the list goes in by keyboard.
     use_effect({
         let qty_id = qty_id.clone();
+        let unit_id = unit_id.clone();
         move || {
-            if ingredient().picked.is_some() {
+            let ing = ingredient();
+            if ing.picked.is_some() {
                 focus_at_end(&qty_id);
+            } else if ing.is_new() {
+                focus_at_end(&unit_id);
             }
         }
     });
@@ -147,6 +153,8 @@ pub fn IngredientComposer(
     });
 
     let root_for_next = root_id.clone();
+    let qty_id_for_unit = qty_id.clone();
+    let qty_id_for_size = qty_id.clone();
     rsx! {
         div { class: "mr-subpanel", id: "{root_id}",
             Combobox {
@@ -169,19 +177,34 @@ pub fn IngredientComposer(
             if creating && !duplicate {
                 Text { muted: true, small: true, "New ingredient: give it a unit, and a pack size if it comes in one." }
                 div { class: "mr-form-grid",
-                    Combobox {
-                        label: "Unit".to_string(),
-                        placeholder: "Search, or type + Enter…".to_string(),
-                        options: unit_options.clone(),
-                        picker: unit,
-                        required: true,
-                        manage_label: "Manage units…".to_string(),
-                        on_manage: on_manage_units,
+                    div {
+                        id: "{unit_id}",
+                        onkeydown: move |e: KeyboardEvent| {
+                            if e.key() == Key::Enter && unit().is_resolved() {
+                                focus_at_end(&qty_id_for_unit);
+                            }
+                        },
+                        Combobox {
+                            label: "Unit".to_string(),
+                            placeholder: "Search, or type + Enter…".to_string(),
+                            options: unit_options.clone(),
+                            picker: unit,
+                            required: true,
+                            manage_label: "Manage units…".to_string(),
+                            on_manage: on_manage_units,
+                            enterkeyhint: "next".to_string(),
+                        }
                     }
                     Input {
                         label: "Purchase size (optional)".to_string(),
                         kind: "number".to_string(),
+                        enterkeyhint: "next".to_string(),
                         autocomplete: "off".to_string(),
+                        onkeydown: move |e: KeyboardEvent| {
+                            if e.key() == Key::Enter && unit().is_resolved() {
+                                focus_at_end(&qty_id_for_size);
+                            }
+                        },
                         value: purchase_size(),
                         oninput: move |e: FormEvent| {
                             purchase_size.set(e.value());

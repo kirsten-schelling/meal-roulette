@@ -1,4 +1,6 @@
-use crate::components::ui::{Alert, Button, ButtonVariant, Input, Size, Spinner, Text, Tone};
+use crate::components::ui::{
+    Alert, Button, ButtonVariant, Collapsible, Input, Spinner, Text, Tone,
+};
 use crate::features::recipe::hooks::use_recipe::import_recipe_from_url;
 use crate::models::error_message;
 use dioxus::prelude::*;
@@ -54,13 +56,16 @@ pub fn ImportFromLink(
     };
 
     rsx! {
-        Button {
-            variant: ButtonVariant::Ghost,
-            size: Size::Sm,
-            onclick: move |_| open.toggle(),
-            "Import from a link"
-        }
-        if open() {
+        Collapsible {
+            title: "Import from a link".to_string(),
+            open: open(),
+            ontoggle: move |is_open: bool| {
+                open.set(is_open);
+                if !is_open {
+                    error.set(None);
+                    hint.set(None);
+                }
+            },
             div { class: "mr-inline-add",
                 Input {
                     label: "Recipe page link (not the title)".to_string(),
@@ -68,6 +73,7 @@ pub fn ImportFromLink(
                     inputmode: "url".to_string(),
                     enterkeyhint: "go".to_string(),
                     autocomplete: "off".to_string(),
+                    autofocus: true,
                     value: url(),
                     oninput: move |e: FormEvent| {
                         url.set(e.value());
@@ -92,9 +98,9 @@ pub fn ImportFromLink(
                     }
                 }
             }
-        }
-        if let Some(msg) = error() {
-            Alert { tone: Tone::Red, title: "Couldn't import that page", "{msg}" }
+            if let Some(msg) = error() {
+                Alert { tone: Tone::Red, title: "Couldn't import that page", "{msg}" }
+            }
         }
         if let Some(source) = imported_from() {
             Text { muted: true, small: true,
