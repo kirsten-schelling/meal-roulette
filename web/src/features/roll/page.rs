@@ -20,8 +20,8 @@ use crate::models::error_message;
 use crate::router::Route;
 use dioxus::prelude::*;
 use domain::roll::{
-    DifficultyBand, FitRequest, KeepRollRequest, RerollPreviewRequest, RollConstraints,
-    RollRequest, RuleFamily,
+    DifficultyBand, FitRequest, KeepRollRequest, PinnedDinner, RerollPreviewRequest,
+    RollConstraints, RollRequest, RuleFamily,
 };
 
 /// A roll on screen with what it was rolled under, so Keep and the per-day
@@ -159,6 +159,21 @@ pub fn Roll() -> Element {
         }
         let constraints = form.constraints();
         let seed = seed().trim().parse::<i64>().ok();
+        // Pins past a shortened week fall away with their days.
+        let pinned: Vec<PinnedDinner> = shown()
+            .map(|current| {
+                current
+                    .week
+                    .pinned
+                    .iter()
+                    .filter(|&&day| day < days as usize)
+                    .map(|&day| PinnedDinner {
+                        day: day as u16,
+                        recipe_id: current.recipe_ids[day],
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         rolling.set(true);
         roll_error.set(None);
         spawn(async move {
@@ -168,6 +183,7 @@ pub fn Roll() -> Element {
                 num_days: days as u16,
                 seed,
                 constraints: constraints.clone(),
+                pinned: pinned.clone(),
             };
             match preview_roll(request).await {
                 Ok(preview) => {
@@ -177,6 +193,7 @@ pub fn Roll() -> Element {
                             seed: preview.seed,
                             unmet: form.unmet_sentences(&preview.unmet),
                             meals: preview.meals,
+                            pinned: pinned.iter().map(|pin| usize::from(pin.day)).collect(),
                         },
                         settings: form,
                         constraints,
@@ -215,6 +232,8 @@ pub fn Roll() -> Element {
                     }
                     next.recipe_ids = next.week.meals.iter().map(|m| m.recipe_id).collect();
                     next.week.unmet = next.settings.unmet_sentences(&replaced.unmet);
+                    // The pin was on the dinner that just left the day.
+                    next.week.pinned.remove(&day);
                     shown.set(Some(next));
                 }
                 Err(e) => {
@@ -223,6 +242,14 @@ pub fn Roll() -> Element {
             }
             rerolling.set(None);
         });
+    };
+
+    let toggle_pin = move |day: usize| {
+        if let Some(current) = shown.write().as_mut() {
+            if !current.week.pinned.remove(&day) {
+                current.week.pinned.insert(day);
+            }
+        }
     };
 
     let do_keep = move |_| {
@@ -302,6 +329,7 @@ pub fn Roll() -> Element {
                     on_keep: do_keep,
                     on_again: do_roll,
                     on_reroll: do_reroll,
+                    on_pin: toggle_pin,
                 }
             }
 
