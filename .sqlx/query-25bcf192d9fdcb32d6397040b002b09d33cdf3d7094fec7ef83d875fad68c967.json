@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH updated AS (\n            UPDATE recipe_ingredient\n            SET qty = $3,\n                note = $4,\n                is_optional = $5\n            WHERE recipe_id = $1 AND ingredient_id = $2\n            RETURNING id, created_at, updated_at, recipe_id, ingredient_id, qty, note, is_optional\n        )\n        SELECT\n            updated.id,\n            updated.created_at,\n            updated.updated_at,\n            updated.recipe_id,\n            updated.ingredient_id,\n            ingredient.name AS ingredient_name,\n            unit.name AS unit,\n            updated.qty,\n            updated.note,\n            updated.is_optional\n        FROM updated\n        JOIN ingredient ON updated.ingredient_id = ingredient.id\n        JOIN unit ON ingredient.unit_id = unit.id\n        ",
+  "query": "\n        WITH inserted AS (\n            INSERT INTO recipe_ingredient (recipe_id, ingredient_id, qty, note, is_optional)\n            VALUES ($1, $2, $3, $4, $5)\n            RETURNING id, created_at, updated_at, recipe_id, ingredient_id, qty, note, is_optional\n        )\n        SELECT\n            inserted.id,\n            inserted.created_at,\n            inserted.updated_at,\n            inserted.recipe_id,\n            inserted.ingredient_id,\n            ingredient.name AS ingredient_name,\n            COALESCE(unit.name, '') AS \"unit!\",\n            inserted.qty,\n            inserted.note,\n            inserted.is_optional\n        FROM inserted\n        JOIN ingredient ON inserted.ingredient_id = ingredient.id\n        LEFT JOIN unit ON ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -71,14 +71,9 @@
       },
       {
         "ordinal": 6,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "unit",
-            "name": "name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 7,
@@ -130,11 +125,11 @@
       false,
       false,
       false,
-      false,
+      null,
       true,
       true,
       false
     ]
   },
-  "hash": "82ba46b4d7505e3f3eec29e7077ca587602a89256105dfa66287f0996aa11b10"
+  "hash": "25bcf192d9fdcb32d6397040b002b09d33cdf3d7094fec7ef83d875fad68c967"
 }

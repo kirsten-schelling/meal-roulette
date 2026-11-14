@@ -1,5 +1,6 @@
 use dioxus::prelude::ServerFnError;
 use rust_decimal::Decimal;
+use std::fmt::Display;
 use time::macros::format_description;
 use time::Date;
 
@@ -23,10 +24,24 @@ pub fn difficulty_label(d: i32) -> &'static str {
     }
 }
 
+/// "500 g", or just "6" for an ingredient with no unit (an empty `unit`).
+pub fn measure_label(value: impl Display, unit: &str) -> String {
+    format!("{value} {unit}").trim_end().to_string()
+}
+
+/// "Qty (g)", or "Qty" for an ingredient with no unit.
+pub fn qty_label(unit: &str) -> String {
+    if unit.is_empty() {
+        "Qty".to_string()
+    } else {
+        format!("Qty ({unit})")
+    }
+}
+
 /// "1.5 kg", trailing zeros dropped; "As needed" for a line that gives no amount.
 pub fn amount_label(qty: Option<Decimal>, unit: &str) -> String {
     match qty {
-        Some(qty) => format!("{} {unit}", qty.normalize()),
+        Some(qty) => measure_label(qty.normalize(), unit),
         None => "As needed".to_string(),
     }
 }

@@ -37,7 +37,7 @@ fn pending_units(lines: &[RecipeLine], saved: &[ComboOption]) -> Vec<ComboOption
     let mut pending: Vec<ComboOption> = Vec::new();
     for line in lines {
         let IngredientEntry::New {
-            unit: UnitEntry::New(name),
+            unit: Some(UnitEntry::New(name)),
             ..
         } = &line.ingredient
         else {

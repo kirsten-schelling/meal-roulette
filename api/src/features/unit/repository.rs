@@ -101,11 +101,19 @@ where
 
 /// A unit typed as new reuses one that already has that name, so two new ingredients
 /// measured in the same new unit (or a name differing only in case) share one row.
-pub async fn resolve(conn: &mut PgConnection, entry: UnitEntry) -> Result<Uuid, sqlx::Error> {
+/// No entry, or a blank name, means no unit and creates nothing.
+pub async fn resolve(
+    conn: &mut PgConnection,
+    entry: Option<UnitEntry>,
+) -> Result<Option<Uuid>, sqlx::Error> {
     let name = match entry {
-        UnitEntry::Existing(id) => return Ok(id),
-        UnitEntry::New(name) => name.trim().to_string(),
+        None => return Ok(None),
+        Some(UnitEntry::Existing(id)) => return Ok(Some(id)),
+        Some(UnitEntry::New(name)) => name.trim().to_string(),
     };
+    if name.is_empty() {
+        return Ok(None);
+    }
     let existing = sqlx::query_scalar!(
         r#"
         SELECT id FROM unit
@@ -116,7 +124,7 @@ pub async fn resolve(conn: &mut PgConnection, entry: UnitEntry) -> Result<Uuid, 
     .fetch_optional(&mut *conn)
     .await?;
     if let Some(id) = existing {
-        return Ok(id);
+        return Ok(Some(id));
     }
     let unit = create(
         conn,
@@ -127,7 +135,7 @@ pub async fn resolve(conn: &mut PgConnection, entry: UnitEntry) -> Result<Uuid, 
         },
     )
     .await?;
-    Ok(unit.id)
+    Ok(Some(unit.id))
 }
 
 pub async fn update(pool: &PgPool, id: Uuid, unit: UpdateUnit) -> Result<Unit, sqlx::Error> {

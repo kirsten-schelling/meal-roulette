@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            recipe_ingredient.id,\n            recipe_ingredient.created_at,\n            recipe_ingredient.updated_at,\n            recipe_ingredient.recipe_id,\n            recipe_ingredient.ingredient_id,\n            ingredient.name AS ingredient_name,\n            unit.name AS unit,\n            recipe_ingredient.qty,\n            recipe_ingredient.note,\n            recipe_ingredient.is_optional\n        FROM recipe_ingredient\n        JOIN ingredient ON recipe_ingredient.ingredient_id = ingredient.id\n        JOIN unit ON ingredient.unit_id = unit.id\n        WHERE recipe_ingredient.recipe_id = $1\n        ORDER BY recipe_ingredient.created_at\n        ",
+  "query": "\n        SELECT\n            recipe_ingredient.id,\n            recipe_ingredient.created_at,\n            recipe_ingredient.updated_at,\n            recipe_ingredient.recipe_id,\n            recipe_ingredient.ingredient_id,\n            ingredient.name AS ingredient_name,\n            COALESCE(unit.name, '') AS \"unit!\",\n            recipe_ingredient.qty,\n            recipe_ingredient.note,\n            recipe_ingredient.is_optional\n        FROM recipe_ingredient\n        JOIN ingredient ON recipe_ingredient.ingredient_id = ingredient.id\n        LEFT JOIN unit ON ingredient.unit_id = unit.id\n        WHERE recipe_ingredient.recipe_id = $1 AND recipe_ingredient.ingredient_id = $2\n        ",
   "describe": {
     "columns": [
       {
@@ -71,14 +71,9 @@
       },
       {
         "ordinal": 6,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "unit",
-            "name": "name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 7,
@@ -116,6 +111,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Uuid"
       ]
     },
@@ -126,11 +122,11 @@
       false,
       false,
       false,
-      false,
+      null,
       true,
       true,
       false
     ]
   },
-  "hash": "6ed9f8d564da44f70783ee5ed316a6adaa39ccef4aa8f2650045da06f489da93"
+  "hash": "1aeca6531ae2439ce4144ec1eb096b15374bbe3cc02359658b5d102992a347d4"
 }

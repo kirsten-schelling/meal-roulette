@@ -14,6 +14,7 @@ pub struct RecipeIngredient {
     pub recipe_id: Uuid,
     pub ingredient_id: Uuid,
     pub ingredient_name: String,
+    /// The ingredient's unit name; an empty string means it has no unit.
     pub unit: String,
     pub qty: Option<Decimal>,
     pub note: Option<String>,

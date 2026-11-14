@@ -409,4 +409,63 @@ mod tests {
         let rebuilt = lines(&pool, list.id).await.unwrap();
         assert_eq!(names(&rebuilt), ["Spaghetti", "Candles"]);
     }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_unitless_ingredient_gets_a_line_with_no_unit(pool: PgPool) {
+        let household =
+            sqlx::query_scalar!("INSERT INTO household (name) VALUES ('Home') RETURNING id")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let eggs =
+            sqlx::query_scalar!("INSERT INTO ingredient (name) VALUES ('Eggs') RETURNING id")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let recipe = sqlx::query_scalar!(
+            "INSERT INTO recipe (title, difficulty, time_mins, servings) VALUES ('Omelette', 1, 10, 2) RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        sqlx::query_scalar!(
+            "INSERT INTO recipe_ingredient (recipe_id, ingredient_id, qty) VALUES ($1, $2, 3) RETURNING id",
+            recipe,
+            eggs,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        let plan = sqlx::query_scalar!(
+            "INSERT INTO meal_plan (household_id, start_date) VALUES ($1, '2026-11-02') RETURNING id",
+            household,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        sqlx::query_scalar!(
+            "INSERT INTO planned_meal (meal_plan_id, recipe_id, day_index, scheduled_date)
+             VALUES ($1, $2, 1, '2026-11-02')
+             RETURNING id",
+            plan,
+            recipe,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let list = generate_for_plan(&pool, plan).await.unwrap();
+
+        let items = sqlx::query_scalar!(
+            "SELECT unit_id FROM shopping_list_item WHERE shopping_list_id = $1",
+            list.id,
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        assert_eq!(items, vec![None]);
+        let lines = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&lines), vec!["Eggs"]);
+        assert_eq!(lines[0].unit, "");
+    }
 }

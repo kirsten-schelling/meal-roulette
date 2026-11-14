@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        with new_ingredient as (\n            INSERT INTO ingredient (household_id, name, purchase_size, unit_id) VALUES ($1, $2, $3, $4) RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT new_ingredient.id, new_ingredient.household_id, new_ingredient.name, new_ingredient.purchase_size, unit.name as unit, new_ingredient.unit_id, new_ingredient.created_at, new_ingredient.updated_at\n        FROM new_ingredient\n        JOIN unit ON new_ingredient.unit_id = unit.id\n        ",
+  "query": "\n        with deleted_ingredient as (\n            DELETE FROM ingredient WHERE id = $1 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT deleted_ingredient.id, deleted_ingredient.household_id, deleted_ingredient.name, deleted_ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", deleted_ingredient.unit_id, deleted_ingredient.created_at, deleted_ingredient.updated_at\n        FROM deleted_ingredient\n        LEFT JOIN unit ON deleted_ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -49,14 +49,9 @@
       },
       {
         "ordinal": 4,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "unit",
-            "name": "name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
@@ -94,9 +89,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text",
-        "Int4",
         "Uuid"
       ]
     },
@@ -105,11 +97,11 @@
       true,
       false,
       true,
-      false,
-      false,
+      null,
+      true,
       false,
       false
     ]
   },
-  "hash": "5aea84bc8b5f3021bbafea74111de954a832bd1b96194aaa3dff47a24a87ab48"
+  "hash": "09f490d077f9cb16a205bb8ab971fa8410f87723e9d0df29bbcb4674f3ee5c59"
 }
