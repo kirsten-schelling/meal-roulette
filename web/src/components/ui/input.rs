@@ -38,6 +38,16 @@ pub fn Input(
     #[props(optional)] onblur: Option<EventHandler<FocusEvent>>,
     #[props(default)] required: bool,
     #[props(default)] disabled: bool,
+    /// Which on-screen keyboard a phone shows (`decimal`, `url`, …).
+    #[props(optional)]
+    inputmode: Option<String>,
+    /// Label of the keyboard's Enter key (`next`, `done`, …).
+    #[props(optional)]
+    enterkeyhint: Option<String>,
+    /// `off` stops the browser's own suggestions covering the form.
+    #[props(optional)]
+    autocomplete: Option<String>,
+    #[props(optional)] onkeydown: Option<EventHandler<KeyboardEvent>>,
     /// Takes focus when it appears, for a field the user just opened by clicking.
     #[props(default)]
     autofocus: bool,
@@ -55,6 +65,9 @@ pub fn Input(
                 placeholder: placeholder.clone().unwrap_or_default(),
                 required,
                 disabled,
+                inputmode,
+                enterkeyhint,
+                autocomplete,
                 aria_required: required.then_some("true"),
                 aria_invalid: has_error.then_some("true"),
                 aria_describedby: has_error.then(|| error_id(&id)),
@@ -67,6 +80,11 @@ pub fn Input(
                     }
                 },
                 oninput: move |e| oninput.call(e),
+                onkeydown: move |e| {
+                    if let Some(k) = onkeydown {
+                        k.call(e)
+                    }
+                },
                 onblur: move |e| {
                     if let Some(b) = onblur {
                         b.call(e)

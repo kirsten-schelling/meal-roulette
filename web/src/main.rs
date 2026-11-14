@@ -38,9 +38,11 @@ fn App() -> Element {
     rsx! {
         document::Stylesheet { href: asset!("/assets/primitives.css") }
         // The default viewport meta lacks viewport-fit=cover, which the safe-area padding needs.
+        // resizes-content makes Android Chrome shrink the layout viewport (and so the dialog's
+        // dvh cap) when the keyboard opens, instead of covering the focused field.
         document::Meta {
             name: "viewport",
-            content: "width=device-width, initial-scale=1, viewport-fit=cover",
+            content: "width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content",
         }
         document::Meta { name: "theme-color", content: "#fbf6ef" }
         document::Link {

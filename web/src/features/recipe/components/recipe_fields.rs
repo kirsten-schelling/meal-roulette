@@ -281,7 +281,8 @@ struct Parts {
     tags: Vec<domain::tag::TagEntry>,
 }
 
-/// The recipe's own details (everything but its ingredient lines).
+/// The recipe's own details (everything but its ingredient lines). `children` render
+/// right under the title.
 #[component]
 pub fn RecipeFields(
     form: RecipeForm,
@@ -289,6 +290,7 @@ pub fn RecipeFields(
     protein_options: Vec<ComboOption>,
     tag_options: Vec<ComboOption>,
     on_manage: EventHandler<ManageTab>,
+    children: Element,
 ) -> Element {
     let RecipeForm {
         mut title,
@@ -319,6 +321,7 @@ pub fn RecipeFields(
             oninput: move |e: FormEvent| title.set(e.value()),
             placeholder: "e.g. Pad Thai".to_string(),
         }
+        {children}
         div { class: "mr-form-grid",
             Combobox {
                 label: "Main protein".to_string(),

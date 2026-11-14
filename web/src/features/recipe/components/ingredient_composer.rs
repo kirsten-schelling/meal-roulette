@@ -1,3 +1,5 @@
+use crate::components::ui::field::use_control_id;
+use crate::components::ui::input::focus_at_end;
 use crate::components::ui::{
     Button, ButtonVariant, Checkbox, ComboOption, Combobox, Input, Picker, Size, Text,
 };
@@ -36,6 +38,8 @@ pub fn IngredientComposer(
     #[props(default)] taken: Vec<String>,
     #[props(default)] busy: bool,
 ) -> Element {
+    let root_id = use_control_id();
+    let qty_id = format!("{root_id}-qty");
     let mut ingredient = use_signal(Picker::default);
     let mut unit = use_signal(Picker::default);
     let mut purchase_size = use_signal(String::new);
@@ -76,6 +80,16 @@ pub fn IngredientComposer(
     let qty_error = qty_touched().then(|| qty_check.clone().err()).flatten();
     let size_error = size_touched().then(|| size_check.clone().err()).flatten();
 
+    // Picking a saved ingredient moves on to its quantity, so the list goes in by keyboard.
+    use_effect({
+        let qty_id = qty_id.clone();
+        move || {
+            if ingredient().picked.is_some() {
+                focus_at_end(&qty_id);
+            }
+        }
+    });
+
     let mut reset = move || {
         ingredient.set(Picker::default());
         unit.set(Picker::default());
@@ -87,7 +101,8 @@ pub fn IngredientComposer(
         size_touched.set(false);
     };
 
-    let submit = move |_| {
+    let root_for_submit = root_id.clone();
+    let submit = use_callback(move |()| {
         let ing = ingredient();
         let (name, unit_label, entry) = match (&ing.picked, &ing.new_name) {
             (Some(opt), _) => (
@@ -128,10 +143,12 @@ pub fn IngredientComposer(
             import: None,
         });
         reset();
-    };
+        focus_at_end(&root_for_submit);
+    });
 
+    let root_for_next = root_id.clone();
     rsx! {
-        div { class: "mr-subpanel",
+        div { class: "mr-subpanel", id: "{root_id}",
             Combobox {
                 label: "Add ingredient".to_string(),
                 placeholder: "Search, or type a new one and press Enter…".to_string(),
@@ -164,6 +181,7 @@ pub fn IngredientComposer(
                     Input {
                         label: "Purchase size (optional)".to_string(),
                         kind: "number".to_string(),
+                        autocomplete: "off".to_string(),
                         value: purchase_size(),
                         oninput: move |e: FormEvent| {
                             purchase_size.set(e.value());
@@ -178,10 +196,18 @@ pub fn IngredientComposer(
 
             if composing && !duplicate {
                 div { class: "mr-inline-add",
-                    div { class: "mr-qty",
+                    div { class: "mr-qty", id: "{qty_id}",
                         Input {
                             label: qty_label.clone(),
                             kind: "number".to_string(),
+                            inputmode: "decimal".to_string(),
+                            enterkeyhint: "next".to_string(),
+                            autocomplete: "off".to_string(),
+                            onkeydown: move |e: KeyboardEvent| {
+                                if e.key() == Key::Enter {
+                                    focus_next_field(&root_for_next);
+                                }
+                            },
                             value: qty(),
                             placeholder: "Optional".to_string(),
                             oninput: move |e: FormEvent| {
@@ -194,6 +220,13 @@ pub fn IngredientComposer(
                     }
                     Input {
                         label: "Note (optional)".to_string(),
+                        enterkeyhint: "done".to_string(),
+                        autocomplete: "off".to_string(),
+                        onkeydown: move |e: KeyboardEvent| {
+                            if e.key() == Key::Enter && can_add {
+                                submit.call(());
+                            }
+                        },
                         value: note(),
                         oninput: move |e: FormEvent| note.set(e.value()),
                         placeholder: "e.g. finely chopped".to_string(),
@@ -210,7 +243,7 @@ pub fn IngredientComposer(
                         size: Size::Sm,
                         disabled: !can_add,
                         loading: busy,
-                        onclick: submit,
+                        onclick: move |_| submit.call(()),
                         "Add to recipe"
                     }
                 }
@@ -222,3 +255,17 @@ pub fn IngredientComposer(
         }
     }
 }
+
+/// Moves focus to the input after the focused one inside `root_id`.
+fn focus_next_field(root_id: &str) {
+    let _ = document::eval(&FOCUS_NEXT.replace("__ID__", root_id));
+}
+
+const FOCUS_NEXT: &str = r#"
+const root = document.getElementById("__ID__");
+if (root) {
+  const fields = [...root.querySelectorAll('input:not([disabled])')];
+  const next = fields[fields.indexOf(document.activeElement) + 1];
+  if (next) next.focus();
+}
+"#;
