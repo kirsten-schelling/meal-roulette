@@ -1429,8 +1429,9 @@ button.mr-chip--active::before {
 .mr-empty__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; margin-top: .25rem; }
 .mr-week__actions { display: flex; flex-wrap: wrap; gap: .6rem; }
 
-/* cooking log: the cooked toggle on Home's tonight row, the log-a-cook form, the day groups */
-.mr-cooked { margin-left: auto; flex: none; align-self: center; }
+/* cooking log: the cooked toggle under Home's tonight row, the log-a-cook form, the day groups */
+.mr-cooked { margin-bottom: 1rem; }
+@media (max-width: 520px) { .mr-cooked .mr-btn { width: 100%; } }
 .mr-cooklog { display: flex; flex-direction: column; gap: 1rem; }
 .mr-logcook { display: grid; gap: .75rem; align-items: end; }
 @media (min-width: 640px) { .mr-logcook { grid-template-columns: minmax(0, 1fr) 11rem auto; } }

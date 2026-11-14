@@ -19,14 +19,16 @@ pub fn CookedButton(planned_meal_id: Uuid, recipe_id: Uuid, cooked_on: Date) -> 
     let logged = match cook() {
         None => {
             return rsx! {
-                span { class: "mr-cooked",
+                div { class: "mr-cooked",
                     Button { loading: true, "Cooked it" }
                 }
             }
         }
         Some(Err(e)) => {
             return rsx! {
-                Text { small: true, muted: true, "Couldn't check the cooking log: {error_message(&e)}" }
+                div { class: "mr-cooked",
+                    Text { small: true, muted: true, "Couldn't check the cooking log: {error_message(&e)}" }
+                }
             }
         }
         Some(Ok(logged)) => logged,
@@ -55,7 +57,7 @@ pub fn CookedButton(planned_meal_id: Uuid, recipe_id: Uuid, cooked_on: Date) -> 
     };
 
     rsx! {
-        span { class: "mr-cooked",
+        div { class: "mr-cooked",
             if logged_id.is_some() {
                 Button {
                     variant: ButtonVariant::Outline,

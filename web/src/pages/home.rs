@@ -55,8 +55,12 @@ pub fn Home() -> Element {
                                             div { class: "mr-week__row",
                                                 span { class: "mr-week__day", "Tonight" }
                                                 span { class: "mr-cell-strong", "{meal.title}" }
-                                                CookedButton { planned_meal_id: meal.id, recipe_id: meal.recipe_id, cooked_on: date }
                                             }
+                                        }
+                                        CookedButton {
+                                            planned_meal_id: meal.id,
+                                            recipe_id: meal.recipe_id,
+                                            cooked_on: date,
                                         }
                                     },
                                     (None, Some(_)) => rsx! {
