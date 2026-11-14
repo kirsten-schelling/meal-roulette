@@ -30,11 +30,12 @@ enum Step {
     CapDifficulty(DifficultyBand),
 }
 
-const COUNT_KINDS: [RuleFamily; 4] = [
+const COUNT_KINDS: [RuleFamily; 5] = [
     RuleFamily::Protein,
     RuleFamily::Cuisine,
     RuleFamily::Difficulty,
     RuleFamily::Ingredient,
+    RuleFamily::Tag,
 ];
 
 /// "Add rule": pick a type, then its value, then how many dinners.

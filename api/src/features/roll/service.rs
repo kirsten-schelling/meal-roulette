@@ -14,7 +14,7 @@ use time::Duration;
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::features::{household, meal_plan, planned_meal, recipe, recipe_ingredient};
+use crate::features::{household, meal_plan, planned_meal, recipe, recipe_ingredient, recipe_tag};
 
 /// The most days one roll may ask for. The solver's memory and recursion depth grow with
 /// the number of days, and a plan longer than a month has no use.
@@ -453,7 +453,8 @@ fn residual(requirements: &[Requirement], kept: &[&Vec<i32>]) -> Vec<Requirement
         .collect()
 }
 
-// The solver's columns. Must-use ingredients take one 0/1 column each, after these.
+// The solver's columns. Must-use ingredients take one 0/1 column each, after
+// these, and tag rules one each after the ingredients.
 const CUISINE: usize = 0;
 const PROTEIN: usize = 1;
 const DIFFICULTY: usize = 2;
@@ -480,16 +481,25 @@ impl Grid {
                 .into_iter()
                 .map(|u| (u.recipe_id, u.ingredient_id))
                 .collect();
-        Ok(Grid::new(recipes, &uses, constraints))
+        let tag_ids: Vec<Uuid> = constraints.tags.iter().map(|r| r.id).collect();
+        let tagged: HashSet<(Uuid, Uuid)> = recipe_tag::repository::links_for_tags(pool, &tag_ids)
+            .await?
+            .into_iter()
+            .map(|link| (link.recipe_id, link.tag_id))
+            .collect();
+        Ok(Grid::new(recipes, &uses, &tagged, constraints))
     }
 
-    /// `uses` holds (recipe id, ingredient id) for every recipe using a must-use ingredient.
+    /// `uses` holds (recipe id, ingredient id) for every recipe using a must-use
+    /// ingredient, and `tagged` (recipe id, tag id) for every recipe with a ruled tag.
     fn new(
         recipes: &[Recipe],
         uses: &HashSet<(Uuid, Uuid)>,
+        tagged: &HashSet<(Uuid, Uuid)>,
         constraints: &RollConstraints,
     ) -> Grid {
         let ingredient_ids: Vec<Uuid> = constraints.ingredients.iter().map(|r| r.id).collect();
+        let tag_ids: Vec<Uuid> = constraints.tags.iter().map(|r| r.id).collect();
         let mut codes = Codes::default();
         let rows = recipes
             .iter()
@@ -504,6 +514,11 @@ impl Grid {
                     ingredient_ids
                         .iter()
                         .map(|&ingredient| i32::from(uses.contains(&(r.id, ingredient)))),
+                );
+                row.extend(
+                    tag_ids
+                        .iter()
+                        .map(|&tag| i32::from(tagged.contains(&(r.id, tag)))),
                 );
                 row
             })
@@ -547,6 +562,18 @@ impl Grid {
             );
             rules.push((RuleFamily::Ingredient, index, requirement));
         }
+        let first_tag = FIRST_INGREDIENT + constraints.ingredients.len();
+        for (index, rule) in constraints.tags.iter().enumerate() {
+            let requirement = counted(
+                first_tag + index,
+                1,
+                1,
+                rule.times,
+                rule.bound,
+                rule.importance,
+            );
+            rules.push((RuleFamily::Tag, index, requirement));
+        }
         for (index, rule) in constraints.difficulties.iter().enumerate() {
             rules.push((RuleFamily::Difficulty, index, difficulty(rule)));
         }
@@ -577,7 +604,8 @@ impl Grid {
             .map(|(&(family, index, r), &got)| {
                 let (bound, times) = match r.at_most {
                     Some(max) if r.at_least == 0 => (Bound::AtMost, max),
-                    _ => (Bound::AtLeast, r.at_least),
+                    Some(_) => (Bound::Exactly, r.at_least),
+                    None => (Bound::AtLeast, r.at_least),
                 };
                 UnmetRule {
                     family,
@@ -602,6 +630,7 @@ fn counted(
     let (at_least, at_most) = match bound {
         Bound::AtLeast => (times, None),
         Bound::AtMost => (0, Some(times)),
+        Bound::Exactly => (times, Some(times)),
     };
     Requirement {
         attribute,
@@ -756,9 +785,10 @@ mod tests {
                 bound: Bound::AtLeast,
                 importance: Importance::Required,
             }],
+            tags: Vec::new(),
             day_limits: None,
         };
-        let grid = Grid::new(&recipes, &uses, &constraints);
+        let grid = Grid::new(&recipes, &uses, &HashSet::new(), &constraints);
         for seed in 0..40 {
             let solution = solve(&grid, 4, seed).expect("the rules fit together");
             let picked: Vec<&Recipe> = solution.picks.iter().map(|&i| &recipes[i]).collect();
@@ -791,7 +821,7 @@ mod tests {
             cuisines: vec![rule(thai, 3, Bound::AtLeast, Importance::High)],
             ..RollConstraints::default()
         };
-        let grid = Grid::new(&recipes, &HashSet::new(), &constraints);
+        let grid = Grid::new(&recipes, &HashSet::new(), &HashSet::new(), &constraints);
         let solution = solve(&grid, 3, 1).expect("preferences never fail a roll");
         let unmet = grid.unmet(&solution.achieved);
         assert!(unmet.contains(&UnmetRule {
@@ -818,7 +848,7 @@ mod tests {
             cuisines: vec![rule(korean, 1, Bound::AtLeast, Importance::Required)],
             ..RollConstraints::default()
         };
-        let grid = Grid::new(&recipes, &HashSet::new(), &constraints);
+        let grid = Grid::new(&recipes, &HashSet::new(), &HashSet::new(), &constraints);
         assert_eq!(solve(&grid, 1, 0), Err(SolveError::Unsatisfiable));
     }
 
@@ -832,6 +862,142 @@ mod tests {
         assert_eq!((left[0].at_least, left[0].at_most), (1, None));
         assert_eq!((left[1].at_least, left[1].at_most), (0, Some(0)));
         assert_eq!(left[1].importance, solver::Importance::High);
+    }
+
+    fn tagged_grid(
+        recipes: &[Recipe],
+        tag: Uuid,
+        tagged: &[usize],
+        constraints: &RollConstraints,
+    ) -> Grid {
+        let tagged: HashSet<(Uuid, Uuid)> = tagged.iter().map(|&i| (recipes[i].id, tag)).collect();
+        Grid::new(recipes, &HashSet::new(), &tagged, constraints)
+    }
+
+    fn plain_recipes(count: usize) -> Vec<Recipe> {
+        (0..count)
+            .map(|_| recipe(Uuid::now_v7(), Uuid::now_v7(), 2))
+            .collect()
+    }
+
+    #[test]
+    fn a_required_tag_floor_counts_the_recipes_carrying_the_tag() {
+        let (quick, recipes) = (Uuid::now_v7(), plain_recipes(8));
+        let constraints = RollConstraints {
+            tags: vec![rule(quick, 2, Bound::AtLeast, Importance::Required)],
+            ..RollConstraints::default()
+        };
+        let grid = tagged_grid(&recipes, quick, &[1, 3, 4, 6], &constraints);
+        for seed in 0..40 {
+            let solution = solve(&grid, 4, seed).expect("four recipes carry the tag");
+            assert!(solution.achieved[0] >= 2, "seed {seed}");
+            assert!(grid.unmet(&solution.achieved).is_empty(), "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn a_required_exactly_holds_both_bounds() {
+        let (vegetarian, recipes) = (Uuid::now_v7(), plain_recipes(8));
+        let constraints = RollConstraints {
+            tags: vec![rule(vegetarian, 2, Bound::Exactly, Importance::Required)],
+            ..RollConstraints::default()
+        };
+        let grid = tagged_grid(&recipes, vegetarian, &[0, 1, 2, 3, 4], &constraints);
+        for seed in 0..40 {
+            let solution = solve(&grid, 5, seed).expect("two of five tagged picks fit");
+            assert_eq!(solution.achieved, [2], "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn a_required_exactly_works_on_a_cuisine_too() {
+        let (thai, italian, chicken) = (Uuid::now_v7(), Uuid::now_v7(), Uuid::now_v7());
+        let recipes: Vec<Recipe> = (0..6)
+            .map(|n| recipe(if n < 4 { thai } else { italian }, chicken, 2))
+            .collect();
+        let constraints = RollConstraints {
+            cuisines: vec![rule(thai, 3, Bound::Exactly, Importance::Required)],
+            ..RollConstraints::default()
+        };
+        let grid = Grid::new(&recipes, &HashSet::new(), &HashSet::new(), &constraints);
+        for seed in 0..40 {
+            let solution = solve(&grid, 5, seed).expect("three Thai and two Italian fit");
+            assert_eq!(solution.achieved, [3], "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn an_exactly_preference_that_cannot_hold_still_rolls_and_is_reported() {
+        let (quick, recipes) = (Uuid::now_v7(), plain_recipes(6));
+        let constraints = RollConstraints {
+            tags: vec![rule(quick, 3, Bound::Exactly, Importance::Medium)],
+            ..RollConstraints::default()
+        };
+        let grid = tagged_grid(&recipes, quick, &[0, 1], &constraints);
+        let solution = solve(&grid, 4, 7).expect("preferences never fail a roll");
+        assert_eq!(solution.achieved, [2]);
+        assert_eq!(
+            grid.unmet(&solution.achieved),
+            [UnmetRule {
+                family: RuleFamily::Tag,
+                index: 0,
+                bound: Bound::Exactly,
+                times: 3,
+                got: 2,
+            }]
+        );
+    }
+
+    #[test]
+    fn an_exactly_preference_is_loosened_to_the_nearest_count_above_as_well_as_below() {
+        let (quick, recipes) = (Uuid::now_v7(), plain_recipes(6));
+        let constraints = RollConstraints {
+            tags: vec![rule(quick, 2, Bound::Exactly, Importance::Medium)],
+            ..RollConstraints::default()
+        };
+        let grid = tagged_grid(&recipes, quick, &[0, 1, 2, 3, 4], &constraints);
+        for seed in 0..20 {
+            let solution = solve(&grid, 4, seed).expect("preferences never fail a roll");
+            assert_eq!(solution.achieved, [3], "seed {seed}");
+        }
+    }
+
+    #[test]
+    fn an_exactly_more_than_the_tagged_recipes_cannot_be_required() {
+        let (quick, recipes) = (Uuid::now_v7(), plain_recipes(6));
+        let constraints = RollConstraints {
+            tags: vec![rule(quick, 3, Bound::Exactly, Importance::Required)],
+            ..RollConstraints::default()
+        };
+        let grid = tagged_grid(&recipes, quick, &[0, 1], &constraints);
+        assert_eq!(solve(&grid, 4, 0), Err(SolveError::Unsatisfiable));
+    }
+
+    #[test]
+    fn a_required_exactly_zero_rules_the_recipes_out() {
+        let (quick, recipes) = (Uuid::now_v7(), plain_recipes(5));
+        let constraints = RollConstraints {
+            tags: vec![rule(quick, 0, Bound::Exactly, Importance::Required)],
+            ..RollConstraints::default()
+        };
+        let grid = tagged_grid(&recipes, quick, &[0, 1], &constraints);
+        assert_eq!(fitting_rows(&grid.rows, &grid.requirements(), None, 3), 3);
+    }
+
+    #[test]
+    fn the_residual_of_an_exactly_counts_the_kept_days_against_both_bounds() {
+        let exactly_two = counted(
+            FIRST_INGREDIENT,
+            1,
+            1,
+            2,
+            Bound::Exactly,
+            Importance::Required,
+        );
+        let kept = [vec![0, 0, 3, 20, 1], vec![0, 0, 3, 20, 0]];
+        let kept: Vec<&Vec<i32>> = kept.iter().collect();
+        let left = residual(&[exactly_two], &kept);
+        assert_eq!((left[0].at_least, left[0].at_most), (1, Some(1)));
     }
 
     fn timed(difficulty: i16, time_mins: i16) -> Recipe {
@@ -867,7 +1033,12 @@ mod tests {
             .map(|n| timed(1 + n % 3, 15 + 3 * n))
             .chain((0..6).map(|n| timed(3 + n % 3, 45 + 10 * n)))
             .collect();
-        let grid = Grid::new(&recipes, &HashSet::new(), &RollConstraints::default());
+        let grid = Grid::new(
+            &recipes,
+            &HashSet::new(),
+            &HashSet::new(),
+            &RollConstraints::default(),
+        );
         let plan = limit_plan();
         for seed in 0..40 {
             let solution = solver::roll(&Problem {
@@ -902,7 +1073,12 @@ mod tests {
             .map(|n| timed(1 + n % 3, 15 + 3 * n))
             .chain((0..6).map(|n| timed(3 + n % 3, 45 + 10 * n)))
             .collect();
-        let grid = Grid::new(&recipes, &HashSet::new(), &RollConstraints::default());
+        let grid = Grid::new(
+            &recipes,
+            &HashSet::new(),
+            &HashSet::new(),
+            &RollConstraints::default(),
+        );
         let plan = limit_plan();
         for seed in 0..20 {
             let solution = solver::roll(&Problem {
@@ -937,7 +1113,12 @@ mod tests {
         let recipes: Vec<Recipe> = (0..8)
             .map(|n| timed(1, if n < 2 { 20 } else { 90 }))
             .collect();
-        let grid = Grid::new(&recipes, &HashSet::new(), &RollConstraints::default());
+        let grid = Grid::new(
+            &recipes,
+            &HashSet::new(),
+            &HashSet::new(),
+            &RollConstraints::default(),
+        );
         let plan = DayLimitPlan {
             default: DayLimits {
                 max_time_mins: Some(30),
@@ -969,7 +1150,7 @@ mod tests {
             proteins: vec![rule(beef, 1, Bound::AtMost, Importance::Medium)],
             ..RollConstraints::default()
         };
-        let grid = Grid::new(&recipes, &HashSet::new(), &constraints);
+        let grid = Grid::new(&recipes, &HashSet::new(), &HashSet::new(), &constraints);
         assert_eq!(grid.achieved(&[0, 1]), [2, 1]);
         assert_eq!(grid.achieved(&[0, 2]), [1, 2]);
         let unmet = grid.unmet(&grid.achieved(&[0, 2]));
@@ -995,7 +1176,7 @@ mod tests {
             ],
             ..RollConstraints::default()
         };
-        let grid = Grid::new(&recipes, &HashSet::new(), &constraints);
+        let grid = Grid::new(&recipes, &HashSet::new(), &HashSet::new(), &constraints);
         let requirements = grid.requirements();
         assert_eq!(fitting_rows(&grid.rows, &requirements, None, 5), 3);
         let plan = DayLimitPlan {

@@ -46,8 +46,8 @@ Core sub-features:
   A roll is a preview shown in place and saved only when kept, so rolling again does not add
   plans to History; each dinner can be re-rolled on its own, and preferences the roll could
   not meet are listed in an amber alert. There is one Rules panel with a type-first "Add
-  rule" builder: pick Protein, Cuisine, Difficulty or Ingredient, then the value, then at
-  least / at most and a count ("At least 2 Beef dinners"); each rule is an editable row. A
+  rule" builder: pick Protein, Cuisine, Difficulty, Ingredient or Tag, then the value, then at
+  least / at most / exactly and a count ("At least 2 Quick dinners"); each rule is an editable row. A
   rule has one Must toggle, off by default: off is sent as the middle importance level, on as
   the hard one (the four levels stay in the data; saved presets with other levels load as Must
   off). The same builder adds "Every dinner" caps on cook time and difficulty. A failed roll
