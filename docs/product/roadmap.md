@@ -27,8 +27,9 @@ the single-day re-roll. Stretch surface: ESP32 kitchen screen.
   in place and copy; toasts.
 - Partial: constraint-conflict prompts (see §1).
 - Not built: pinning on a saved plan (`planned_meal.is_pinned` exists, but nothing sets it:
-  a saved plan has no whole-week re-roll for a pin to survive); cooking log (`/cooking-log` is a placeholder page; `cook_log` has REST CRUD only, nothing
-  writes to it from the app, and the roller does not use recency).
+  a saved plan has no whole-week re-roll for a pin to survive); cooking log (`/cooking-log` is
+  a placeholder page; `cook_log` has REST CRUD only, nothing writes to it from the app, and the
+  roller does not use recency).
 
 Core sub-features:
 
