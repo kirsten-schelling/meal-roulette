@@ -1,6 +1,6 @@
 //! The phone navigation: a slim top bar with a menu button that slides a drawer
 //! in from the left. The drawer holds the same links as the sidebar plus the
-//! theme control. Hidden above 720px, where the sidebar shows instead.
+//! palette and theme controls. Hidden above 720px, where the sidebar shows instead.
 //!
 //! The drawer is always in the DOM and hidden with `visibility`, so it can
 //! animate and stays out of the tab order while closed. It behaves as a modal
@@ -8,7 +8,7 @@
 //! a link click or a swipe to the left close it and hand focus back to the button.
 
 use crate::components::layout::sidebar::NavLinks;
-use crate::components::layout::{NavEntry, ThemeToggle, VersionLine};
+use crate::components::layout::{NavEntry, PalettePicker, ThemeToggle, VersionLine};
 use crate::components::ui::{BrandMark, Icon, IconButton, IconName};
 use crate::router::Route;
 use dioxus::prelude::*;
@@ -132,6 +132,7 @@ pub fn MobileNav(primary: Vec<NavEntry>, manage: Vec<NavEntry>) -> Element {
                 NavLinks { entries: manage, quiet: true, on_navigate: move |_| close() }
             }
             div { class: "mr-drawer__foot",
+                PalettePicker {}
                 ThemeToggle {}
                 VersionLine {}
             }
