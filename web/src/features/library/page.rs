@@ -13,7 +13,7 @@ use crate::features::protein::hooks::use_protein::use_get_proteins;
 use crate::features::tag::hooks::use_tag::use_get_tags;
 use crate::features::unit::hooks::use_unit::use_get_units;
 use crate::hooks::use_toast::use_toast;
-use crate::models::error_message;
+use crate::models::{error_message, measure_label};
 use dioxus::prelude::*;
 use domain::ingredient::Ingredient;
 use domain::usage::Reference;
@@ -128,7 +128,7 @@ pub fn Library(manage: String) -> Element {
             }
         }),
         Column::new("Purchase size", |i: &Ingredient| match i.purchase_size {
-            Some(size) => rsx! { "{size} {i.unit}" },
+            Some(size) => rsx! { "{measure_label(size, &i.unit)}" },
             None => rsx! {
                 span { class: "mr-text--muted", "Not set" }
             },

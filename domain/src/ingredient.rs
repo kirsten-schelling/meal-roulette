@@ -10,8 +10,9 @@ pub struct Ingredient {
     pub household_id: Option<Uuid>,
     pub name: String,
     pub purchase_size: Option<i32>,
+    /// The unit's name; an empty string means the ingredient has no unit.
     pub unit: String,
-    pub unit_id: Uuid,
+    pub unit_id: Option<Uuid>,
     pub created_at: time::OffsetDateTime,
     pub updated_at: time::OffsetDateTime,
 }
@@ -23,7 +24,7 @@ pub struct NewIngredient {
     pub household_id: Option<Uuid>,
     pub name: String,
     pub purchase_size: Option<i32>,
-    pub unit: UnitEntry,
+    pub unit: Option<UnitEntry>,
 }
 
 /// The resolved columns actually written to `ingredient` — built server-side after
@@ -34,7 +35,7 @@ pub struct InsertIngredient {
     pub household_id: Option<Uuid>,
     pub name: String,
     pub purchase_size: Option<i32>,
-    pub unit_id: Uuid,
+    pub unit_id: Option<Uuid>,
 }
 
 /// Body for `PUT /ingredients/{id}`. Like `NewIngredient`, the unit may be one to create.
@@ -42,7 +43,7 @@ pub struct InsertIngredient {
 pub struct UpdateIngredient {
     pub name: String,
     pub purchase_size: Option<i32>,
-    pub unit: UnitEntry,
+    pub unit: Option<UnitEntry>,
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]
@@ -51,6 +52,6 @@ pub enum IngredientEntry {
     New {
         name: String,
         purchase_size: Option<i32>,
-        unit: UnitEntry,
+        unit: Option<UnitEntry>,
     },
 }
