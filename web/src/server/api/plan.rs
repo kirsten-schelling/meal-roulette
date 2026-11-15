@@ -75,10 +75,10 @@ pub async fn swap_planned_meal(
     recipe_id: Uuid,
 ) -> Result<PlannedMealDetail, ServerFnError> {
     use crate::server::{app_state, server_fn_error};
-    use api::features::planned_meal::repository;
+    use api::features::roll::service;
 
     let state = app_state()?;
-    repository::set_recipe(&state.db, id, recipe_id)
+    service::swap(&state.db, id, recipe_id)
         .await
         .map_err(server_fn_error)
 }

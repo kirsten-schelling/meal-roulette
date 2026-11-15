@@ -10,11 +10,13 @@ use domain::roll::{
 };
 use solver::{Problem, Requirement, SlotLimit, SolveError};
 use sqlx::PgPool;
-use time::Duration;
+use time::{Date, Duration, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::features::{household, meal_plan, planned_meal, recipe, recipe_ingredient, recipe_tag};
+use crate::features::{
+    cook_log, household, meal_plan, planned_meal, recipe, recipe_ingredient, recipe_tag,
+};
 
 /// The most days one roll may ask for. The solver's memory and recursion depth grow with
 /// the number of days, and a plan longer than a month has no use.
@@ -100,6 +102,21 @@ async fn solve(pool: &PgPool, request: &RollRequest) -> Result<Rolled, AppError>
         seed,
         picks,
     })
+}
+
+/// A dinner in the cooking log keeps its recipe, so the log stays a record of
+/// what was cooked.
+async fn refuse_if_cooked(pool: &PgPool, planned_meal_id: Uuid) -> Result<(), AppError> {
+    if cook_log::repository::find_for_planned_meal(pool, planned_meal_id)
+        .await?
+        .is_some()
+    {
+        return Err(AppError::Conflict(
+            "This dinner is in the cooking log. Undo it on Home or remove it from the Cooking Log first, then swap or re-roll it."
+                .to_string(),
+        ));
+    }
+    Ok(())
 }
 
 /// Whether the pinned dinners alone already match a required at-most or exactly
@@ -217,7 +234,7 @@ async fn overviews_by_id(pool: &PgPool) -> Result<HashMap<Uuid, RecipeOverview>,
         .collect())
 }
 
-fn preview_meal(overview: &RecipeOverview) -> PreviewMeal {
+fn preview_meal(overview: &RecipeOverview, within_min_gap: bool) -> PreviewMeal {
     PreviewMeal {
         recipe_id: overview.recipe.id,
         title: overview.recipe.title.clone(),
@@ -225,6 +242,7 @@ fn preview_meal(overview: &RecipeOverview) -> PreviewMeal {
         time_mins: overview.recipe.time_mins,
         cuisine: overview.cuisine.clone(),
         protein: overview.protein.clone(),
+        within_min_gap,
     }
 }
 
@@ -234,10 +252,13 @@ pub async fn preview_roll(pool: &PgPool, request: RollRequest) -> Result<RollPre
     let rolled = solve(pool, &request).await?;
     let overviews = overviews_by_id(pool).await?;
     let meals = rolled
-        .recipe_ids()
+        .picks
         .iter()
-        .filter_map(|id| overviews.get(id))
-        .map(preview_meal)
+        .filter_map(|&i| {
+            overviews
+                .get(&rolled.recipes[i].id)
+                .map(|overview| preview_meal(overview, rolled.grid.within_min_gap(i)))
+        })
         .collect();
     Ok(RollPreview {
         seed: rolled.seed,
@@ -351,6 +372,7 @@ fn open_problem(
 /// on the plan, and only the part of each rule those days leave open is asked
 /// of the new pick.
 pub async fn reroll(pool: &PgPool, planned_meal_id: Uuid) -> Result<PlannedMealDetail, AppError> {
+    refuse_if_cooked(pool, planned_meal_id).await?;
     let meal = planned_meal::repository::get_detail(pool, planned_meal_id).await?;
     let plan = meal_plan::repository::get(pool, meal.meal_plan_id).await?;
     let kept: HashSet<Uuid> = planned_meal::repository::list_detail(pool, plan.id)
@@ -374,6 +396,16 @@ pub async fn reroll(pool: &PgPool, planned_meal_id: Uuid) -> Result<PlannedMealD
     )
     .await?[0];
     Ok(planned_meal::repository::set_recipe(pool, meal.id, recipes[replacement].id).await?)
+}
+
+/// Put a recipe picked by hand on a dinner that has not been cooked.
+pub async fn swap(
+    pool: &PgPool,
+    planned_meal_id: Uuid,
+    recipe_id: Uuid,
+) -> Result<PlannedMealDetail, AppError> {
+    refuse_if_cooked(pool, planned_meal_id).await?;
+    Ok(planned_meal::repository::set_recipe(pool, planned_meal_id, recipe_id).await?)
 }
 
 /// Re-roll one dinner of a roll that is not stored.
@@ -424,7 +456,7 @@ pub async fn reroll_preview(
     let overviews = overviews_by_id(pool).await?;
     let meal = overviews
         .get(&recipes[replacement].id)
-        .map(preview_meal)
+        .map(|overview| preview_meal(overview, grid.within_min_gap(replacement)))
         .ok_or_else(|| AppError::Internal("the new recipe disappeared".to_string()))?;
     Ok(RerollPreview {
         meal,
@@ -555,6 +587,10 @@ const FIRST_INGREDIENT: usize = 4;
 struct Grid {
     rows: Vec<Vec<i32>>,
     rules: Vec<(RuleFamily, usize, Requirement)>,
+    /// The cook-gap requirements: not the user's rules, so never reported as unmet.
+    gaps: Vec<Requirement>,
+    /// The 0/1 "inside its minimum gap" column, once gaps are added.
+    min_gap_column: Option<usize>,
 }
 
 impl Grid {
@@ -576,7 +612,9 @@ impl Grid {
             .into_iter()
             .map(|link| (link.recipe_id, link.tag_id))
             .collect();
-        Ok(Grid::new(recipes, &uses, &tagged, constraints))
+        let mut grid = Grid::new(recipes, &uses, &tagged, constraints);
+        grid.add_cook_gaps(recipes, &CookHistory::load(pool).await?);
+        Ok(grid)
     }
 
     /// `uses` holds (recipe id, ingredient id) for every recipe using a must-use
@@ -666,11 +704,62 @@ impl Grid {
         for (index, rule) in constraints.difficulties.iter().enumerate() {
             rules.push((RuleFamily::Difficulty, index, difficulty(rule)));
         }
-        Grid { rows, rules }
+        Grid {
+            rows,
+            rules,
+            gaps: Vec::new(),
+            min_gap_column: None,
+        }
+    }
+
+    /// Appends an "inside its minimum gap" and an "overdue" column after every
+    /// rule's column. Keeping recently cooked recipes out ranks above every
+    /// preference the Roll page sends; pulling overdue ones in ranks below all
+    /// of them.
+    fn add_cook_gaps(&mut self, recipes: &[Recipe], history: &CookHistory) {
+        let min_gap = self.rows.first().map_or(0, Vec::len);
+        let overdue = min_gap + 1;
+        for (row, recipe) in self.rows.iter_mut().zip(recipes) {
+            row.push(i32::from(history.within_min_gap(recipe)));
+            row.push(i32::from(history.overdue(recipe)));
+        }
+        let flagged = |column: usize| self.rows.iter().filter(|row| row[column] == 1).count();
+        let (recent, due) = (flagged(min_gap), flagged(overdue));
+        if recent > 0 {
+            self.gaps.push(Requirement {
+                attribute: min_gap,
+                low: 1,
+                high: 1,
+                at_least: 0,
+                at_most: Some(0),
+                importance: solver::Importance::High,
+            });
+        }
+        if due > 0 {
+            self.gaps.push(Requirement {
+                attribute: overdue,
+                low: 1,
+                high: 1,
+                at_least: u32::try_from(due).unwrap_or(u32::MAX),
+                at_most: None,
+                importance: solver::Importance::Low,
+            });
+        }
+        self.min_gap_column = Some(min_gap);
+    }
+
+    /// Whether the recipe at `index` was cooked inside its minimum gap.
+    fn within_min_gap(&self, index: usize) -> bool {
+        self.min_gap_column
+            .is_some_and(|column| self.rows[index][column] == 1)
     }
 
     fn requirements(&self) -> Vec<Requirement> {
-        self.rules.iter().map(|(_, _, r)| *r).collect()
+        self.rules
+            .iter()
+            .map(|(_, _, r)| *r)
+            .chain(self.gaps.iter().copied())
+            .collect()
     }
 
     /// How many of the `picks` (indexes into the recipes) match each rule.
@@ -763,6 +852,49 @@ impl Codes {
     }
 }
 
+/// When each recipe was last cooked, and the day gaps are counted up to.
+struct CookHistory {
+    last_cooked: HashMap<Uuid, Date>,
+    today: Date,
+}
+
+impl CookHistory {
+    async fn load(pool: &PgPool) -> Result<CookHistory, AppError> {
+        let last_cooked = cook_log::repository::last_cooks(pool)
+            .await?
+            .into_iter()
+            .map(|cook| (cook.recipe_id, cook.cooked_on))
+            .collect();
+        Ok(CookHistory {
+            last_cooked,
+            today: OffsetDateTime::now_utc().date(),
+        })
+    }
+
+    fn days_since(&self, recipe: &Recipe) -> Option<i64> {
+        self.last_cooked
+            .get(&recipe.id)
+            .map(|&cooked| (self.today - cooked).whole_days())
+    }
+
+    /// A recipe never cooked is never inside its minimum gap.
+    fn within_min_gap(&self, recipe: &Recipe) -> bool {
+        match (recipe.min_gap_weeks, self.days_since(recipe)) {
+            (Some(weeks), Some(days)) => days < i64::from(weeks) * 7,
+            _ => false,
+        }
+    }
+
+    /// A recipe never cooked is not overdue: the pull starts after its first
+    /// logged cook, so setting a gap changes no roll until then.
+    fn overdue(&self, recipe: &Recipe) -> bool {
+        recipe.max_gap_weeks.is_some_and(|weeks| {
+            self.days_since(recipe)
+                .is_some_and(|days| days >= i64::from(weeks) * 7)
+        })
+    }
+}
+
 /// Seeds stay small and positive so they are easy to read off the plan and
 /// type back in to repeat a roll.
 fn fresh_seed() -> i64 {
@@ -813,6 +945,8 @@ mod tests {
             time_mins: 20,
             servings: 2,
             healthiness: None,
+            min_gap_weeks: None,
+            max_gap_weeks: None,
             main_protein_id: Some(protein),
             cuisine_id: Some(cuisine),
             created_at: time::OffsetDateTime::UNIX_EPOCH,
@@ -1444,6 +1578,8 @@ mod tests {
                 healthiness: None,
                 main_protein_id: None,
                 cuisine_id: None,
+                min_gap_weeks: None,
+                max_gap_weeks: None,
             },
         )
         .await
@@ -1569,5 +1705,244 @@ mod tests {
         ));
         assert!(check_day_limits(Some(&limit_plan())).is_ok());
         assert!(check_day_limits(None).is_ok());
+    }
+
+    fn history(cooks: &[(&Recipe, i64)]) -> CookHistory {
+        let today = time::macros::date!(2026 - 11 - 15);
+        CookHistory {
+            last_cooked: cooks
+                .iter()
+                .map(|&(recipe, days_ago)| (recipe.id, today - Duration::days(days_ago)))
+                .collect(),
+            today,
+        }
+    }
+
+    fn gapped(min: Option<i16>, max: Option<i16>) -> Recipe {
+        Recipe {
+            min_gap_weeks: min,
+            max_gap_weeks: max,
+            ..recipe(Uuid::now_v7(), Uuid::now_v7(), 2)
+        }
+    }
+
+    fn gapped_grid(recipes: &[Recipe], history: &CookHistory) -> Grid {
+        let mut grid = Grid::new(
+            recipes,
+            &HashSet::new(),
+            &HashSet::new(),
+            &RollConstraints::default(),
+        );
+        grid.add_cook_gaps(recipes, history);
+        grid
+    }
+
+    #[test]
+    fn the_minimum_gap_counts_whole_weeks_since_the_last_cook() {
+        let gapped_one_week = gapped(Some(1), None);
+        let unlimited = gapped(None, None);
+        let cooks = history(&[(&gapped_one_week, 6), (&unlimited, 1)]);
+        assert!(cooks.within_min_gap(&gapped_one_week));
+        assert!(!cooks.within_min_gap(&unlimited));
+
+        let a_week_ago = history(&[(&gapped_one_week, 7)]);
+        assert!(!a_week_ago.within_min_gap(&gapped_one_week));
+    }
+
+    #[test]
+    fn a_recipe_is_overdue_only_after_its_first_logged_cook() {
+        let two_weeks = gapped(None, Some(2));
+        assert!(!history(&[]).overdue(&two_weeks));
+        assert!(!history(&[(&two_weeks, 13)]).overdue(&two_weeks));
+        assert!(history(&[(&two_weeks, 14)]).overdue(&two_weeks));
+
+        let unlimited = gapped(None, None);
+        assert!(!history(&[(&unlimited, 30)]).overdue(&unlimited));
+    }
+
+    #[test]
+    fn recipes_inside_their_minimum_gap_stay_out_while_others_can_fill_the_week() {
+        let mut recipes: Vec<Recipe> = (0..8).map(|_| gapped(None, None)).collect();
+        for recipe in &mut recipes[..3] {
+            recipe.min_gap_weeks = Some(2);
+        }
+        let cooks: Vec<(&Recipe, i64)> = recipes[..3].iter().map(|r| (r, 3)).collect();
+        let grid = gapped_grid(&recipes, &history(&cooks));
+        for seed in 0..40 {
+            let picks = solve(&grid, 4, seed).unwrap().picks;
+            assert!(picks.iter().all(|&i| i >= 3), "seed {seed}: {picks:?}");
+            assert!(grid.unmet(&grid.achieved(&picks)).is_empty());
+        }
+    }
+
+    #[test]
+    fn a_must_rule_brings_in_a_recipe_inside_its_gap_and_flags_it() {
+        let thai = Uuid::now_v7();
+        let mut recipes: Vec<Recipe> = (0..6).map(|_| gapped(None, None)).collect();
+        recipes[0] = Recipe {
+            cuisine_id: Some(thai),
+            min_gap_weeks: Some(4),
+            ..recipe(thai, Uuid::now_v7(), 2)
+        };
+        let constraints = RollConstraints {
+            cuisines: vec![rule(thai, 1, Bound::AtLeast, Importance::Required)],
+            ..RollConstraints::default()
+        };
+        let mut grid = Grid::new(&recipes, &HashSet::new(), &HashSet::new(), &constraints);
+        grid.add_cook_gaps(&recipes, &history(&[(&recipes[0], 2)]));
+
+        let picks = solve(&grid, 3, 7).unwrap().picks;
+        assert!(picks.contains(&0));
+        assert!(grid.within_min_gap(0));
+        assert!(grid.unmet(&grid.achieved(&picks)).is_empty());
+    }
+
+    #[test]
+    fn overdue_recipes_are_pulled_into_the_week() {
+        let mut recipes: Vec<Recipe> = (0..8).map(|_| gapped(None, None)).collect();
+        for recipe in &mut recipes[..2] {
+            recipe.max_gap_weeks = Some(2);
+        }
+        let cooks: Vec<(&Recipe, i64)> = recipes[..2].iter().map(|r| (r, 20)).collect();
+        let grid = gapped_grid(&recipes, &history(&cooks));
+        for seed in 0..40 {
+            let picks = solve(&grid, 3, seed).unwrap().picks;
+            assert!(
+                picks.contains(&0) && picks.contains(&1),
+                "seed {seed}: {picks:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn overdue_recipes_over_a_time_cap_still_roll() {
+        let recipes: Vec<Recipe> = (0..8)
+            .map(|n| Recipe {
+                max_gap_weeks: (n < 3).then_some(2),
+                time_mins: if n < 3 { 90 } else { 20 },
+                ..gapped(None, None)
+            })
+            .collect();
+        let cooks: Vec<(&Recipe, i64)> = recipes[..3].iter().map(|r| (r, 20)).collect();
+        let grid = gapped_grid(&recipes, &history(&cooks));
+        let plan = DayLimitPlan {
+            default: DayLimits {
+                max_time_mins: Some(30),
+                ..DayLimits::default()
+            },
+            overrides: Vec::new(),
+        };
+        let picks = solver::roll(&Problem {
+            recipes: grid.rows.clone(),
+            requirements: grid.requirements(),
+            slot_limits: (0..4).flat_map(|d| slot_limits_for(&plan, d)).collect(),
+            num_to_pick: 4,
+            seed: 1,
+        })
+        .unwrap()
+        .picks;
+        assert!(picks.iter().all(|&i| i >= 3));
+    }
+
+    #[test]
+    fn the_gap_requirements_follow_the_rule_requirements() {
+        let cuisine = Uuid::now_v7();
+        let mut recipes = plain_recipes(4);
+        recipes[0].min_gap_weeks = Some(2);
+        let constraints = RollConstraints {
+            cuisines: vec![rule(cuisine, 1, Bound::AtLeast, Importance::Medium)],
+            ..RollConstraints::default()
+        };
+        let mut grid = Grid::new(&recipes, &HashSet::new(), &HashSet::new(), &constraints);
+        let rule_requirement = grid.requirements()[0];
+        grid.add_cook_gaps(&recipes, &history(&[(&recipes[0], 1)]));
+
+        let requirements = grid.requirements();
+        assert_eq!(requirements.len(), 2);
+        assert_eq!(requirements[0], rule_requirement);
+        assert_eq!(requirements[1].at_most, Some(0));
+        assert_eq!(requirements[1].importance, solver::Importance::High);
+    }
+
+    async fn recipe_titled(pool: &PgPool, title: &str) -> Uuid {
+        sqlx::query_scalar!(
+            "INSERT INTO recipe (title, difficulty, time_mins, servings) VALUES ($1, 1, 20, 2) RETURNING id",
+            title,
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    }
+
+    async fn planned_meal_of(pool: &PgPool, recipe_id: Uuid) -> Uuid {
+        let household_id = household::repository::default_household(pool)
+            .await
+            .unwrap()
+            .id;
+        let plan_id = sqlx::query_scalar!(
+            "INSERT INTO meal_plan (household_id) VALUES ($1) RETURNING id",
+            household_id,
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        sqlx::query_scalar!(
+            "INSERT INTO planned_meal (meal_plan_id, recipe_id, day_index, scheduled_date)
+             VALUES ($1, $2, 1, '2026-11-14')
+             RETURNING id",
+            plan_id,
+            recipe_id,
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_dinner_in_the_cooking_log_cannot_be_swapped_until_the_cook_is_undone(pool: PgPool) {
+        let pasta = recipe_titled(&pool, "Pasta").await;
+        let curry = recipe_titled(&pool, "Curry").await;
+        let dinner = planned_meal_of(&pool, pasta).await;
+        let cook = cook_log::repository::log(
+            &pool,
+            pasta,
+            Some(dinner),
+            time::macros::date!(2026 - 11 - 14),
+        )
+        .await
+        .unwrap();
+
+        let refused = swap(&pool, dinner, curry).await.unwrap_err();
+        assert!(matches!(refused, AppError::Conflict(_)));
+        let unchanged = planned_meal::repository::get_detail(&pool, dinner)
+            .await
+            .unwrap();
+        assert_eq!(unchanged.recipe_id, pasta);
+
+        cook_log::repository::delete(&pool, cook.id).await.unwrap();
+        let swapped = swap(&pool, dinner, curry).await.unwrap();
+        assert_eq!(swapped.recipe_id, curry);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_dinner_in_the_cooking_log_cannot_be_rerolled_until_the_cook_is_undone(pool: PgPool) {
+        let pasta = recipe_titled(&pool, "Pasta").await;
+        let curry = recipe_titled(&pool, "Curry").await;
+        let dinner = planned_meal_of(&pool, pasta).await;
+        let cook = cook_log::repository::log(
+            &pool,
+            pasta,
+            Some(dinner),
+            time::macros::date!(2026 - 11 - 14),
+        )
+        .await
+        .unwrap();
+
+        let refused = reroll(&pool, dinner).await.unwrap_err();
+        assert!(matches!(refused, AppError::Conflict(_)));
+
+        cook_log::repository::delete(&pool, cook.id).await.unwrap();
+        let rerolled = reroll(&pool, dinner).await.unwrap();
+        assert_eq!(rerolled.recipe_id, curry);
     }
 }

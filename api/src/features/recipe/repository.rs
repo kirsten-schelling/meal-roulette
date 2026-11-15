@@ -22,6 +22,8 @@ struct OverviewRow {
     time_mins: i16,
     servings: i16,
     healthiness: Option<i16>,
+    min_gap_weeks: Option<i16>,
+    max_gap_weeks: Option<i16>,
     main_protein_id: Option<Uuid>,
     cuisine_id: Option<Uuid>,
     created_at: time::OffsetDateTime,
@@ -43,6 +45,8 @@ impl From<OverviewRow> for RecipeOverview {
                 time_mins: row.time_mins,
                 servings: row.servings,
                 healthiness: row.healthiness,
+                min_gap_weeks: row.min_gap_weeks,
+                max_gap_weeks: row.max_gap_weeks,
                 main_protein_id: row.main_protein_id,
                 cuisine_id: row.cuisine_id,
                 created_at: row.created_at,
@@ -67,6 +71,7 @@ async fn overviews(pool: &PgPool, only: Option<Uuid>) -> Result<Vec<RecipeOvervi
         r#"
         SELECT recipe.id, recipe.household_id, recipe.title, recipe.difficulty,
                recipe.time_mins, recipe.servings, recipe.healthiness,
+               recipe.min_gap_weeks, recipe.max_gap_weeks,
                recipe.main_protein_id, recipe.cuisine_id, recipe.created_at, recipe.updated_at,
                cuisine.name AS "cuisine?", protein.name AS "protein?",
                COALESCE(array_agg(tag.id ORDER BY tag.name, tag.id)
@@ -165,7 +170,8 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Recipe>, sqlx::Error> {
         Recipe,
         r#"
         SELECT id, household_id, title, difficulty, time_mins, servings,
-               healthiness, main_protein_id, cuisine_id, created_at, updated_at
+               healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,
+               created_at, updated_at
         FROM recipe
         ORDER BY created_at DESC
         "#,
@@ -184,10 +190,11 @@ where
         r#"
         INSERT INTO recipe
             (household_id, title, difficulty, time_mins, servings,
-             healthiness, main_protein_id, cuisine_id)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id, household_id, title, difficulty, time_mins, servings,
-                  healthiness, main_protein_id, cuisine_id, created_at, updated_at
+                  healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,
+                  created_at, updated_at
         "#,
         insert.household_id,
         insert.title,
@@ -195,6 +202,8 @@ where
         insert.time_mins,
         insert.servings,
         insert.healthiness,
+        insert.min_gap_weeks,
+        insert.max_gap_weeks,
         insert.main_protein_id,
         insert.cuisine_id,
     )
@@ -222,6 +231,8 @@ pub async fn create_with_ingredients(
             time_mins: new_recipe.time_mins,
             servings: new_recipe.servings,
             healthiness: new_recipe.healthiness,
+            min_gap_weeks: new_recipe.min_gap_weeks,
+            max_gap_weeks: new_recipe.max_gap_weeks,
             main_protein_id: Some(main_protein_id),
             cuisine_id,
         },
@@ -262,7 +273,8 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<Recipe, sqlx::Error> {
         Recipe,
         r#"
         SELECT id, household_id, title, difficulty, time_mins, servings,
-               healthiness, main_protein_id, cuisine_id, created_at, updated_at
+               healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,
+               created_at, updated_at
         FROM recipe
         WHERE id = $1
         "#,
@@ -290,17 +302,22 @@ pub async fn update(
             time_mins = $3,
             servings = $4,
             healthiness = $5,
-            main_protein_id = $6,
-            cuisine_id = $7
-        WHERE id = $8
+            min_gap_weeks = $6,
+            max_gap_weeks = $7,
+            main_protein_id = $8,
+            cuisine_id = $9
+        WHERE id = $10
         RETURNING id, household_id, title, difficulty, time_mins, servings,
-                  healthiness, main_protein_id, cuisine_id, created_at, updated_at
+                  healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,
+                  created_at, updated_at
         "#,
         update_recipe.title.trim(),
         update_recipe.difficulty,
         update_recipe.time_mins,
         update_recipe.servings,
         update_recipe.healthiness,
+        update_recipe.min_gap_weeks,
+        update_recipe.max_gap_weeks,
         protein_id,
         cuisine_id,
         id,
@@ -320,13 +337,14 @@ pub async fn copy(pool: &PgPool, id: Uuid, title: &str) -> Result<Recipe, sqlx::
         r#"
         INSERT INTO recipe
             (household_id, title, difficulty, time_mins, servings,
-             healthiness, main_protein_id, cuisine_id)
+             healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id)
         SELECT household_id, $2, difficulty, time_mins, servings,
-               healthiness, main_protein_id, cuisine_id
+               healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id
         FROM recipe
         WHERE id = $1
         RETURNING id, household_id, title, difficulty, time_mins, servings,
-                  healthiness, main_protein_id, cuisine_id, created_at, updated_at
+                  healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,
+                  created_at, updated_at
         "#,
         id,
         title.trim(),
@@ -348,7 +366,8 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<Recipe, sqlx::Error> {
         DELETE FROM recipe
         WHERE id = $1
         RETURNING id, household_id, title, difficulty, time_mins, servings,
-                  healthiness, main_protein_id, cuisine_id, created_at, updated_at
+                  healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,
+                  created_at, updated_at
         "#,
         id,
     )
@@ -361,7 +380,8 @@ pub async fn list_by_cuisine(pool: &PgPool, cuisine_id: Uuid) -> Result<Vec<Reci
         Recipe,
         r#"
         SELECT id, household_id, title, difficulty, time_mins, servings,
-               healthiness, main_protein_id, cuisine_id, created_at, updated_at
+               healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,
+               created_at, updated_at
         FROM recipe
         WHERE cuisine_id = $1
         "#,
@@ -370,4 +390,98 @@ pub async fn list_by_cuisine(pool: &PgPool, cuisine_id: Uuid) -> Result<Vec<Reci
     .fetch_all(pool)
     .await?;
     Ok(recipes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::AppError;
+
+    fn new_recipe(min_gap_weeks: Option<i16>, max_gap_weeks: Option<i16>) -> NewRecipe {
+        NewRecipe {
+            household_id: None,
+            title: "Pasta".to_string(),
+            difficulty: 2,
+            time_mins: 20,
+            servings: 2,
+            healthiness: None,
+            min_gap_weeks,
+            max_gap_weeks,
+            protein: ProteinEntry::New("Beef".to_string()),
+            cuisine: None,
+            ingredients: Vec::new(),
+            tags: Vec::new(),
+        }
+    }
+
+    fn update_to(
+        recipe: &Recipe,
+        min_gap_weeks: Option<i16>,
+        max_gap_weeks: Option<i16>,
+    ) -> UpdateRecipe {
+        UpdateRecipe {
+            title: "Pasta".to_string(),
+            difficulty: 2,
+            time_mins: 20,
+            servings: 2,
+            healthiness: None,
+            min_gap_weeks,
+            max_gap_weeks,
+            protein: ProteinEntry::Existing(recipe.main_protein_id.unwrap()),
+            cuisine: None,
+            tags: Vec::new(),
+        }
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn gaps_survive_create_update_and_copy(pool: PgPool) {
+        let created = create_with_ingredients(&pool, new_recipe(Some(2), Some(6)))
+            .await
+            .unwrap()
+            .recipe;
+        assert_eq!(
+            (created.min_gap_weeks, created.max_gap_weeks),
+            (Some(2), Some(6))
+        );
+
+        let updated = update(&pool, created.id, update_to(&created, None, Some(12)))
+            .await
+            .unwrap();
+        assert_eq!(
+            (updated.min_gap_weeks, updated.max_gap_weeks),
+            (None, Some(12))
+        );
+
+        let copied = copy(&pool, created.id, "Pasta again").await.unwrap();
+        assert_eq!(
+            (copied.min_gap_weeks, copied.max_gap_weeks),
+            (None, Some(12))
+        );
+        let read = get(&pool, copied.id).await.unwrap();
+        assert_eq!((read.min_gap_weeks, read.max_gap_weeks), (None, Some(12)));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_shortest_gap_longer_than_the_longest_is_refused_until_it_is_fixed(pool: PgPool) {
+        let created = create_with_ingredients(&pool, new_recipe(None, None))
+            .await
+            .unwrap()
+            .recipe;
+
+        let refused = update(&pool, created.id, update_to(&created, Some(8), Some(2)))
+            .await
+            .unwrap_err();
+        assert_eq!(
+            AppError::from(refused).to_string(),
+            "The shortest gap can't be longer than the longest."
+        );
+
+        let fixed = update(&pool, created.id, update_to(&created, Some(2), Some(8)))
+            .await
+            .unwrap();
+        assert_eq!(
+            (fixed.min_gap_weeks, fixed.max_gap_weeks),
+            (Some(2), Some(8))
+        );
+    }
 }

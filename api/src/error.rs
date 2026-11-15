@@ -85,6 +85,10 @@ fn constraint_message(constraint: &str) -> Option<AppError> {
         "chk_pantry_item_qty_not_negative" => invalid("A pantry count cannot be below 0."),
         "chk_recipe_difficulty_range" => invalid("Difficulty must be between 1 and 5."),
         "chk_recipe_healthiness_range" => invalid("Healthiness must be between 1 and 5."),
+        "chk_recipe_min_gap_weeks_range" | "chk_recipe_max_gap_weeks_range" => {
+            invalid("A gap must be between 1 and 52 weeks.")
+        }
+        "chk_recipe_gap_order" => invalid("The shortest gap can't be longer than the longest."),
         "chk_recipe_time_mins_positive" => invalid("Time must be at least 1 minute."),
         "chk_recipe_servings_positive" => invalid("Servings must be at least 1."),
         "chk_recipe_ingredient_qty_positive" => invalid("Each quantity must be more than 0."),

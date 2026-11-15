@@ -143,6 +143,8 @@ mod tests {
             time_mins: 10,
             servings: 2,
             healthiness: None,
+            min_gap_weeks: None,
+            max_gap_weeks: None,
             protein: ProteinEntry::New("Egg".to_string()),
             cuisine: None,
             ingredients: vec![

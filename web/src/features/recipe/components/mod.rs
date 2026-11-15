@@ -1,4 +1,5 @@
 pub mod add_recipe_dialog;
+pub mod cadence_picker;
 pub mod cook_mode;
 pub mod copy_recipe_dialog;
 pub mod import_from_link;
