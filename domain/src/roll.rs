@@ -189,6 +189,17 @@ pub struct RollRequest {
     pub seed: Option<i64>,
     #[serde(default)]
     pub constraints: RollConstraints,
+    /// Dinners the roll keeps on their days. The rest of the week is rolled
+    /// around them, and they count toward the rules.
+    #[serde(default)]
+    pub pinned: Vec<PinnedDinner>,
+}
+
+/// A recipe kept on roll day `day` (0 is the first).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PinnedDinner {
+    pub day: u16,
+    pub recipe_id: Uuid,
 }
 
 /// Which list in `RollConstraints` a rule sits in.

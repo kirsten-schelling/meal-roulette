@@ -308,7 +308,7 @@ entries stay, unlinked (`SET NULL`).
 **`planned_meal`** — one dinner slot in a plan. `meal_plan_id` (`ON DELETE CASCADE`),
 `recipe_id` (`ON DELETE RESTRICT`), `day_index` (`NOT NULL`, from 1: the dinner's place in
 the roll, fixed once rolled), `scheduled_date` (nullable: the date the dinner is on, `NULL`
-until it is put on a day), `is_pinned` (reserved for the pin/keep feature; nothing sets it yet, a roll writes `false`),
+until it is put on a day), `is_pinned` (reserved for pinning on a saved plan; nothing sets it yet, a roll writes `false`: pins live on the unsaved roll and are not stored),
 `target_difficulty` (nullable; unused: the roll always writes `NULL` and nothing reads it.
 Per-day limits live in `meal_plan.roll_constraints.day_limits`, keyed by day number, which is
 `day_index`, as a default for all days plus per-day overrides). `uq_planned_meal_day_index (meal_plan_id, day_index)` — roll

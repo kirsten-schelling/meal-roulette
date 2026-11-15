@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH ticked AS (\n                UPDATE shopping_list_item\n                SET is_purchased = true,\n                    pantry_added = (\n                        SELECT COALESCE(\n                                   CEIL(shopping_list_item.qty / ingredient.purchase_size) * ingredient.purchase_size,\n                                   shopping_list_item.qty\n                               )\n                        FROM ingredient\n                        WHERE ingredient.id = shopping_list_item.ingredient_id\n                    )\n                WHERE id = $1 AND NOT is_purchased AND NOT is_covered\n                RETURNING shopping_list_id, ingredient_id, pantry_added\n            ), stocked AS (\n                INSERT INTO pantry_item (household_id, ingredient_id, qty)\n                SELECT shopping_list.household_id, ticked.ingredient_id, ticked.pantry_added\n                FROM ticked\n                JOIN shopping_list ON shopping_list.id = ticked.shopping_list_id\n                WHERE ticked.pantry_added IS NOT NULL\n                ON CONFLICT ON CONSTRAINT uq_pantry_item\n                DO UPDATE SET qty = pantry_item.qty + EXCLUDED.qty\n                RETURNING id\n            )\n            SELECT id AS \"id!\" FROM stocked\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pantry_item",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "3ad83a5d20402dfb1a96f4f879d87bc96ad4ffbf9f0c40ca752cba50f77b233b"
+}
