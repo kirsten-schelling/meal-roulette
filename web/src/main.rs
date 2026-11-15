@@ -44,7 +44,7 @@ fn App() -> Element {
             name: "viewport",
             content: "width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content",
         }
-        document::Meta { name: "theme-color", content: "#fbf6ef" }
+        document::Meta { name: "theme-color", content: "#fcf4e4" }
         document::Link {
             rel: "manifest",
             href: asset!("/assets/pwa/manifest.webmanifest", PLAIN),
@@ -73,6 +73,7 @@ fn App() -> Element {
         // Named only by the manifest; listed here so the asset is bundled.
         document::Link { rel: "prefetch", href: asset!("/assets/pwa/icon-maskable-512.png", PLAIN) }
         document::Script { {hooks::use_theme::EARLY_SCRIPT} }
+        document::Script { {hooks::use_palette::EARLY_SCRIPT} }
         Router::<Route> {}
     }
 }

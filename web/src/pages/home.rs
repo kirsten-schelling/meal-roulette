@@ -140,7 +140,7 @@ fn DashLink(to: Route, icon: IconName, label: String, hint: String) -> Element {
             div {
                 class: "mr-card__body",
                 style: "display:flex; align-items:center; gap:.7rem;",
-                span { style: "font-size:1.5rem; line-height:1; color:var(--mr-accent);",
+                span { style: "font-size:1.5rem; line-height:1; color:var(--mr-accent-text);",
                     Icon { name: icon }
                 }
                 div {

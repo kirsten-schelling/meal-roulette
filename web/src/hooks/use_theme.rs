@@ -10,6 +10,10 @@ const STORAGE_KEY: &str = "mr-theme";
 /// OS theme first.
 pub const EARLY_SCRIPT: &str = "try{var t=localStorage.getItem('mr-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t)}}catch(e){}";
 
+/// Points the browser's `theme-color` (the Android status bar) at the page
+/// colour in force, so it follows the palette and light or dark.
+pub const SYNC_THEME_COLOR: &str = "var m=document.querySelector('meta[name=\"theme-color\"]'),s=document.querySelector('.mr-scope');if(m&&s){m.setAttribute('content',getComputedStyle(s).backgroundColor)}";
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ThemeChoice {
     System,
@@ -67,6 +71,7 @@ impl Theme {
     pub fn set(&mut self, choice: ThemeChoice) {
         self.choice.set(choice);
         let _ = document::eval(&choice.apply_script());
+        let _ = document::eval(SYNC_THEME_COLOR);
     }
 }
 
@@ -77,6 +82,7 @@ pub fn use_theme() -> Theme {
     let mut choice = use_signal(|| ThemeChoice::System);
 
     use_effect(move || {
+        let _ = document::eval(SYNC_THEME_COLOR);
         spawn(async move {
             let script = format!(
                 "try{{return localStorage.getItem('{STORAGE_KEY}')}}catch(e){{return null}}"

@@ -1,8 +1,11 @@
-//! Temporary component gallery for the locked-in "Warm" theme. Toggle dark
-//! mode to check both palettes. Delete once we rebuild the real pages on
+//! Temporary component gallery. Pick a palette in the sidebar and flip dark
+//! mode here to check each one. Delete once we rebuild the real pages on
 //! these primitives.
 
-use crate::{components::ui::*, hooks::use_toast::ToastController};
+use crate::{
+    components::ui::*,
+    hooks::{use_palette::PaletteChoice, use_toast::ToastController},
+};
 use dioxus::prelude::*;
 use uuid::Uuid;
 
@@ -41,13 +44,39 @@ pub fn Showcase() -> Element {
                 // ── toolbar ────────────────────────────────────────────────
                 div { class: "mr-gallery__bar",
                     div {
-                        Heading { level: 1, "Warm: component gallery" }
-                        Text { muted: true, "The locked-in vibe. Flip dark mode." }
+                        Heading { level: 1, "Component gallery" }
+                        Text { muted: true, "Pick a palette in the sidebar; flip dark mode here." }
                     }
                     Switch {
                         checked: dark(),
                         onchange: move |v| dark.set(v),
                         label: "Dark mode".to_string(),
+                    }
+                }
+
+                // ── palettes ───────────────────────────────────────────────
+                div { class: "mr-section",
+                    Card { header: "Palettes".to_string(),
+                        div { class: "mr-palette-tiles",
+                            for palette in PaletteChoice::ALL {
+                                div {
+                                    key: "{palette.key()}",
+                                    class: "mr-scope mr-palette-tile",
+                                    "data-palette": "{palette.key()}",
+                                    Text { small: true, "{palette.label()}" }
+                                    div { class: "mr-palette-tile__row",
+                                        Button { variant: ButtonVariant::Solid, size: Size::Sm, "Roll" }
+                                        Button { variant: ButtonVariant::Danger, size: Size::Sm, "Delete" }
+                                    }
+                                    div { class: "mr-palette-tile__row",
+                                        Badge { tone: Tone::Green, "Easy" }
+                                        Badge { tone: Tone::Amber, "Medium" }
+                                        Badge { tone: Tone::Red, "Ambitious" }
+                                        Badge { tone: Tone::Neutral, "Draft" }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

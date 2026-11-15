@@ -1,12 +1,12 @@
 //! The one persistent sidebar: brand on top, section navigation in the middle,
-//! theme control at the foot. `Sidebar` is deliberately dumb: it renders
+//! palette and theme controls at the foot. `Sidebar` is deliberately dumb: it renders
 //! whatever lists of `NavEntry` it's handed, the second under a quieter
 //! "Manage" heading. The links themselves come from `AppLayout`.
 //!
 //! `Link` handles the routing and adds `mr-nav__link--active` to whichever entry
 //! matches the current URL, so the active-page highlight is free.
 
-use crate::components::layout::{ThemeToggle, VersionLine};
+use crate::components::layout::{PalettePicker, ThemeToggle, VersionLine};
 use crate::components::ui::{BrandMark, Icon, IconName};
 use crate::router::Route;
 use dioxus::prelude::*;
@@ -33,6 +33,7 @@ pub fn Sidebar(primary: Vec<NavEntry>, manage: Vec<NavEntry>) -> Element {
                 NavLinks { entries: manage, quiet: true }
             }
             div { class: "mr-sidebar__foot",
+                PalettePicker {}
                 ThemeToggle {}
                 VersionLine {}
             }

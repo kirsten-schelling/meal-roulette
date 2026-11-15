@@ -1,14 +1,17 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   Meal Roulette — primitive component styles ("Warm" theme)
+   Meal Roulette: primitive component styles
 
    You (mostly) never edit this file. The Rust components in
    src/components/ui/ apply the `mr-*` classes; the look lives here.
 
    Structure:
    • Design tokens (--mr-*) hold every color/size. Components only read tokens.
-   • Colors are written once with light-dark(). `color-scheme` follows the OS
-     unless an ancestor carries [data-theme="light"] or [data-theme="dark"], so
-     a manual toggle works and native controls/scrollbars follow the theme.
+   • Colors come from a palette (PALETTES, below the token block): plain hex
+     per palette for light and dark, chosen by [data-palette] on an ancestor
+     (none = Sunny kitchen). The token block composes them with light-dark().
+   • `color-scheme` follows the OS unless an ancestor carries
+     [data-theme="light"] or [data-theme="dark"], so a manual toggle works and
+     native controls/scrollbars follow the theme.
    ───────────────────────────────────────────────────────────────────────── */
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -17,48 +20,55 @@ body { margin: 0; }
 /* ═══════════════════════════════════════════════════════════════════════
    TOKENS
 
-   Declared on every theme root, not just :root: a custom property holding
-   light-dark() is resolved where it is declared, so a [data-theme] subtree
-   has to re-declare the tokens to pick up its own color-scheme.
+   Declared on every theme or palette root, not just :root: the colors are
+   composed from the palette's raw values where they are declared, so a
+   [data-theme] or [data-palette] subtree re-declares them to pick up its own
+   color-scheme and palette.
    ═══════════════════════════════════════════════════════════════════════ */
 
-:root, [data-theme="light"], [data-theme="dark"] {
-  color-scheme: light dark;
-
+:root, [data-theme="light"], [data-theme="dark"], [data-palette] {
   --mr-font:         system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mr-font-heading: Georgia, "Times New Roman", serif;
 
-  --mr-bg:         light-dark(#fbf6ef, #211b17);   /* warm cream page */
-  --mr-surface:    light-dark(#fffdf9, #2b2420);   /* cards, fields */
-  --mr-surface-2:  light-dark(#f4e9d8, #38302a);   /* muted fill */
-  --mr-surface-3:  light-dark(#fffdf9, #433a33);   /* popovers, menus, modals, toasts */
-  --mr-border:         light-dark(#e7d9c4, #4f433a);   /* hairline: cards, dividers */
+  /* colors: composed from the palette's raw values (PALETTES below) */
+  --mr-bg:         light-dark(var(--mr-light-bg), var(--mr-dark-bg));   /* page */
+  --mr-surface:    light-dark(var(--mr-light-surface), var(--mr-dark-surface));   /* cards, fields */
+  --mr-surface-2:  color-mix(in srgb, var(--mr-bg) 92%, var(--mr-text));   /* muted fill */
+  --mr-surface-3:  light-dark(var(--mr-light-surface),
+                              color-mix(in srgb, var(--mr-dark-surface) 89%, var(--mr-dark-text)));   /* popovers, menus, modals, toasts */
+  --mr-border:         light-dark(var(--mr-light-border), var(--mr-dark-border));   /* hairline: cards, dividers */
   --mr-border-soft:    color-mix(in srgb, var(--mr-border) 60%, transparent);   /* card edges, table rules, tab rail */
-  --mr-border-control: light-dark(#d6c4aa, #5a4d42);   /* resting edge of a field */
-  --mr-border-strong:  light-dark(#9a8670, #7a6a5c);   /* hover edge, off-state fills */
-  --mr-text:        light-dark(#3b2f2a, #f0e7dc);
-  --mr-text-muted:  light-dark(#6f6155, #b1a294);
-  --mr-text-subtle: light-dark(#8a7a6d, #8f8173);   /* placeholders and disabled only */
+  --mr-border-control: color-mix(in srgb, var(--mr-border) 88%, var(--mr-text));   /* resting edge of a field */
+  --mr-border-strong:  light-dark(color-mix(in srgb, var(--mr-light-border) 48%, var(--mr-light-text)),
+                                  color-mix(in srgb, var(--mr-dark-border) 65%, var(--mr-dark-text)));   /* hover edge, off-state fills: 3:1 on surface */
+  --mr-text:        light-dark(var(--mr-light-text), var(--mr-dark-text));
+  --mr-text-muted:  light-dark(var(--mr-light-text-muted), var(--mr-dark-text-muted));
+  --mr-text-subtle: color-mix(in srgb, var(--mr-text-muted) 80%, var(--mr-bg));   /* placeholders and disabled only */
 
-  --mr-accent:          light-dark(#557a2b, #8cbf4f);  /* olive green */
-  --mr-accent-hover:    light-dark(#46641f, #7bad42);
-  --mr-accent-contrast: light-dark(#ffffff, #18220d);
-  --mr-accent-text:     light-dark(#4a6b24, #8cbf4f);  /* accent used as text */
+  --mr-accent:          light-dark(var(--mr-light-accent), var(--mr-dark-accent));
+  --mr-accent-hover:    color-mix(in srgb, var(--mr-accent) 85%, var(--mr-text));
+  --mr-accent-contrast: light-dark(var(--mr-light-accent-contrast), var(--mr-dark-accent-contrast));
+  /* the accent for text, links and focus outlines: a bright accent (Sunny's
+     mustard) is too light for those on a light page */
+  --mr-accent-text:     light-dark(var(--mr-light-accent-text), var(--mr-dark-accent-text));
 
-  --mr-danger:          light-dark(#b83227, #e0685c);  /* tomato red */
-  --mr-danger-hover:    light-dark(#922418, #d0574b);
-  --mr-danger-contrast: light-dark(#ffffff, #241010);
+  --mr-danger:          light-dark(var(--mr-light-danger), var(--mr-dark-danger));
+  --mr-danger-hover:    color-mix(in srgb, var(--mr-danger) 85%, var(--mr-text));
+  --mr-danger-contrast: light-dark(var(--mr-light-surface), var(--mr-dark-bg));
 
-  --mr-warn: light-dark(#d9861d, #e39b33);  /* orange-amber solid — the mid-point of good/bad scales */
-  --mr-star: light-dark(#b5741a, #e39b33);  /* the same amber, darkened to read as an icon */
-  --mr-good: light-dark(#2f9e44, #55c168);  /* clear green for the good end — a true green, so it
-                                               can't be confused with the red next to it (the olive
-                                               accent sits too close to tomato) */
+  --mr-warn: light-dark(var(--mr-light-warn), var(--mr-dark-warn));   /* the mid-point of good/bad scales */
+  --mr-star: light-dark(color-mix(in srgb, var(--mr-light-warn) 80%, var(--mr-light-text)),
+                        var(--mr-dark-warn));   /* the same amber, darkened in light mode to read as an icon */
+  --mr-good: light-dark(var(--mr-light-good), var(--mr-dark-good));   /* the good end of a scale, kept apart from danger */
 
-  --mr-green-bg:   light-dark(#dce8c9, #2f3d1c);  --mr-green-fg:   light-dark(#3f5320, #c3e394);
-  --mr-amber-bg:   light-dark(#f6e2bc, #3d2f13);  --mr-amber-fg:   light-dark(#7a4d15, #f0c675);
-  --mr-red-bg:     light-dark(#f5d5c8, #3d201b);  --mr-red-fg:     light-dark(#7a2f1e, #f2ab9f);
-  --mr-neutral-bg: light-dark(#ece0cf, #38302a);  --mr-neutral-fg: light-dark(#5c4a3a, #d8cabb);
+  --mr-green-bg:   light-dark(var(--mr-light-green-bg), var(--mr-dark-green-bg));
+  --mr-green-fg:   light-dark(var(--mr-light-green-fg), var(--mr-dark-green-fg));
+  --mr-amber-bg:   light-dark(var(--mr-light-amber-bg), var(--mr-dark-amber-bg));
+  --mr-amber-fg:   light-dark(var(--mr-light-amber-fg), var(--mr-dark-amber-fg));
+  --mr-red-bg:     light-dark(var(--mr-light-red-bg), var(--mr-dark-red-bg));
+  --mr-red-fg:     light-dark(var(--mr-light-red-fg), var(--mr-dark-red-fg));
+  --mr-neutral-bg: light-dark(var(--mr-light-neutral-bg), var(--mr-dark-neutral-bg));
+  --mr-neutral-fg: light-dark(var(--mr-light-neutral-fg), var(--mr-dark-neutral-fg));
 
   /* state fills, tinted from the text/accent so they work on any surface */
   --mr-accent-soft:        color-mix(in srgb, var(--mr-accent) 12%, transparent);
@@ -66,10 +76,13 @@ body { margin: 0; }
   --mr-accent-soft-border: color-mix(in srgb, var(--mr-accent) 35%, transparent);
   --mr-hover:    color-mix(in srgb, var(--mr-text) 5%, transparent);
   --mr-pressed:  color-mix(in srgb, var(--mr-text) 9%, transparent);
-  --mr-overlay:  light-dark(rgba(33,27,23,.40), rgba(0,0,0,.60));
+  --mr-overlay:  light-dark(color-mix(in srgb, var(--mr-light-text) 40%, transparent), rgb(0 0 0 / .6));
+  --mr-thumb:    light-dark(var(--mr-light-surface), var(--mr-dark-text));   /* switch knob */
+  --mr-sheen:    rgb(255 255 255 / .12);   /* top highlight on solid buttons */
+  --mr-shade:    rgb(0 0 0 / .2);          /* small drop shadow under a knob or pointer */
 
-  /* focus: a solid accent outline (survives forced-colors); fields add a soft halo */
-  --mr-focus:      var(--mr-accent);
+  /* focus: a solid outline (survives forced-colors); fields add a soft halo */
+  --mr-focus:      var(--mr-accent-text);
   --mr-focus-halo: color-mix(in srgb, var(--mr-accent) 25%, transparent);
 
   /* spacing — 4px grid */
@@ -157,7 +170,180 @@ body { margin: 0; }
   --mr-ic-info:  url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6.4' fill='none' stroke='black' stroke-width='1.6'/><path d='M8 7.3 V11.2' stroke='black' stroke-width='1.7' stroke-linecap='round'/><circle cx='8' cy='4.9' r='.95' fill='black'/></svg>");
 }
 
-/* Manual theme flags win over the OS setting (they come after the token block). */
+/* ═══════════════════════════════════════════════════════════════════════
+   PALETTES
+
+   Plain hex per palette, light and dark. They inherit, so the nearest
+   [data-palette] ancestor wins; the token block above turns them into the
+   --mr-* colors. No attribute means Sunny kitchen. --mr-*-accent-text is the
+   accent darkened (or lightened) just enough for 4.5:1 on every surface.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* F: Sunny kitchen */
+:root,
+[data-palette="sunny"] {
+  --mr-light-bg: #fcf4e4;               --mr-dark-bg: #140c0c;
+  --mr-light-surface: #fffaf0;          --mr-dark-surface: #1f1615;
+  --mr-light-border: #ecdcbb;           --mr-dark-border: #3e2f25;
+  --mr-light-text: #2a1c10;             --mr-dark-text: #f7ead4;
+  --mr-light-text-muted: #6b5a45;       --mr-dark-text-muted: #bfa98c;
+  --mr-light-accent: #e5a119;           --mr-dark-accent: #f0b43a;
+  --mr-light-accent-contrast: #1f1408;  --mr-dark-accent-contrast: #1f1408;
+  --mr-light-accent-text: #7e5814;      --mr-dark-accent-text: #f0b43a;
+  --mr-light-danger: #b5322a;           --mr-dark-danger: #ef6f5f;
+  --mr-light-warn: #d9741a;             --mr-dark-warn: #f08f4a;
+  --mr-light-good: #3f8f3a;             --mr-dark-good: #79c35e;
+  --mr-light-green-bg: #e2ecd0;         --mr-dark-green-bg: #2b361a;
+  --mr-light-green-fg: #3d5a22;         --mr-dark-green-fg: #c9e39e;
+  --mr-light-amber-bg: #fbe6b5;         --mr-dark-amber-bg: #3e2e0e;
+  --mr-light-amber-fg: #6f4a0a;         --mr-dark-amber-fg: #f6cf7a;
+  --mr-light-red-bg: #f7d6cc;           --mr-dark-red-bg: #3f1d18;
+  --mr-light-red-fg: #7f2a1c;           --mr-dark-red-fg: #f6ad9e;
+  --mr-light-neutral-bg: #efe4cf;       --mr-dark-neutral-bg: #2f241c;
+  --mr-light-neutral-fg: #5a4a35;       --mr-dark-neutral-fg: #e0cfb5;
+}
+
+/* A: Warm */
+[data-palette="warm"] {
+  --mr-light-bg: #f8f4ee;               --mr-dark-bg: #1d1916;
+  --mr-light-surface: #fffdfa;          --mr-dark-surface: #27221e;
+  --mr-light-border: #e2d8ca;           --mr-dark-border: #463d36;
+  --mr-light-text: #2f2723;             --mr-dark-text: #f1e9df;
+  --mr-light-text-muted: #6a5f57;       --mr-dark-text-muted: #b4a698;
+  --mr-light-accent: #4f7330;           --mr-dark-accent: #94c25e;
+  --mr-light-accent-contrast: #ffffff;  --mr-dark-accent-contrast: #16210c;
+  --mr-light-accent-text: #4c6b2f;      --mr-dark-accent-text: #94c25e;
+  --mr-light-danger: #b23a2a;           --mr-dark-danger: #e5705f;
+  --mr-light-warn: #c77d1a;             --mr-dark-warn: #e5a23c;
+  --mr-light-good: #2e8b45;             --mr-dark-good: #5cc471;
+  --mr-light-green-bg: #e0ead2;         --mr-dark-green-bg: #2c3a1d;
+  --mr-light-green-fg: #3a5220;         --mr-dark-green-fg: #c5e49d;
+  --mr-light-amber-bg: #f5e4c3;         --mr-dark-amber-bg: #3b2e14;
+  --mr-light-amber-fg: #74491a;         --mr-dark-amber-fg: #f1c878;
+  --mr-light-red-bg: #f4d8cf;           --mr-dark-red-bg: #3c211c;
+  --mr-light-red-fg: #7a2f1e;           --mr-dark-red-fg: #f3aea2;
+  --mr-light-neutral-bg: #ebe3d8;       --mr-dark-neutral-bg: #342d28;
+  --mr-light-neutral-fg: #564739;       --mr-dark-neutral-fg: #d9ccbe;
+}
+
+/* B: Fresh herb */
+[data-palette="herb"] {
+  --mr-light-bg: #f6f7f4;               --mr-dark-bg: #141a16;
+  --mr-light-surface: #ffffff;          --mr-dark-surface: #1c2420;
+  --mr-light-border: #dde2d8;           --mr-dark-border: #34413a;
+  --mr-light-text: #1f2a22;             --mr-dark-text: #e8efe9;
+  --mr-light-text-muted: #59685d;       --mr-dark-text-muted: #a3b2a8;
+  --mr-light-accent: #2f7a4f;           --mr-dark-accent: #5cc48a;
+  --mr-light-accent-contrast: #ffffff;  --mr-dark-accent-contrast: #0c1f14;
+  --mr-light-accent-text: #2d6e48;      --mr-dark-accent-text: #5cc48a;
+  --mr-light-danger: #c0392b;           --mr-dark-danger: #ef7a6b;
+  --mr-light-warn: #b97c0e;             --mr-dark-warn: #e8b04a;
+  --mr-light-good: #2a9152;             --mr-dark-good: #7ccf6a;
+  --mr-light-green-bg: #dcefe2;         --mr-dark-green-bg: #1f3528;
+  --mr-light-green-fg: #22573a;         --mr-dark-green-fg: #a8e6be;
+  --mr-light-amber-bg: #f6e8c6;         --mr-dark-amber-bg: #3a2f12;
+  --mr-light-amber-fg: #6e4a0e;         --mr-dark-amber-fg: #f0cd7a;
+  --mr-light-red-bg: #f8dcd8;           --mr-dark-red-bg: #3d1f1b;
+  --mr-light-red-fg: #862c22;           --mr-dark-red-fg: #f5b2a8;
+  --mr-light-neutral-bg: #e8ebe5;       --mr-dark-neutral-bg: #27302b;
+  --mr-light-neutral-fg: #46524a;       --mr-dark-neutral-fg: #cdd8d0;
+}
+
+/* C: Paprika */
+[data-palette="paprika"] {
+  --mr-light-bg: #fbf5ef;               --mr-dark-bg: #1f1714;
+  --mr-light-surface: #fffcf8;          --mr-dark-surface: #2a201c;
+  --mr-light-border: #e8d6c4;           --mr-dark-border: #4b3a33;
+  --mr-light-text: #33241e;             --mr-dark-text: #f3e6dc;
+  --mr-light-text-muted: #705a4d;       --mr-dark-text-muted: #b8a193;
+  --mr-light-accent: #b0502a;           --mr-dark-accent: #e9875a;
+  --mr-light-accent-contrast: #ffffff;  --mr-dark-accent-contrast: #2a120a;
+  --mr-light-accent-text: #9d4928;      --mr-dark-accent-text: #ea8c60;
+  --mr-light-danger: #a3242a;           --mr-dark-danger: #ef6f73;
+  --mr-light-warn: #bf7a14;             --mr-dark-warn: #e8a53e;
+  --mr-light-good: #4f8a35;             --mr-dark-good: #7fbf5a;
+  --mr-light-green-bg: #e1ebd3;         --mr-dark-green-bg: #2e3a1e;
+  --mr-light-green-fg: #3d5a22;         --mr-dark-green-fg: #c8e4a2;
+  --mr-light-amber-bg: #f7e3c0;         --mr-dark-amber-bg: #3d2e14;
+  --mr-light-amber-fg: #7a4c14;         --mr-dark-amber-fg: #f2c97c;
+  --mr-light-red-bg: #f6d3cf;           --mr-dark-red-bg: #401d1f;
+  --mr-light-red-fg: #7f2026;           --mr-dark-red-fg: #f6b0b2;
+  --mr-light-neutral-bg: #eee1d3;       --mr-dark-neutral-bg: #382b25;
+  --mr-light-neutral-fg: #5c4637;       --mr-dark-neutral-fg: #dcc9bb;
+}
+
+/* D: Paper and ink */
+[data-palette="paper"] {
+  --mr-light-bg: #fffcf0;               --mr-dark-bg: #100f0f;
+  --mr-light-surface: #ffffff;          --mr-dark-surface: #1c1b1a;
+  --mr-light-border: #e6e4d9;           --mr-dark-border: #343331;
+  --mr-light-text: #100f0f;             --mr-dark-text: #cecdc3;
+  --mr-light-text-muted: #676662;       --mr-dark-text-muted: #999891;
+  --mr-light-accent: #24837b;           --mr-dark-accent: #3aa99f;
+  --mr-light-accent-contrast: #ffffff;  --mr-dark-accent-contrast: #100f0f;
+  --mr-light-accent-text: #206c65;      --mr-dark-accent-text: #3aa99f;
+  --mr-light-danger: #af3029;           --mr-dark-danger: #e5675a;
+  --mr-light-warn: #bc5215;             --mr-dark-warn: #da702c;
+  --mr-light-good: #66800b;             --mr-dark-good: #879a39;
+  --mr-light-green-bg: #edeecf;         --mr-dark-green-bg: #252d09;
+  --mr-light-green-fg: #536907;         --mr-dark-green-fg: #bec97e;
+  --mr-light-amber-bg: #faeec6;         --mr-dark-amber-bg: #3a2d04;
+  --mr-light-amber-fg: #7a5c00;         --mr-dark-amber-fg: #eccb60;
+  --mr-light-red-bg: #ffe1d5;           --mr-dark-red-bg: #3e1715;
+  --mr-light-red-fg: #942822;           --mr-dark-red-fg: #f89a8a;
+  --mr-light-neutral-bg: #f2f0e5;       --mr-dark-neutral-bg: #282726;
+  --mr-light-neutral-fg: #575653;       --mr-dark-neutral-fg: #cecdc3;
+}
+
+/* E: Oven glow */
+[data-palette="oven"] {
+  --mr-light-bg: #fdf6ea;               --mr-dark-bg: #1e1610;
+  --mr-light-surface: #fffbf4;          --mr-dark-surface: #2a1f17;
+  --mr-light-border: #ecd9b8;           --mr-dark-border: #4a3726;
+  --mr-light-text: #3e2716;             --mr-dark-text: #f6e6cf;
+  --mr-light-text-muted: #7a5a40;       --mr-dark-text-muted: #c2a585;
+  --mr-light-accent: #a8501c;           --mr-dark-accent: #f0945a;
+  --mr-light-accent-contrast: #ffffff;  --mr-dark-accent-contrast: #2a1206;
+  --mr-light-accent-text: #9d4c1b;      --mr-dark-accent-text: #f0945a;
+  --mr-light-danger: #a3302a;           --mr-dark-danger: #ef6f5f;
+  --mr-light-warn: #c27a12;             --mr-dark-warn: #f0b04a;
+  --mr-light-good: #4f8a35;             --mr-dark-good: #8cc65e;
+  --mr-light-green-bg: #e3ebcf;         --mr-dark-green-bg: #2e381c;
+  --mr-light-green-fg: #3f5a22;         --mr-dark-green-fg: #cde3a4;
+  --mr-light-amber-bg: #fbe3b8;         --mr-dark-amber-bg: #40301a;
+  --mr-light-amber-fg: #7a4a12;         --mr-dark-amber-fg: #ffcf85;
+  --mr-light-red-bg: #fbd9c9;           --mr-dark-red-bg: #42201a;
+  --mr-light-red-fg: #80301a;           --mr-dark-red-fg: #f8b09a;
+  --mr-light-neutral-bg: #f1e3cc;       --mr-dark-neutral-bg: #3a2b1f;
+  --mr-light-neutral-fg: #5a3a22;       --mr-dark-neutral-fg: #e2cdb2;
+}
+
+/* G: Dusk rose */
+[data-palette="dusk"] {
+  --mr-light-bg: #faf4ed;               --mr-dark-bg: #191724;
+  --mr-light-surface: #fffaf3;          --mr-dark-surface: #1f1d2e;
+  --mr-light-border: #dfdad9;           --mr-dark-border: #403d52;
+  --mr-light-text: #464261;             --mr-dark-text: #e0def4;
+  --mr-light-text-muted: #66627e;       --mr-dark-text-muted: #9e9ab7;
+  --mr-light-accent: #286983;           --mr-dark-accent: #9ccfd8;
+  --mr-light-accent-contrast: #ffffff;  --mr-dark-accent-contrast: #191724;
+  --mr-light-accent-text: #286983;      --mr-dark-accent-text: #9ccfd8;
+  --mr-light-danger: #a8506a;           --mr-dark-danger: #eb6f92;
+  --mr-light-warn: #c27a17;             --mr-dark-warn: #f6c177;
+  --mr-light-good: #3d8a5a;             --mr-dark-good: #8fcf9a;
+  --mr-light-green-bg: #e2ece6;         --mr-dark-green-bg: #23302e;
+  --mr-light-green-fg: #2f5d4a;         --mr-dark-green-fg: #b5e3c0;
+  --mr-light-amber-bg: #f6e3c6;         --mr-dark-amber-bg: #3a3020;
+  --mr-light-amber-fg: #7a5216;         --mr-dark-amber-fg: #f6c177;
+  --mr-light-red-bg: #f3dde0;           --mr-dark-red-bg: #3a2030;
+  --mr-light-red-fg: #8a3a50;           --mr-dark-red-fg: #f2a6bd;
+  --mr-light-neutral-bg: #f2e9e1;       --mr-dark-neutral-bg: #26233a;
+  --mr-light-neutral-fg: #575279;       --mr-dark-neutral-fg: #e0def4;
+}
+
+:root { color-scheme: light dark; }
+
+/* Manual theme flags win over the OS setting (they come after :root). */
 [data-theme="light"] { color-scheme: light; }
 [data-theme="dark"]  { color-scheme: dark; }
 
@@ -222,18 +408,18 @@ body { margin: 0; }
 .mr-btn--solid {
   background: var(--mr-accent);
   color: var(--mr-accent-contrast);
-  box-shadow: var(--mr-shadow-xs), inset 0 1px 0 rgba(255,255,255,.12);
+  box-shadow: var(--mr-shadow-xs), inset 0 1px 0 var(--mr-sheen);
 }
 .mr-btn--solid:hover:not(:disabled) { background: var(--mr-accent-hover); }
-.mr-btn--solid:active:not(:disabled) { background: color-mix(in srgb, var(--mr-accent-hover) 90%, black); }
+.mr-btn--solid:active:not(:disabled) { background: color-mix(in srgb, var(--mr-accent-hover) 90%, var(--mr-text)); }
 
 .mr-btn--danger {
   background: var(--mr-danger);
   color: var(--mr-danger-contrast);
-  box-shadow: var(--mr-shadow-xs), inset 0 1px 0 rgba(255,255,255,.12);
+  box-shadow: var(--mr-shadow-xs), inset 0 1px 0 var(--mr-sheen);
 }
 .mr-btn--danger:hover:not(:disabled) { background: var(--mr-danger-hover); }
-.mr-btn--danger:active:not(:disabled) { background: color-mix(in srgb, var(--mr-danger-hover) 90%, black); }
+.mr-btn--danger:active:not(:disabled) { background: color-mix(in srgb, var(--mr-danger-hover) 90%, var(--mr-text)); }
 
 /* outline — the secondary button: neutral surface, so the accent stays with the primary */
 .mr-btn--outline {
@@ -298,7 +484,7 @@ body { margin: 0; }
 .mr-input::placeholder { color: var(--mr-text-subtle); }
 .mr-input:hover:not(:focus):not(:disabled) { border-color: var(--mr-border-strong); }
 .mr-input:focus-visible, .mr-input:focus {
-  border-color: var(--mr-accent); box-shadow: 0 0 0 3px var(--mr-focus-halo);
+  border-color: var(--mr-focus); box-shadow: 0 0 0 3px var(--mr-focus-halo);
 }
 .mr-input:disabled {
   background: var(--mr-surface-2); color: var(--mr-text-subtle); cursor: not-allowed;
@@ -336,7 +522,7 @@ body { margin: 0; }
 }
 .mr-sel__trigger:hover { border-color: var(--mr-border-strong); }
 .mr-sel__trigger:focus-visible {
-  border-color: var(--mr-accent); box-shadow: 0 0 0 3px var(--mr-focus-halo);
+  border-color: var(--mr-focus); box-shadow: 0 0 0 3px var(--mr-focus-halo);
 }
 .mr-sel__trigger--placeholder { color: var(--mr-text-subtle); }
 .mr-sel__chevron {
@@ -457,7 +643,7 @@ body { margin: 0; }
   transition: background var(--mr-dur-fast) var(--mr-ease);
 }
 .mr-sel__opt:hover, .mr-sel__opt--hl { background: var(--mr-surface-2); }
-.mr-sel__opt--active { font-weight: var(--mr-weight-medium); color: var(--mr-accent-text); background: color-mix(in srgb, var(--mr-accent) 16%, transparent); }
+.mr-sel__opt--active { font-weight: var(--mr-weight-medium); color: var(--mr-text); background: color-mix(in srgb, var(--mr-accent) 16%, transparent); }
 .mr-sel__opt--active:hover, .mr-sel__opt--active.mr-sel__opt--hl { background: color-mix(in srgb, var(--mr-accent) 24%, transparent); }
 .mr-sel__opt--active::after {
   content: ""; flex: none; width: var(--mr-icon-md); height: var(--mr-icon-md); background-color: var(--mr-accent-text);
@@ -481,7 +667,7 @@ body { margin: 0; }
 }
 .mr-switch__thumb {
   position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
-  background: light-dark(#fff, #f0e7dc); border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  background: var(--mr-thumb); border-radius: 50%; box-shadow: 0 1px 2px var(--mr-shade);
   transition: transform var(--mr-dur) var(--mr-ease);
 }
 .mr-switch input:checked + .mr-switch__track { background: var(--mr-accent); }
@@ -648,7 +834,7 @@ body { margin: 0; }
 .mr-table tbody tr:hover { background: var(--mr-hover); }
 .mr-table tbody tr[aria-selected="true"] { background: var(--mr-accent-soft); }
 .mr-table tbody tr.mr-table__row--link { cursor: pointer; }
-.mr-table tbody tr.mr-table__row--link:focus-visible { outline: 2px solid var(--mr-accent); outline-offset: -2px; }
+.mr-table tbody tr.mr-table__row--link:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: -2px; }
 
 /* ═══════════════════════════════════════════════════════════════════════
    TABS — underline style; the active label turns to full text color and the
@@ -685,7 +871,7 @@ body { margin: 0; }
   display: inline-block; width: 1em; height: 1em; border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
   border-top-color: currentColor; border-radius: 50%; animation: mr-spin .6s linear infinite;
 }
-.mr-spinner--solo { color: var(--mr-accent); }
+.mr-spinner--solo { color: var(--mr-accent-text); }
 .mr-spinner--sm { width: 1rem;   height: 1rem;   border-width: 2px; }
 .mr-spinner--md { width: 1.5rem; height: 1.5rem; border-width: 2px; }
 .mr-spinner--lg { width: 2.2rem; height: 2.2rem; border-width: 3px; }
@@ -897,6 +1083,12 @@ body { margin: 0; }
 }
 .mr-section { margin-top: 1.5rem; }
 .mr-section > .mr-h3 { margin-bottom: .7rem; }
+.mr-palette-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--mr-space-3); }
+.mr-palette-tile {
+  display: flex; flex-direction: column; gap: var(--mr-space-2);
+  padding: var(--mr-space-3); border: 1px solid var(--mr-border); border-radius: var(--mr-radius-lg);
+}
+.mr-palette-tile__row { display: flex; flex-wrap: wrap; gap: var(--mr-space-2); }
 
 /* ═══════════════════════════════════════════════════════════════════════
    APP SHELL — the real pages' frame. The Layout component renders .mr-shell
@@ -942,7 +1134,7 @@ body { margin: 0; }
   background: color-mix(in srgb, var(--mr-surface-2) 55%, var(--mr-bg));
   padding: var(--mr-space-5) var(--mr-space-3) var(--mr-space-4);
 }
-.mr-sidebar__foot { margin-top: auto; padding: 0 var(--mr-space-1); }
+.mr-sidebar__foot { margin-top: auto; padding: 0 var(--mr-space-1); display: flex; flex-direction: column; gap: var(--mr-space-3); }
 .mr-nav { display: flex; flex-direction: column; gap: .2rem; }
 .mr-nav__link {
   display: flex; align-items: center; gap: var(--mr-space-3);
@@ -980,6 +1172,28 @@ body { margin: 0; }
 .mr-theme__opt:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 1px; }
 @media (forced-colors: active) {
   .mr-theme__opt[aria-pressed="true"] { border: 1px solid Highlight; }
+}
+
+/* ── palette picker: one swatch per palette ─────────────────────────────── */
+.mr-palette { display: flex; flex-direction: column; gap: var(--mr-space-1); }
+.mr-palette__name { padding: 0 var(--mr-space-1); font-size: var(--mr-text-sm); color: var(--mr-text-muted); }
+.mr-palette__grid { display: grid; grid-template-columns: repeat(4, var(--mr-control-h-lg)); gap: var(--mr-space-1); }
+.mr-palette__opt {
+  display: grid; place-items: center;
+  width: var(--mr-control-h-lg); height: var(--mr-control-h-lg); padding: 0;
+  background: transparent; border: 0; border-radius: var(--mr-radius-pill); cursor: pointer;
+}
+.mr-palette__opt:hover { background: var(--mr-hover); }
+.mr-palette__opt[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--mr-text); }
+.mr-palette__opt:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 1px; }
+/* painted from its own [data-palette], so it previews that palette's page and accent */
+.mr-palette__swatch {
+  width: 28px; height: 28px; border-radius: var(--mr-radius-pill);
+  background: linear-gradient(135deg, var(--mr-bg) 50%, var(--mr-accent) 50%);
+  border: 1px solid var(--mr-border-strong);
+}
+@media (forced-colors: active) {
+  .mr-palette__opt[aria-pressed="true"] { outline: 2px solid Highlight; }
 }
 
 /* ── build id and update check, under the theme control ─────────────────── */
@@ -1023,7 +1237,7 @@ body { margin: 0; }
   width: 0; height: 0;
   border-left: 10px solid transparent; border-right: 10px solid transparent;
   border-top: 16px solid var(--mr-accent);
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,.2));
+  filter: drop-shadow(0 1px 1px var(--mr-shade));
 }
 .mr-wheel {
   width: 190px; height: 190px; border-radius: 50%;
@@ -1069,7 +1283,7 @@ body { margin: 0; }
   .mr-topbar__menu { width: 2.75rem; height: 2.75rem; font-size: 1.4rem; }
   .mr-scrim {
     display: block; position: fixed; inset: 0; z-index: 44;
-    background: rgba(0, 0, 0, .45);
+    background: var(--mr-overlay);
     opacity: 0; visibility: hidden;
     transition: opacity var(--mr-dur-slow) var(--mr-ease), visibility 0s linear var(--mr-dur-slow);
   }
@@ -1092,7 +1306,7 @@ body { margin: 0; }
     transition: transform var(--mr-dur-slow) var(--mr-ease-out), visibility 0s;
   }
   .mr-drawer__head { display: flex; align-items: center; justify-content: space-between; gap: var(--mr-space-2); }
-  .mr-drawer__foot { margin-top: auto; padding: 0 var(--mr-space-1); }
+  .mr-drawer__foot { margin-top: auto; padding: 0 var(--mr-space-1); display: flex; flex-direction: column; gap: var(--mr-space-3); }
   .mr-drawer .mr-nav__link { min-height: var(--mr-control-h-lg); }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1175,7 +1389,7 @@ button.mr-chip--active::before {
   transition: border-color var(--mr-dur-fast) var(--mr-ease), box-shadow var(--mr-dur-fast) var(--mr-ease);
 }
 .mr-fsearch:hover:not(:focus-within) { border-color: var(--mr-border-strong); }
-.mr-fsearch:focus-within { border-color: var(--mr-accent); box-shadow: 0 0 0 3px var(--mr-focus-halo); }
+.mr-fsearch:focus-within { border-color: var(--mr-focus); box-shadow: 0 0 0 3px var(--mr-focus-halo); }
 .mr-fsearch__icon {
   flex: none; width: var(--mr-icon-md); height: var(--mr-icon-md); background-color: var(--mr-text-subtle);
   -webkit-mask: var(--mr-search) center / contain no-repeat;
@@ -1300,7 +1514,7 @@ button.mr-chip--active::before {
 .mr-lookupcard__manage:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 2px; }
 .mr-lookupcard__body { padding: var(--mr-space-3) var(--mr-space-4) var(--mr-space-4); }
 .mr-lookupcard__chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.mr-lookupcard__state { display: flex; justify-content: center; padding: .8rem 0; color: var(--mr-accent); }
+.mr-lookupcard__state { display: flex; justify-content: center; padding: .8rem 0; color: var(--mr-accent-text); }
 
 /* ═══════════════════════════════════════════════════════════════════════
    MANAGE-LISTS DIALOG — tabbed rename/delete rows for the tiny lookups
@@ -1314,7 +1528,7 @@ button.mr-chip--active::before {
 .mr-manage__add .mr-btn { flex: none; }
 .mr-manage__state {
   flex: 1 1 auto; display: flex; align-items: center; justify-content: center;
-  color: var(--mr-accent);
+  color: var(--mr-accent-text);
 }
 .mr-managelist {
   flex: 1 1 auto; min-height: 0;
@@ -1345,10 +1559,10 @@ button.mr-chip--active::before {
 }
 .mr-refs__item:first-child { border-top: none; }
 .mr-refs__link {
-  color: var(--mr-accent); text-decoration: none; font-weight: var(--mr-weight-semibold);
+  color: var(--mr-accent-text); text-decoration: none; font-weight: var(--mr-weight-semibold);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.mr-refs__link:hover { color: var(--mr-accent-hover); text-decoration: underline; text-underline-offset: 2px; }
+.mr-refs__link:hover { color: var(--mr-accent-text); text-decoration: underline; text-underline-offset: 2px; }
 .mr-refs__link:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 2px; border-radius: var(--mr-radius-xs); }
 .mr-refs__kind { flex: none; color: var(--mr-text-muted); font-size: var(--mr-text-sm); }
 .mr-refs__warning { margin: var(--mr-space-3) 0 0; font-size: var(--mr-text-base); font-weight: var(--mr-weight-semibold); }
@@ -1468,7 +1682,7 @@ button.mr-chip--active::before {
 /* plan page: the "put on days" card, and the drop target on a day card */
 .mr-schedule { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem; margin-bottom: .5rem; }
 .mr-schedule__field { width: 12rem; }
-.mr-daycard--over { outline: 2px dashed var(--mr-accent); outline-offset: 2px; }
+.mr-daycard--over { outline: 2px dashed var(--mr-accent-text); outline-offset: 2px; }
 .mr-datepick { width: 9.5rem; padding: .35rem .5rem; }
 
 /* shopping list */
@@ -1497,9 +1711,12 @@ button.mr-chip--active::before {
   transition: background-color var(--mr-dur-fast) var(--mr-ease), border-color var(--mr-dur-fast) var(--mr-ease);
 }
 .mr-buycheck:hover { border-color: var(--mr-accent); }
-.mr-buycheck:checked {
-  border-color: var(--mr-accent);
-  background: var(--mr-accent) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'><path d='M4.2 8.4 L6.8 11 L11.8 5.6' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>") center / 80% no-repeat;
+.mr-buycheck:checked { border-color: var(--mr-accent); background: var(--mr-accent); }
+.mr-buycheck:checked::after {
+  content: ""; display: block; width: 100%; height: 100%;
+  background: var(--mr-accent-contrast);
+  -webkit-mask: var(--mr-ic-tick) center / 75% no-repeat;
+          mask: var(--mr-ic-tick) center / 75% no-repeat;
 }
 .mr-buycheck:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 2px; }
 
@@ -1611,7 +1828,7 @@ button.mr-chip--active::before {
   color: inherit; text-decoration: none;
 }
 .mr-housekeeping__item:last-child { border-bottom: none; }
-.mr-housekeeping__item:hover { color: var(--mr-accent); }
+.mr-housekeeping__item:hover { color: var(--mr-accent-text); }
 .mr-housekeeping__item:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 2px; border-radius: var(--mr-radius-sm); }
 .mr-housekeeping__detail {
   flex: 1; min-width: 0; color: var(--mr-text-muted); font-size: var(--mr-text-sm);
@@ -1719,7 +1936,7 @@ button.mr-chip--active::before {
 .mr-viewtoggle__btn--active, .mr-viewtoggle__btn--active:hover {
   background: var(--mr-surface); color: var(--mr-text); box-shadow: var(--mr-shadow-xs);
 }
-.mr-viewtoggle__btn:focus-visible { outline: 2px solid var(--mr-accent); outline-offset: 1px; }
+.mr-viewtoggle__btn:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 1px; }
 
 .mr-recipegrid { display: grid; grid-template-columns: 1fr; gap: var(--mr-space-4); }
 @media (min-width: 560px) {
@@ -1731,7 +1948,7 @@ button.mr-chip--active::before {
   border-radius: var(--mr-radius-lg); box-shadow: var(--mr-shadow-xs);
 }
 .mr-recipecard:hover { box-shadow: var(--mr-shadow-md); }
-.mr-recipecard:focus-within { outline: 2px solid var(--mr-accent); outline-offset: 2px; }
+.mr-recipecard:focus-within { outline: 2px solid var(--mr-focus); outline-offset: 2px; }
 .mr-recipecard__art {
   display: flex; align-items: flex-end; justify-content: space-between; gap: var(--mr-space-2);
   height: 7rem; padding: var(--mr-space-3) var(--mr-space-4);
@@ -1778,7 +1995,7 @@ button.mr-chip--active::before {
   background: var(--mr-surface); border: 1px solid var(--mr-border-soft);
   border-radius: var(--mr-radius-lg); box-shadow: var(--mr-shadow-xs); cursor: pointer;
 }
-.mr-cook__item:focus-visible { outline: 2px solid var(--mr-accent); outline-offset: 2px; }
+.mr-cook__item:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 2px; }
 .mr-cook__tick {
   flex: none; display: inline-flex; align-items: center; justify-content: center;
   width: 2.25rem; height: 2.25rem; border-radius: var(--mr-radius-pill);
