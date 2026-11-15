@@ -1,10 +1,11 @@
 //! App shell — the persistent frame around every routed page. `AppLayout`
-//! composes `Sidebar` (brand, section nav and theme control) on wide screens
+//! composes `Sidebar` (brand, section nav, palette and theme controls) on wide screens
 //! and `MobileNav` (top bar plus a slide-out drawer) on narrow ones around a
 //! routed `<Outlet/>`. Styling lives in `assets/primitives.css` under "APP SHELL".
 
 pub mod app_layout;
 pub mod mobile_nav;
+pub mod palette_picker;
 pub mod sidebar;
 pub mod theme_toggle;
 pub mod update_banner;
@@ -12,6 +13,7 @@ pub mod version_line;
 
 pub use app_layout::AppLayout;
 pub use mobile_nav::MobileNav;
+pub use palette_picker::PalettePicker;
 pub use sidebar::{NavEntry, Sidebar};
 pub use theme_toggle::ThemeToggle;
 pub use update_banner::UpdateBanner;

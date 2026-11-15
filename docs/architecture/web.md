@@ -69,8 +69,8 @@ Routes (`router.rs`): `/`, `/showcase`, `/recipes`, `/recipes/:id`, `/library`, 
   could use it, it lives here; otherwise it lives in the feature.
 - **`server/api/<feature>.rs`**: the `#[server]` functions for that feature. The only surface
   the browser calls. Each takes `AppState` from `app_state()`, calls the feature's repository
-  (or, for roll and re-roll, `api::features::roll::service`) in the `api` crate, and maps the
-  error with `server_fn_error`.
+  (or, for roll, re-roll and swap, `api::features::roll::service`) in the `api` crate, and maps
+  the error with `server_fn_error`.
 - **`server/serve.rs`**: server-only bootstrap: connects the pool, builds the Axum router
   (Dioxus app, server functions, REST routes nested under `/api`), attaches `AppState` to every
   request as an extension, and serves.

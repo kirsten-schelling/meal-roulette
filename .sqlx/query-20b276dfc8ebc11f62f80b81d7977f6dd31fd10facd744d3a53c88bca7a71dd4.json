@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, title, difficulty, time_mins, servings,\n               healthiness, main_protein_id, cuisine_id, created_at, updated_at\n        FROM recipe\n        WHERE id = $1\n        ",
+  "query": "\n        SELECT id, household_id, title, difficulty, time_mins, servings,\n               healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,\n               created_at, updated_at\n        FROM recipe\n        WHERE id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,28 @@
       },
       {
         "ordinal": 7,
+        "name": "min_gap_weeks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "min_gap_weeks"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "max_gap_weeks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "max_gap_weeks"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "main_protein_id",
         "type_info": "Uuid",
         "origin": {
@@ -92,7 +114,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "cuisine_id",
         "type_info": "Uuid",
         "origin": {
@@ -103,7 +125,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +136,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -140,9 +162,11 @@
       true,
       true,
       true,
+      true,
+      true,
       false,
       false
     ]
   },
-  "hash": "c931e0510d66b422c418067e37313f1a8729a43a467287f660d8ca5d1fcd1dc5"
+  "hash": "20b276dfc8ebc11f62f80b81d7977f6dd31fd10facd744d3a53c88bca7a71dd4"
 }

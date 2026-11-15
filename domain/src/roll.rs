@@ -240,6 +240,8 @@ pub struct PreviewMeal {
     pub time_mins: i16,
     pub cuisine: Option<String>,
     pub protein: Option<String>,
+    /// Cooked more recently than the recipe's minimum gap allows.
+    pub within_min_gap: bool,
 }
 
 /// Response for `POST /roll/preview`: a roll that is not stored. `meals` are in

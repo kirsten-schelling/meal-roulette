@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO recipe\n            (household_id, title, difficulty, time_mins, servings,\n             healthiness, main_protein_id, cuisine_id)\n        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)\n        RETURNING id, household_id, title, difficulty, time_mins, servings,\n                  healthiness, main_protein_id, cuisine_id, created_at, updated_at\n        ",
+  "query": "\n        DELETE FROM recipe\n        WHERE id = $1\n        RETURNING id, household_id, title, difficulty, time_mins, servings,\n                  healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,\n                  created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,28 @@
       },
       {
         "ordinal": 7,
+        "name": "min_gap_weeks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "min_gap_weeks"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "max_gap_weeks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "max_gap_weeks"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "main_protein_id",
         "type_info": "Uuid",
         "origin": {
@@ -92,7 +114,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "cuisine_id",
         "type_info": "Uuid",
         "origin": {
@@ -103,7 +125,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +136,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -127,13 +149,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Text",
-        "Int2",
-        "Int2",
-        "Int2",
-        "Int2",
-        "Uuid",
         "Uuid"
       ]
     },
@@ -147,9 +162,11 @@
       true,
       true,
       true,
+      true,
+      true,
       false,
       false
     ]
   },
-  "hash": "9b07023aa3b82daa9c4dee35b21f2e6eb9b3f725990dd6226514695d46eb0c9d"
+  "hash": "18d5686010a73f5a271a3ffd39f33544601965c6e88751b1ebf85c6ea45a0f8a"
 }

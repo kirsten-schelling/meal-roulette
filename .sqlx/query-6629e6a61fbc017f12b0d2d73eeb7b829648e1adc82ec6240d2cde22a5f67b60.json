@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, household_id, title, difficulty, time_mins, servings,\n               healthiness, main_protein_id, cuisine_id, created_at, updated_at\n        FROM recipe\n        ORDER BY created_at DESC\n        ",
+  "query": "\n        SELECT id, household_id, title, difficulty, time_mins, servings,\n               healthiness, min_gap_weeks, max_gap_weeks, main_protein_id, cuisine_id,\n               created_at, updated_at\n        FROM recipe\n        ORDER BY created_at DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,28 @@
       },
       {
         "ordinal": 7,
+        "name": "min_gap_weeks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "min_gap_weeks"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "max_gap_weeks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "max_gap_weeks"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "main_protein_id",
         "type_info": "Uuid",
         "origin": {
@@ -92,7 +114,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "cuisine_id",
         "type_info": "Uuid",
         "origin": {
@@ -103,7 +125,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +136,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -138,9 +160,11 @@
       true,
       true,
       true,
+      true,
+      true,
       false,
       false
     ]
   },
-  "hash": "2b0f515e3137d11c1afa8028b0d7eefd76323c6da7e7a9bcb2b841fc278dd28f"
+  "hash": "6629e6a61fbc017f12b0d2d73eeb7b829648e1adc82ec6240d2cde22a5f67b60"
 }

@@ -64,6 +64,18 @@ pub async fn set_item_purchased(
         .map_err(server_fn_error)
 }
 
+/// Put a line the pantry covers onto the list at its full amount.
+#[server]
+pub async fn add_covered_item(id: Uuid) -> Result<ShoppingListItem, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::shopping_list_item::repository;
+
+    let state = app_state()?;
+    repository::add_anyway(&state.db, id)
+        .await
+        .map_err(server_fn_error)
+}
+
 /// Add a free-text line (something that is not an ingredient) to a list.
 #[server]
 pub async fn add_custom_item(

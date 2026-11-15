@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH saved AS (\n            INSERT INTO pantry_item (household_id, ingredient_id, qty)\n            VALUES ($1, $2, $3)\n            ON CONFLICT ON CONSTRAINT uq_pantry_item\n            DO UPDATE SET qty = EXCLUDED.qty\n            RETURNING ingredient_id, qty\n        )\n        SELECT saved.ingredient_id AS \"ingredient_id!\", ingredient.name AS \"ingredient!\",\n               COALESCE(unit.name, '') AS \"unit!\", saved.qty AS \"qty!\"\n        FROM saved\n        JOIN ingredient ON ingredient.id = saved.ingredient_id\n        LEFT JOIN unit ON unit.id = ingredient.unit_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ingredient_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pantry_item",
+            "name": "ingredient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "ingredient!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "unit!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "qty!",
+        "type_info": "Numeric",
+        "origin": {
+          "Table": {
+            "table": "pantry_item",
+            "name": "qty"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Numeric"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "4e1ac204619571b533b886a85ce5a2183c8bf7cf24073887cfd918ea25663609"
+}

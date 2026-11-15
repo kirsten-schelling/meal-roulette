@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT pantry_item.ingredient_id, ingredient.name AS ingredient,\n               COALESCE(unit.name, '') AS \"unit!\", pantry_item.qty\n        FROM pantry_item\n        JOIN ingredient ON ingredient.id = pantry_item.ingredient_id\n        LEFT JOIN unit ON unit.id = ingredient.unit_id\n        WHERE pantry_item.household_id = $1\n        ORDER BY ingredient.name\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ingredient_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pantry_item",
+            "name": "ingredient_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "ingredient",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "unit!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "qty",
+        "type_info": "Numeric",
+        "origin": {
+          "Table": {
+            "table": "pantry_item",
+            "name": "qty"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false
+    ]
+  },
+  "hash": "b2581122b28b0fffac08e52922fc0e6a2fe7ebf8d84ae3862e0123ed686d80e3"
+}

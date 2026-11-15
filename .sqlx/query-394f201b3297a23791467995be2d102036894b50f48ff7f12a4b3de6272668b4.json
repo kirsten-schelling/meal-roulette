@@ -1,0 +1,33 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT recipe_id, MAX(cooked_on) AS \"cooked_on!\"\n        FROM cook_log\n        GROUP BY recipe_id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "recipe_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "cook_log",
+            "name": "recipe_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "cooked_on!",
+        "type_info": "Date",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "394f201b3297a23791467995be2d102036894b50f48ff7f12a4b3de6272668b4"
+}

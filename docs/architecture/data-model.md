@@ -92,6 +92,8 @@ erDiagram
         smallint time_mins
         smallint servings
         smallint healthiness "1-5, nullable"
+        smallint min_gap_weeks "1-52, nullable"
+        smallint max_gap_weeks "1-52, nullable"
     }
     recipe_ingredient {
         uuid recipe_id FK
@@ -288,6 +290,8 @@ the guess. `phrase` (`chk_ingredient_alias_phrase_normalised`: non-empty, lower 
 | `time_mins`       | `smallint`, `chk_recipe_time_mins_positive CHECK (time_mins > 0)`            |
 | `servings`        | `smallint`, `> 0` - feeds leftovers planning later                           |
 | `healthiness`     | `smallint`, nullable, `BETWEEN 1 AND 5`                                      |
+| `min_gap_weeks`   | `smallint`, nullable, 1 to 52: weeks to wait after a cook                    |
+| `max_gap_weeks`   | `smallint`, nullable, 1 to 52, at least `min_gap_weeks`: weeks to pull in    |
 | `main_protein_id` | FK → `protein`, nullable                                                     |
 | `cuisine_id`      | FK → `cuisine`, nullable                                                     |
 

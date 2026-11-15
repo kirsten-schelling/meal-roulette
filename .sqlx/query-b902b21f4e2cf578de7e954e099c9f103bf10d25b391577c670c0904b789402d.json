@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT recipe.id, recipe.household_id, recipe.title, recipe.difficulty,\n               recipe.time_mins, recipe.servings, recipe.healthiness,\n               recipe.main_protein_id, recipe.cuisine_id, recipe.created_at, recipe.updated_at,\n               cuisine.name AS \"cuisine?\", protein.name AS \"protein?\",\n               COALESCE(array_agg(tag.id ORDER BY tag.name, tag.id)\n                        FILTER (WHERE tag.id IS NOT NULL), '{}') AS \"tag_ids!\",\n               COALESCE(array_agg(tag.name ORDER BY tag.name, tag.id)\n                        FILTER (WHERE tag.id IS NOT NULL), '{}') AS \"tag_names!\"\n        FROM recipe\n        LEFT JOIN cuisine ON cuisine.id = recipe.cuisine_id\n        LEFT JOIN protein ON protein.id = recipe.main_protein_id\n        LEFT JOIN recipe_tag ON recipe_tag.recipe_id = recipe.id\n        LEFT JOIN tag ON tag.id = recipe_tag.tag_id\n        WHERE $1::uuid IS NULL OR recipe.id = $1\n        GROUP BY recipe.id, cuisine.name, protein.name\n        ORDER BY recipe.created_at DESC\n        ",
+  "query": "\n        SELECT recipe.id, recipe.household_id, recipe.title, recipe.difficulty,\n               recipe.time_mins, recipe.servings, recipe.healthiness,\n               recipe.min_gap_weeks, recipe.max_gap_weeks,\n               recipe.main_protein_id, recipe.cuisine_id, recipe.created_at, recipe.updated_at,\n               cuisine.name AS \"cuisine?\", protein.name AS \"protein?\",\n               COALESCE(array_agg(tag.id ORDER BY tag.name, tag.id)\n                        FILTER (WHERE tag.id IS NOT NULL), '{}') AS \"tag_ids!\",\n               COALESCE(array_agg(tag.name ORDER BY tag.name, tag.id)\n                        FILTER (WHERE tag.id IS NOT NULL), '{}') AS \"tag_names!\"\n        FROM recipe\n        LEFT JOIN cuisine ON cuisine.id = recipe.cuisine_id\n        LEFT JOIN protein ON protein.id = recipe.main_protein_id\n        LEFT JOIN recipe_tag ON recipe_tag.recipe_id = recipe.id\n        LEFT JOIN tag ON tag.id = recipe_tag.tag_id\n        WHERE $1::uuid IS NULL OR recipe.id = $1\n        GROUP BY recipe.id, cuisine.name, protein.name\n        ORDER BY recipe.created_at DESC\n        ",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,28 @@
       },
       {
         "ordinal": 7,
+        "name": "min_gap_weeks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "min_gap_weeks"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "max_gap_weeks",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recipe",
+            "name": "max_gap_weeks"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "main_protein_id",
         "type_info": "Uuid",
         "origin": {
@@ -92,7 +114,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 10,
         "name": "cuisine_id",
         "type_info": "Uuid",
         "origin": {
@@ -103,7 +125,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 11,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +136,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -125,7 +147,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 13,
         "name": "cuisine?",
         "type_info": "Text",
         "origin": {
@@ -136,7 +158,7 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 14,
         "name": "protein?",
         "type_info": "Text",
         "origin": {
@@ -147,13 +169,13 @@
         }
       },
       {
-        "ordinal": 13,
+        "ordinal": 15,
         "name": "tag_ids!",
         "type_info": "UuidArray",
         "origin": "Expression"
       },
       {
-        "ordinal": 14,
+        "ordinal": 16,
         "name": "tag_names!",
         "type_info": "TextArray",
         "origin": "Expression"
@@ -174,6 +196,8 @@
       true,
       true,
       true,
+      true,
+      true,
       false,
       false,
       false,
@@ -182,5 +206,5 @@
       null
     ]
   },
-  "hash": "5b3f1585a8a0a5b6852d76c90897afe37f821c2af740d43c317fc64a4a67ea3d"
+  "hash": "b902b21f4e2cf578de7e954e099c9f103bf10d25b391577c670c0904b789402d"
 }

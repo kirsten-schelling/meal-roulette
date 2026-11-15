@@ -20,6 +20,10 @@ pub struct Recipe {
     pub time_mins: i16,
     pub servings: i16,
     pub healthiness: Option<i16>,
+    /// Weeks to wait after a cook before the roller picks it again. `None` = no wait.
+    pub min_gap_weeks: Option<i16>,
+    /// Weeks after a cook by which the roller pulls it back in. `None` = never pulled.
+    pub max_gap_weeks: Option<i16>,
     pub main_protein_id: Option<Uuid>,
     pub cuisine_id: Option<Uuid>,
     pub created_at: time::OffsetDateTime,
@@ -43,6 +47,8 @@ pub struct NewRecipe {
     pub time_mins: i16,
     pub servings: i16,
     pub healthiness: Option<i16>,
+    pub min_gap_weeks: Option<i16>,
+    pub max_gap_weeks: Option<i16>,
     pub protein: ProteinEntry,
     pub cuisine: Option<CuisineEntry>,
     pub ingredients: Vec<RecipeIngredientEntry>,
@@ -61,6 +67,8 @@ pub struct InsertRecipe {
     pub time_mins: i16,
     pub servings: i16,
     pub healthiness: Option<i16>,
+    pub min_gap_weeks: Option<i16>,
+    pub max_gap_weeks: Option<i16>,
     pub main_protein_id: Option<Uuid>,
     pub cuisine_id: Option<Uuid>,
 }
@@ -74,6 +82,8 @@ pub struct UpdateRecipe {
     pub time_mins: i16,
     pub servings: i16,
     pub healthiness: Option<i16>,
+    pub min_gap_weeks: Option<i16>,
+    pub max_gap_weeks: Option<i16>,
     pub protein: ProteinEntry,
     pub cuisine: Option<CuisineEntry>,
     pub tags: Vec<TagEntry>,

@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE pantry_item\n        SET qty = GREATEST(pantry_item.qty + $3 * used.qty, 0)\n        FROM (\n            SELECT ingredient_id, SUM(qty) AS qty\n            FROM recipe_ingredient\n            WHERE recipe_id = $2 AND qty IS NOT NULL AND NOT is_optional\n            GROUP BY ingredient_id\n        ) AS used\n        WHERE pantry_item.household_id = $1\n          AND pantry_item.ingredient_id = used.ingredient_id\n        RETURNING pantry_item.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pantry_item",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Numeric"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2086a0cc9d8040bf9254b1a9f9540fc53ed6a92be5e937fc5a99f6de5679c1c5"
+}

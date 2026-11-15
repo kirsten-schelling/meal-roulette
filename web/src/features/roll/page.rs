@@ -212,7 +212,7 @@ pub fn Roll() -> Element {
                     shown.set(Some(Shown {
                         week: RolledWeek {
                             seed: preview.seed,
-                            unmet: form.unmet_notes(&preview.unmet, &catalog),
+                            unmet: form.unmet_notes(&preview.unmet, &preview.meals, &catalog),
                             edited: false,
                             meals: preview.meals,
                             pinned: pinned.iter().map(|pin| usize::from(pin.day)).collect(),
@@ -240,7 +240,7 @@ pub fn Roll() -> Element {
             Fix::MakeNiceToHave(rules) => settings.write().make_nice_to_have(&rules),
             Fix::ClearCaps => settings.write().every_dinner = EveryDinner::default(),
             Fix::RollDays(days) => settings.write().num_days = days.to_string(),
-            Fix::AddRecipe(seed) => adding.set(Some(seed)),
+            Fix::AddRecipe(seed) => adding.set(Some(*seed)),
             Fix::UnpinAll => {
                 if let Some(current) = shown.write().as_mut() {
                     current.week.pinned.clear();
@@ -273,7 +273,9 @@ pub fn Roll() -> Element {
                         *slot = replaced.meal;
                     }
                     next.recipe_ids = next.week.meals.iter().map(|m| m.recipe_id).collect();
-                    next.week.unmet = next.settings.unmet_notes(&replaced.unmet, &catalog);
+                    next.week.unmet =
+                        next.settings
+                            .unmet_notes(&replaced.unmet, &next.week.meals, &catalog);
                     next.week.edited = false;
                     // The pin was on the dinner that just left the day.
                     next.week.pinned.remove(&day);

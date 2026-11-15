@@ -2,6 +2,7 @@ use crate::components::ui::{ComboOption, Combobox, Input, Picker, Rating, Rating
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::library::components::ManageTab;
 use crate::features::protein::hooks::use_protein::use_get_proteins;
+use crate::features::recipe::components::cadence_picker::CadencePicker;
 use crate::features::recipe::components::recipe_seed::RecipeSeed;
 use crate::features::recipe::components::tag_picker::{TagChoice, TagPicker};
 use crate::features::tag::hooks::use_tag::use_get_tags;
@@ -88,6 +89,8 @@ struct Snapshot {
     time_mins: String,
     servings: String,
     healthiness: Option<i16>,
+    min_gap_weeks: Option<i16>,
+    max_gap_weeks: Option<i16>,
     cuisine: Picker,
     protein: Picker,
     tags: Vec<TagChoice>,
@@ -110,6 +113,8 @@ impl Snapshot {
                 time_mins: String::new(),
                 servings: "2".to_string(),
                 healthiness: None,
+                min_gap_weeks: None,
+                max_gap_weeks: None,
                 cuisine: Picker::default(),
                 protein: Picker::default(),
                 tags: Vec::new(),
@@ -120,6 +125,8 @@ impl Snapshot {
                 time_mins: o.recipe.time_mins.to_string(),
                 servings: o.recipe.servings.to_string(),
                 healthiness: o.recipe.healthiness,
+                min_gap_weeks: o.recipe.min_gap_weeks,
+                max_gap_weeks: o.recipe.max_gap_weeks,
                 cuisine: picked(o.recipe.cuisine_id, o.cuisine.as_ref()),
                 protein: picked(o.recipe.main_protein_id, o.protein.as_ref()),
                 tags: o.tags.iter().map(TagChoice::from).collect(),
@@ -136,6 +143,8 @@ pub struct RecipeForm {
     pub time_mins: Signal<String>,
     pub servings: Signal<String>,
     pub healthiness: Signal<Option<i16>>,
+    pub min_gap_weeks: Signal<Option<i16>>,
+    pub max_gap_weeks: Signal<Option<i16>>,
     pub cuisine: Signal<Picker>,
     pub protein: Signal<Picker>,
     pub tags: Signal<Vec<TagChoice>>,
@@ -153,6 +162,8 @@ pub fn use_recipe_form(initial: Option<RecipeOverview>) -> RecipeForm {
         time_mins: use_signal(|| start.time_mins.clone()),
         servings: use_signal(|| start.servings.clone()),
         healthiness: use_signal(|| start.healthiness),
+        min_gap_weeks: use_signal(|| start.min_gap_weeks),
+        max_gap_weeks: use_signal(|| start.max_gap_weeks),
         cuisine: use_signal(|| start.cuisine.clone()),
         protein: use_signal(|| start.protein.clone()),
         tags: use_signal(|| start.tags.clone()),
@@ -171,6 +182,8 @@ impl RecipeForm {
         self.time_mins.set(start.time_mins.clone());
         self.servings.set(start.servings.clone());
         self.healthiness.set(start.healthiness);
+        self.min_gap_weeks.set(start.min_gap_weeks);
+        self.max_gap_weeks.set(start.max_gap_weeks);
         self.cuisine.set(start.cuisine.clone());
         self.protein.set(start.protein.clone());
         self.tags.set(start.tags.clone());
@@ -188,6 +201,9 @@ impl RecipeForm {
         if let Some(option) = &seed.protein {
             self.protein.write().pick(option.clone());
         }
+        if let Some(tag) = &seed.tag {
+            self.tags.write().push(tag.clone());
+        }
         if let Some(difficulty) = seed.difficulty {
             self.difficulty.set(difficulty);
         }
@@ -201,6 +217,8 @@ impl RecipeForm {
             time_mins: (self.time_mins)(),
             servings: (self.servings)(),
             healthiness: (self.healthiness)(),
+            min_gap_weeks: (self.min_gap_weeks)(),
+            max_gap_weeks: (self.max_gap_weeks)(),
             cuisine: (self.cuisine)(),
             protein: (self.protein)(),
             tags: (self.tags)(),
@@ -231,6 +249,12 @@ impl RecipeForm {
         if let Err(e) = positive_count(&(self.servings)(), "Servings") {
             missing.push(e);
         }
+        if matches!(
+            ((self.min_gap_weeks)(), (self.max_gap_weeks)()),
+            (Some(min), Some(max)) if min > max
+        ) {
+            missing.push("A shortest gap no longer than the longest".to_string());
+        }
         missing
     }
 
@@ -244,6 +268,8 @@ impl RecipeForm {
             time_mins: positive_count(&(self.time_mins)(), "Time").ok()?,
             servings: positive_count(&(self.servings)(), "Servings").ok()?,
             healthiness: (self.healthiness)(),
+            min_gap_weeks: (self.min_gap_weeks)(),
+            max_gap_weeks: (self.max_gap_weeks)(),
             cuisine: {
                 let cuisine = (self.cuisine)();
                 cuisine
@@ -264,6 +290,8 @@ impl RecipeForm {
             time_mins: p.time_mins,
             servings: p.servings,
             healthiness: p.healthiness,
+            min_gap_weeks: p.min_gap_weeks,
+            max_gap_weeks: p.max_gap_weeks,
             protein: p.protein,
             cuisine: p.cuisine,
             ingredients,
@@ -279,6 +307,8 @@ impl RecipeForm {
             time_mins: p.time_mins,
             servings: p.servings,
             healthiness: p.healthiness,
+            min_gap_weeks: p.min_gap_weeks,
+            max_gap_weeks: p.max_gap_weeks,
             protein: p.protein,
             cuisine: p.cuisine,
             tags: p.tags,
@@ -292,6 +322,8 @@ struct Parts {
     time_mins: i16,
     servings: i16,
     healthiness: Option<i16>,
+    min_gap_weeks: Option<i16>,
+    max_gap_weeks: Option<i16>,
     cuisine: Option<CuisineEntry>,
     protein: ProteinEntry,
     tags: Vec<domain::tag::TagEntry>,
@@ -314,6 +346,8 @@ pub fn RecipeFields(
         mut time_mins,
         mut servings,
         mut healthiness,
+        min_gap_weeks,
+        max_gap_weeks,
         cuisine,
         protein,
         tags,
@@ -400,6 +434,11 @@ pub fn RecipeFields(
             options: tag_options.clone(),
             selected: tags,
             on_manage: move |_| on_manage.call(ManageTab::Tags),
+        }
+        CadencePicker {
+            label: "How often".to_string(),
+            min_weeks: min_gap_weeks,
+            max_weeks: max_gap_weeks,
         }
     }
 }
