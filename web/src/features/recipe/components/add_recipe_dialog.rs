@@ -250,13 +250,20 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
                         // ── Home: recipe details + a link into the ingredients ──
                         Panel::Recipe => rsx! {
                             div { class: "mr-recipe-dialog__content",
-                                ImportFromLink { on_import: apply_import }
                                 RecipeFields {
                                     form,
                                     cuisine_options: catalogs.cuisine_options(),
                                     protein_options: catalogs.protein_options(),
                                     tag_options: catalogs.tag_options(),
                                     on_manage: move |tab: ManageTab| managing.set(Some(tab)),
+                                    ImportFromLink {
+                                        on_import: apply_import,
+                                        has_title: !form.title.read().trim().is_empty(),
+                                        on_title: move |text: String| {
+                                            let mut form = form;
+                                            form.title.set(text);
+                                        },
+                                    }
                                 }
 
                                 if !lines_now.is_empty() {

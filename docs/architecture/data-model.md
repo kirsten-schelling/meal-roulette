@@ -292,7 +292,7 @@ recipe amounts and the ingredient are entered in the same unit, so no conversion
 days; plans are ordered by `created_at`, when they were rolled, not by it), `seed` (nullable — stored so a roll is reproducible, per the roadmap's seeded-rolls feature),
 `name` (nullable label), `roll_constraints` (`JSONB`, default `{}`: the rules the plan was
 rolled under, in the shape of `domain::roll::RollConstraints`, i.e. cuisine, protein,
-must-use-ingredient and difficulty-band counts, each at least or at most, each Required or a
+must-use-ingredient, tag and difficulty-band counts, each at least, at most or exactly, each Required or a
 High / Medium / Low preference, plus optional per-day difficulty and cook-time limits by day
 number (`day_limits`); kept so a single day can be re-rolled against the same rules.
 Fields added later default when an older plan is read), `is_favourite` (default `false`),
