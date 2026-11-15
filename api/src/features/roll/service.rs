@@ -71,6 +71,13 @@ async fn solve(pool: &PgPool, request: &RollRequest) -> Result<Rolled, AppError>
     let open_days: Vec<usize> = (0..num_days)
         .filter(|day| !pinned.contains_key(day))
         .collect();
+    let pinned_rows: Vec<&Vec<i32>> = pinned.values().map(|&i| &grid.rows[i]).collect();
+    if pins_exceed_a_required_maximum(&grid.requirements(), &pinned_rows) {
+        return Err(suggest_unpinning(
+            solver_error(SolveError::Unsatisfiable),
+            &request.pinned,
+        ));
+    }
     let kept: HashSet<Uuid> = pinned.values().map(|&i| recipes[i].id).collect();
     let mut open = pick_open_days(
         &grid,
@@ -93,6 +100,19 @@ async fn solve(pool: &PgPool, request: &RollRequest) -> Result<Rolled, AppError>
         seed,
         picks,
     })
+}
+
+/// Whether the pinned dinners alone already match a required at-most or exactly
+/// rule more often than it allows, which no choice for the open days can undo.
+fn pins_exceed_a_required_maximum(requirements: &[Requirement], pinned: &[&Vec<i32>]) -> bool {
+    requirements
+        .iter()
+        .filter(|r| r.importance == solver::Importance::Required)
+        .any(|r| {
+            let matched = pinned.iter().filter(|row| r.matches(row)).count();
+            r.at_most
+                .is_some_and(|max| u32::try_from(matched).unwrap_or(u32::MAX) > max)
+        })
 }
 
 /// The pinned dinners as day to index into `recipes`, each checked against the roll.
@@ -1492,6 +1512,42 @@ mod tests {
         }];
         assert!(message(preview_roll(&pool, request(pinned)).await).contains("unpin a dinner"));
         assert!(!message(preview_roll(&pool, request(Vec::new())).await).contains("unpin"));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn pins_alone_over_a_required_maximum_fail_the_roll_but_not_a_preference(pool: PgPool) {
+        let mut ids = Vec::new();
+        for n in 0..4 {
+            ids.push(stored_recipe(&pool, &format!("Dinner {n}")).await);
+        }
+        let request = |importance: Importance| RollRequest {
+            household_id: None,
+            start_date: None,
+            num_days: 3,
+            seed: Some(1),
+            constraints: RollConstraints {
+                difficulties: vec![DifficultyRule {
+                    band: DifficultyBand::Easy,
+                    times: 1,
+                    bound: Bound::AtMost,
+                    importance,
+                }],
+                ..RollConstraints::default()
+            },
+            pinned: (0..2)
+                .map(|day| PinnedDinner {
+                    day,
+                    recipe_id: ids[usize::from(day)],
+                })
+                .collect(),
+        };
+        match preview_roll(&pool, request(Importance::Required)).await {
+            Err(AppError::Unprocessable(message)) => assert!(message.contains("unpin a dinner")),
+            _ => panic!("expected an unprocessable roll"),
+        }
+        assert!(preview_roll(&pool, request(Importance::Medium))
+            .await
+            .is_ok());
     }
 
     #[test]
