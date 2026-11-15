@@ -1,4 +1,4 @@
-# Meal Roulette — MVP Data Model
+# Meal Roulette: MVP data model
 
 > The database design for the MVP core loop: roll a week of dinners, generate a shopping
 > list, and keep a history of what was cooked. Companion to [the roadmap](../product/roadmap.md)
@@ -30,12 +30,13 @@ erDiagram
     household |o--o{ cuisine : owns
     household |o--o{ tag : owns
     household |o--o{ roll_preset : owns
+    household |o--o{ ingredient_alias : owns
     household ||--o{ meal_plan : owns
     household ||--o{ shopping_list : owns
     household ||--o{ cook_log : records
     household ||--o{ slept_ingredient : sleeps
 
-    unit ||--o{ ingredient : "measured in"
+    unit |o--o{ ingredient : "measured in"
     protein |o--o{ recipe : "main protein"
     cuisine |o--o{ recipe : "cuisine of"
 
@@ -48,12 +49,13 @@ erDiagram
     recipe ||--o{ planned_meal : "scheduled as"
     meal_plan |o--o{ shopping_list : generates
     shopping_list ||--o{ shopping_list_item : contains
-    ingredient ||--o{ shopping_list_item : "listed as"
-    unit ||--o{ shopping_list_item : "snapshot unit"
+    ingredient |o--o{ shopping_list_item : "listed as"
+    unit |o--o{ shopping_list_item : "snapshot unit"
 
     recipe ||--o{ cook_log : "cooked as"
     planned_meal |o--o{ cook_log : "fulfilled by"
     ingredient ||--o{ slept_ingredient : "slept as"
+    ingredient ||--o{ ingredient_alias : "remembered as"
 
     household {
         text name
@@ -77,7 +79,7 @@ erDiagram
     }
     ingredient {
         uuid household_id FK "NULL = global"
-        uuid unit_id FK
+        uuid unit_id FK "nullable"
         text name
         int purchase_size "nullable"
     }
@@ -138,16 +140,23 @@ erDiagram
     }
     shopping_list_item {
         uuid shopping_list_id FK
-        uuid ingredient_id FK
-        uuid unit_id FK "snapshot"
+        uuid ingredient_id FK "nullable"
+        uuid unit_id FK "snapshot, nullable"
+        text name "nullable, free-text line"
         numeric qty "nullable"
         bool is_purchased
+        bool is_cleared
         text note
     }
     slept_ingredient {
         uuid household_id FK
         uuid ingredient_id FK
         date sleep_until
+    }
+    ingredient_alias {
+        uuid household_id FK "NULL = global"
+        uuid ingredient_id FK
+        text phrase "normalised"
     }
 ```
 
@@ -209,7 +218,7 @@ members and auth arrive later without touching these tables.
 - A single `household` table anchors ownership. Solo use runs against one household: `household::repository::default_household` returns the
   oldest household, or creates one named "Home" when the table is empty, and the roll uses it
   when the request names no household.
-- **Catalog tables** (`recipe`, `ingredient`, `unit`, `protein`, `cuisine`, `tag`, `roll_preset`) carry a
+- **Catalog tables** (`recipe`, `ingredient`, `ingredient_alias`, `unit`, `protein`, `cuisine`, `tag`, `roll_preset`) carry a
   **nullable** `household_id`:
   - `household_id = <a household>` → owned by that household.
   - `household_id IS NULL` → a **global preset**, visible to everyone.
@@ -248,15 +257,25 @@ migrate to global (`household_id = NULL`) once a shared, curated set stabilises.
 `name`, nullable `household_id`, `uq_<table>_household_name`. `protein` and `cuisine` are
 single-valued on a recipe (FK on `recipe`); `tag` is many-valued (via `recipe_tag`).
 
-**`ingredient`** — a purchasable ingredient. `name`, `purchase_size` (nullable: not every
+**`ingredient`**: a purchasable ingredient. `name`, `purchase_size` (nullable: not every
 ingredient comes in a fixed pack; `chk_ingredient_purchase_size_positive CHECK
-(purchase_size > 0)` when set), `unit_id` (how it is measured). Scoped by `household_id` (nullable). `uq_ingredient_household_name`.
+(purchase_size > 0)` when set), `unit_id` (nullable: how it is measured, `NULL` for a counted
+or unmeasured ingredient such as eggs or salt; see
+[ADR 0004](../decisions/0004-optional-ingredient-unit.md)). Scoped by `household_id`
+(nullable). `uq_ingredient_household_name`.
 
 **`roll_preset`** — a saved set of Roll-page settings. `name`, `settings` (`JSONB`, opaque to
 the database), `is_default` (default `false`), nullable `household_id` (`ON DELETE CASCADE`).
 `uq_roll_preset_household_name` (`NULLS NOT DISTINCT`) and the partial unique index
 `uq_roll_preset_one_default` on `(household_id) WHERE is_default` allow at most one default
 preset per household.
+
+**`ingredient_alias`**: a remembered recipe-import choice, mapping a normalised phrase from a
+recipe page ("large eggs") to the library ingredient picked for it, so the next import skips
+the guess. `phrase` (`chk_ingredient_alias_phrase_normalised`: non-empty, lower case, trimmed),
+`ingredient_id` (`ON DELETE CASCADE`), nullable `household_id` (`ON DELETE CASCADE`).
+`uq_ingredient_alias_household_phrase` (`NULLS NOT DISTINCT`), and an index on
+`ingredient_id`.
 
 ### Recipe composition
 
@@ -279,8 +298,8 @@ The old `last_cooked` column is **removed** — recency now derives from `cook_l
 `ingredient_id` (FK, `ON DELETE RESTRICT` — an ingredient in use can't be deleted out from
 under a recipe), `qty` (`numeric(10,2)`, nullable for a line with no set amount such as "salt, to taste";
 `chk_recipe_ingredient_qty_positive CHECK (qty > 0)` when set), `note`, `is_optional`. `uq_recipe_ingredient (recipe_id, ingredient_id)`. The
-unit is implicit — the ingredient's own unit (matches the roadmap's "simple mode", where
-recipe amounts and the ingredient are entered in the same unit, so no conversion is needed).
+unit is implicit: the ingredient's own unit, or none
+([ADR 0003](../decisions/0003-simple-units.md), [ADR 0004](../decisions/0004-optional-ingredient-unit.md)).
 
 **`recipe_tag`** — recipe↔tag junction. `recipe_id` (`ON DELETE CASCADE`), `tag_id`
 (`ON DELETE RESTRICT`). `uq_recipe_tag (recipe_id, tag_id)`.
@@ -335,12 +354,17 @@ so a list can be ad-hoc or outlive its plan), `name` (nullable).
 `uq_shopping_list_meal_plan (meal_plan_id)`: a plan has at most one list, which regenerating
 updates in place. Ad-hoc lists (`meal_plan_id` `NULL`) never collide.
 
-**`shopping_list_item`** — one aggregated line. `shopping_list_id` (`ON DELETE CASCADE`),
-`ingredient_id` (`ON DELETE RESTRICT`), `qty` (`> 0`; NULL when none of the plan's recipes gave an amount), `unit_id` (a **snapshot** of the
-unit at generation time, so a historical list stays correct even if the ingredient's unit
-is later changed), `is_purchased` (simple check-off; a purchased-at timestamp is a trivial
-later add), `note`. `uq_shopping_list_item (shopping_list_id, ingredient_id)` — the list is
-the summed union of the week's ingredients, one row per ingredient.
+**`shopping_list_item`**: one line. Either an ingredient line, the summed union of the week's
+recipes, or a free-text line added by hand ("bin bags"). `shopping_list_id`
+(`ON DELETE CASCADE`), `ingredient_id` (nullable, `ON DELETE RESTRICT`), `qty` (`> 0`; NULL
+when none of the plan's recipes gave an amount), `unit_id` (nullable: a **snapshot** of the
+ingredient's unit at generation time, so a historical list stays correct even if the
+ingredient's unit later changes), `name` (the text of a free-text line), `is_purchased`
+(simple check-off), `is_cleared` (a bought ingredient line hidden by "clear bought", so a
+rebuild from the plan does not bring it back; bought free-text lines are deleted instead),
+`note`. `chk_shopping_list_item_kind`: an ingredient line has no `name`; a free-text line has
+a non-blank `name` and no ingredient, unit or amount. `uq_shopping_list_item
+(shopping_list_id, ingredient_id)`: one row per ingredient.
 
 **`slept_ingredient`** — the MVP "sleep ingredients" feature. Sleeping is a persistent,
 per-household relationship to an ingredient that spans weeks, so it is its own table, not a
@@ -378,8 +402,6 @@ Not built now, but the schema is shaped so these don't require rework:
     hand-rolled. This generalises the lookup-table pattern already used for protein/cuisine.
 - **Meal slots beyond dinner.** `planned_meal`'s uniqueness becomes
   `(meal_plan_id, scheduled_date, meal_slot)` when breakfast/lunch are added.
-- **Ad-hoc shopping items.** Non-recipe items (foil, bin bags) need `ingredient_id` to
-  become nullable on `shopping_list_item` plus a free-text name.
 - **Members & auth.** An `app_user` table + household membership; core tables already carry
   `household_id`, so no backfill is required.
 - **Purchase timing, ratings, pantry, cost.** New nullable columns or adjacent tables layered

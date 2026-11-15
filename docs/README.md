@@ -5,9 +5,10 @@
 - **Decisions** (ADRs, one file each)
   - [0001 Typed server functions over a generic proxy](decisions/0001-typed-server-functions-over-generic-proxy.md)
   - [0002 One process for the web app and the data layer](decisions/0002-single-process.md)
-  - [0003 Simple units: one unit per ingredient, no conversions](decisions/0003-simple-units.md)
+  - [0003 Simple units: one unit per ingredient, no conversions](decisions/0003-simple-units.md) (amended by 0004)
+  - [0004 An ingredient's unit is optional](decisions/0004-optional-ingredient-unit.md)
   - [Pending decisions](decisions/pending.md)
-- **Guides**: [Local development](guides/local-dev.md), [Deploying (tailnet-only)](guides/deploy.md)
+- **Guides**: [Local development](guides/local-dev.md), [Deploying (tailnet-only)](guides/deploy.md), [Mobile (Android)](guides/mobile.md)
 
 ## Conventions
 

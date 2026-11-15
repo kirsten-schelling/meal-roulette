@@ -108,8 +108,3 @@ fly tokens create deploy --app meal-roulette | gh secret set FLY_API_TOKEN
 - App: merge to `main`, or `fly deploy` by hand. A page left open loads the new version on reload.
 - Neon: edit `infra/index.ts`, run `pulumi up`.
 - Tailscale key: `fly secrets set TS_AUTHKEY=...`.
-
-## Local development
-
-`just tailnet-on` ([tailscale.md](tailscale.md)) serves the PC's app to the tailnet under its
-own name.
