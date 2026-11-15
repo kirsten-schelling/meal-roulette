@@ -1113,18 +1113,19 @@ body { margin: 0; }
 .mr-brand:focus-visible { outline: 2px solid var(--mr-focus); outline-offset: 2px; }
 .mr-brand .mr-brandmark { font-size: 1.75rem; }
 
-/* ── brand mark: plate rim, roulette pockets, cutlery ───────────────────── */
-.mr-brandmark { display: block; flex: none; width: 1em; height: 1em; }
-.mr-brandmark__plate   { fill: var(--mr-surface); stroke: var(--mr-text); }
-.mr-brandmark__pockets { stroke: var(--mr-text); }
-.mr-brandmark__red     { stroke: var(--mr-danger); }
-.mr-brandmark__zero    { stroke: var(--mr-accent); }
-.mr-brandmark__frets   { stroke: var(--mr-surface); }
-.mr-brandmark__well    { fill: none; stroke: var(--mr-text-muted); }
-.mr-brandmark__ink     { fill: var(--mr-text); }
-.mr-brandmark__line {
-  fill: none; stroke: var(--mr-text); stroke-linecap: round; stroke-linejoin: round;
+/* ── brand mark: a plate on a tile, the ball at rest on the rim ─────────── */
+.mr-brandmark {
+  display: block; flex: none; width: 1em; height: 1em;
+  /* the plate colour: a dark surface would read as a hole in the tile, so dark themes use the text */
+  color: light-dark(var(--mr-light-surface), var(--mr-dark-text));
 }
+.mr-brandmark__tile  { fill: var(--mr-accent); }
+.mr-brandmark__plate { fill: currentColor; }
+.mr-brandmark__well  {
+  fill: none; stroke: light-dark(var(--mr-light-text), var(--mr-dark-bg)); stroke-opacity: .3;
+}
+/* the plate-coloured halo keeps the ball apart from a tile of the same lightness */
+.mr-brandmark__ball  { fill: var(--mr-danger); stroke: currentColor; paint-order: stroke; }
 
 /* ── sidebar ────────────────────────────────────────────────────────────── */
 .mr-sidebar {
