@@ -6,23 +6,25 @@ use crate::components::ui::*;
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::use_get_ingredients;
 use crate::features::protein::hooks::use_protein::use_get_proteins;
+use crate::features::recipe::components::recipe_seed::RecipeSeed;
+use crate::features::recipe::components::AddRecipeDialog;
 use crate::features::roll::components::{
-    ConflictAlert, PresetBar, RollBar, RollErrorAlert, RollHero, RollResults, RolledWeek,
-    RuleChoice, RulesPanel,
+    ConflictAlert, FixButtons, PresetBar, RecipePickDialog, RollBar, RollErrorAlert, RollFailure,
+    RollHero, RollResults, RolledWeek, RuleChoice, RulesPanel,
 };
+use crate::features::roll::fix::Fix;
 use crate::features::roll::hooks::use_fit_count::use_fit_count;
 use crate::features::roll::hooks::use_roll::{keep_roll, preview_roll, reroll_preview};
 use crate::features::roll::settings::{
-    band_label, RollSettings, RuleTarget, DEFAULT_NUM_DAYS, MAX_ROLL_DAYS,
+    band_label, EveryDinner, RollSettings, RuleTarget, DEFAULT_NUM_DAYS, MAX_ROLL_DAYS,
 };
 use crate::features::tag::hooks::use_tag::use_get_tags;
 use crate::hooks::use_toast::use_toast;
-use crate::models::error_message;
 use crate::router::Route;
 use dioxus::prelude::*;
 use domain::roll::{
-    DifficultyBand, FitRequest, KeepRollRequest, RerollPreviewRequest, RollConstraints,
-    RollRequest, RuleFamily,
+    DifficultyBand, FitRequest, KeepRollRequest, PreviewMeal, RerollPreviewRequest,
+    RollConstraints, RollRequest, RuleFamily,
 };
 
 /// A roll on screen with what it was rolled under, so Keep and the per-day
@@ -55,10 +57,14 @@ pub fn Roll() -> Element {
     let mut advanced_open = use_signal(|| false);
 
     let mut shown = use_signal(|| None as Option<Shown>);
-    let mut roll_error = use_signal(|| None as Option<String>);
+    let mut roll_error = use_signal(|| None as Option<RollFailure>);
     let mut rolling = use_signal(|| false);
     let mut rerolling = use_signal(|| None as Option<usize>);
     let mut keeping = use_signal(|| false);
+    // The add-recipe form opened from a conflict, filled in from its rule.
+    let mut adding = use_signal(|| None as Option<RecipeSeed>);
+    // The day being given a hand-picked recipe.
+    let mut picking = use_signal(|| None as Option<usize>);
 
     let days = use_memo(move || settings.read().days());
     let fit_request = use_memo(move || {
@@ -68,7 +74,7 @@ pub fn Roll() -> Element {
             constraints: settings.read().constraints(),
         })
     });
-    let fit = use_fit_count(fit_request);
+    let mut fit = use_fit_count(fit_request);
 
     let conflicts = settings.read().conflicts(days());
     let fit_count = match fit() {
@@ -81,15 +87,7 @@ pub fn Roll() -> Element {
             "There are no recipes to roll from yet. Add some under Recipes.".to_string(),
             true,
         )),
-        Some(c) if too_few => Some((
-            format!(
-                "Only {} recipe{} fit your Must and every-dinner rules, but you are rolling {}.",
-                c.fitting,
-                if c.fitting == 1 { "" } else { "s" },
-                days()
-            ),
-            true,
-        )),
+        Some(_) if too_few => None,
         Some(c) => Some((
             format!(
                 "{} of {} recipes fit your Must and every-dinner rules.",
@@ -99,6 +97,17 @@ pub fn Roll() -> Element {
         )),
         None => None,
     };
+    let shortage = fit_count.filter(|_| too_few).map(|c| {
+        (
+            format!(
+                "Only {} recipe{} fit your Must and every-dinner rules, but you are rolling {}.",
+                c.fitting,
+                if c.fitting == 1 { "" } else { "s" },
+                days()
+            ),
+            settings.read().shortage_fixes(c.fitting),
+        )
+    });
     let valid_days = (1..=MAX_ROLL_DAYS).contains(&days());
     let can_roll = valid_days && conflicts.is_empty() && !too_few;
 
@@ -159,6 +168,16 @@ pub fn Roll() -> Element {
         "Some proteins, cuisines, ingredients or tags are missing from the list.".to_string()
     });
 
+    let apply_fix = move |fix: Fix| {
+        roll_error.set(None);
+        match fix {
+            Fix::MakeNiceToHave(rules) => settings.write().make_nice_to_have(&rules),
+            Fix::ClearCaps => settings.write().every_dinner = EveryDinner::default(),
+            Fix::RollDays(days) => settings.write().num_days = days.to_string(),
+            Fix::AddRecipe(seed) => adding.set(Some(seed)),
+        }
+    };
+
     let do_roll = move |_| {
         if rolling() || keeping() {
             return;
@@ -170,6 +189,7 @@ pub fn Roll() -> Element {
         }
         let constraints = form.constraints();
         let seed = seed().trim().parse::<i64>().ok();
+        let catalog = ingredients().and_then(Result::ok).unwrap_or_default();
         rolling.set(true);
         roll_error.set(None);
         spawn(async move {
@@ -186,7 +206,8 @@ pub fn Roll() -> Element {
                     shown.set(Some(Shown {
                         week: RolledWeek {
                             seed: preview.seed,
-                            unmet: form.unmet_sentences(&preview.unmet),
+                            unmet: form.unmet_notes(&preview.unmet, &catalog),
+                            edited: false,
                             meals: preview.meals,
                         },
                         settings: form,
@@ -195,7 +216,7 @@ pub fn Roll() -> Element {
                     }));
                 }
                 Err(e) => {
-                    roll_error.set(Some(error_message(&e)));
+                    roll_error.set(Some(RollFailure::from(&e)));
                     rules_open.set(true);
                 }
             }
@@ -210,6 +231,7 @@ pub fn Roll() -> Element {
         if rerolling().is_some() {
             return;
         }
+        let catalog = ingredients().and_then(Result::ok).unwrap_or_default();
         rerolling.set(Some(day));
         roll_error.set(None);
         spawn(async move {
@@ -225,15 +247,30 @@ pub fn Roll() -> Element {
                         *slot = replaced.meal;
                     }
                     next.recipe_ids = next.week.meals.iter().map(|m| m.recipe_id).collect();
-                    next.week.unmet = next.settings.unmet_sentences(&replaced.unmet);
+                    next.week.unmet = next.settings.unmet_notes(&replaced.unmet, &catalog);
+                    next.week.edited = false;
                     shown.set(Some(next));
                 }
                 Err(e) => {
-                    roll_error.set(Some(error_message(&e)));
+                    roll_error.set(Some(RollFailure::from(&e)));
                 }
             }
             rerolling.set(None);
         });
+    };
+
+    let mut do_pick = move |(day, meal): (usize, PreviewMeal)| {
+        picking.set(None);
+        let Some(mut current) = shown() else {
+            return;
+        };
+        if let Some(slot) = current.week.meals.get_mut(day) {
+            *slot = meal;
+        }
+        current.recipe_ids = current.week.meals.iter().map(|m| m.recipe_id).collect();
+        current.week.unmet.clear();
+        current.week.edited = true;
+        shown.set(Some(current));
     };
 
     let do_keep = move |_| {
@@ -262,7 +299,7 @@ pub fn Roll() -> Element {
                     navigator.push(Route::PlannedMeals {});
                 }
                 Err(e) => {
-                    roll_error.set(Some(error_message(&e)));
+                    roll_error.set(Some(RollFailure::from(&e)));
                     keeping.set(false);
                 }
             }
@@ -292,8 +329,19 @@ pub fn Roll() -> Element {
                     },
                 }
             }
-            if let Some(message) = roll_error() {
-                RollErrorAlert { message, on_dismiss: move |_| roll_error.set(None) }
+            if let Some((message, fixes)) = shortage {
+                Alert { tone: Tone::Amber, title: "Not enough recipes for this week".to_string(),
+                    p { class: "mr-alert__text", "{message}" }
+                    FixButtons { fixes, on_fix: apply_fix }
+                }
+            }
+            if let Some(failure) = roll_error() {
+                RollErrorAlert {
+                    message: failure.message,
+                    fixes: if failure.rules_unmet { settings.read().failure_fixes() } else { Vec::new() },
+                    on_fix: apply_fix,
+                    on_dismiss: move |_| roll_error.set(None),
+                }
             }
 
             RollBar {
@@ -313,6 +361,27 @@ pub fn Roll() -> Element {
                     on_keep: do_keep,
                     on_again: do_roll,
                     on_reroll: do_reroll,
+                    on_pick: move |day| picking.set(Some(day)),
+                    on_fix: apply_fix,
+                }
+            }
+
+            if let Some(seed) = adding() {
+                AddRecipeDialog {
+                    seed,
+                    on_close: move |_| adding.set(None),
+                    on_saved: move |_| {
+                        adding.set(None);
+                        fit.restart();
+                    },
+                }
+            }
+            if let (Some(day), Some(current)) = (picking(), shown()) {
+                RecipePickDialog {
+                    day,
+                    taken: current.recipe_ids,
+                    on_pick: move |meal| do_pick((day, meal)),
+                    on_close: move |_| picking.set(None),
                 }
             }
 

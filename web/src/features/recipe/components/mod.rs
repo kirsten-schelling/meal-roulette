@@ -9,6 +9,7 @@ pub mod ingredient_table;
 pub mod recipe_card;
 pub mod recipe_details;
 pub mod recipe_fields;
+pub mod recipe_seed;
 pub mod tag_picker;
 pub mod view_toggle;
 
