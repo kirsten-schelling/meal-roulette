@@ -10,14 +10,18 @@ use dioxus::prelude::*;
 use domain::roll_preset::{NewRollPreset, RollPreset, UpdateRollPreset};
 use uuid::Uuid;
 
+/// Default presets that could not be read in full, so a visit to the Roll page
+/// does not toast about the same preset again.
+static UNREADABLE_DEFAULTS: GlobalSignal<Vec<Uuid>> = Signal::global(Vec::new);
+
 /// A preset's settings as the page holds them: an older preset's difficulty mix
-/// turned into rules, and a day count that is a number in range.
-fn read_settings(preset: &RollPreset) -> Option<RollSettings> {
-    let mut settings = serde_json::from_value::<RollSettings>(preset.settings.clone())
-        .ok()?
-        .normalized();
+/// turned into rules, and a day count that is a number in range. Also the names
+/// of the fields that could not be read and were left at their defaults.
+fn read_settings(preset: &RollPreset) -> Result<(RollSettings, Vec<String>), String> {
+    let (settings, dropped) = RollSettings::from_saved(&preset.settings)?;
+    let mut settings = settings.normalized();
     settings.num_days = settings.days().clamp(1, MAX_ROLL_DAYS).to_string();
-    Some(settings)
+    Ok((settings, dropped))
 }
 
 /// What the confirm dialog is asking about.
@@ -42,17 +46,34 @@ pub fn PresetBar(settings: Signal<RollSettings>) -> Element {
     let mut naming = use_signal(|| None as Option<String>);
     let mut busy = use_signal(|| false);
 
+    // Returns whether it showed a warning, so the default preset is not retried.
     let mut apply = move |preset: &RollPreset| match read_settings(preset) {
-        Some(read) => {
+        Ok((read, dropped)) => {
             baseline.set(Some(read.clone()));
             settings.set(read);
             selected.set(Some(preset.id));
+            if dropped.is_empty() {
+                return false;
+            }
+            toast.show(
+                Some("Partly loaded".to_string()),
+                format!(
+                    "{} couldn't be read and was reset: {}.",
+                    preset.name,
+                    dropped.join(", ")
+                ),
+                Tone::Amber,
+            );
+            true
         }
-        None => toast.show(
-            Some("Couldn't load".to_string()),
-            "This preset's settings couldn't be read.".to_string(),
-            Tone::Red,
-        ),
+        Err(error) => {
+            toast.show(
+                Some("Couldn't load".to_string()),
+                format!("{}: {error}", preset.name),
+                Tone::Red,
+            );
+            true
+        }
     };
 
     use_effect(move || {
@@ -61,7 +82,9 @@ pub fn PresetBar(settings: Signal<RollSettings>) -> Element {
         }
         if let Some(Ok(list)) = presets() {
             if let Some(preset) = list.iter().find(|p| p.is_default) {
-                apply(preset);
+                if !UNREADABLE_DEFAULTS.peek().contains(&preset.id) && apply(preset) {
+                    UNREADABLE_DEFAULTS.write().push(preset.id);
+                }
             }
             applied_default.set(true);
         }
@@ -103,7 +126,9 @@ pub fn PresetBar(settings: Signal<RollSettings>) -> Element {
         let list = list.clone();
         move |picked: String| {
             match list.iter().find(|p| p.id.to_string() == picked) {
-                Some(preset) => apply(preset),
+                Some(preset) => {
+                    apply(preset);
+                }
                 None => {
                     selected.set(None);
                     baseline.set(None);
