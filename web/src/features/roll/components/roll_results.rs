@@ -31,7 +31,7 @@ fn meta_line(meal: &PreviewMeal) -> String {
 
 /// The rolled dinners, revealed in place. Keep stores them as a plan; roll
 /// again replaces all but the pinned ones; each dinner can be re-rolled or
-/// swapped for a recipe picked by hand, pinned or not.
+/// swapped for a recipe picked by hand, pinned or not, and either frees the day.
 #[component]
 pub fn RollResults(
     week: RolledWeek,

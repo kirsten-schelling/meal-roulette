@@ -304,6 +304,7 @@ pub fn Roll() -> Element {
             *slot = meal;
         }
         current.recipe_ids = current.week.meals.iter().map(|m| m.recipe_id).collect();
+        current.week.pinned.remove(&day);
         current.week.unmet.clear();
         current.week.edited = true;
         shown.set(Some(current));
