@@ -13,6 +13,7 @@ use crate::features::recipe::components::ingredient_line::{
 use crate::features::recipe::components::recipe_fields::{
     options_from, use_recipe_catalogs, use_recipe_form, RecipeFields,
 };
+use crate::features::recipe::components::recipe_seed::RecipeSeed;
 use crate::features::recipe::hooks::use_recipe::use_add_recipe;
 use crate::features::unit::hooks::use_unit::use_get_units;
 use crate::hooks::use_toast::use_toast;
@@ -54,6 +55,22 @@ fn pending_units(lines: &[RecipeLine], saved: &[ComboOption]) -> Vec<ComboOption
     pending
 }
 
+fn seeded_lines(seed: &RecipeSeed) -> Vec<RecipeLine> {
+    seed.ingredient
+        .iter()
+        .map(|option| RecipeLine {
+            id: 1,
+            name: option.label.clone(),
+            unit: option.hint.clone(),
+            qty: String::new(),
+            note: String::new(),
+            optional: false,
+            ingredient: IngredientEntry::Existing(option.id),
+            import: None,
+        })
+        .collect()
+}
+
 // Lines are validated as they are added or edited, so the qty always parses here.
 fn line_entries(lines: &[RecipeLine]) -> Vec<RecipeIngredientEntry> {
     lines
@@ -71,11 +88,17 @@ fn line_entries(lines: &[RecipeLine]) -> Vec<RecipeIngredientEntry> {
 /// The "Add recipe" dialog. Recipe details are home; a persistent link opens the
 /// ingredient composer. Mount it only while open (`if show() { AddRecipeDialog {
 /// .. } }`) so each open starts clean; `on_close` fires once the user has closed it
-/// (after confirming, if anything was filled in).
+/// (after confirming, if anything was filled in). `seed` starts the form with
+/// the cuisine, protein, difficulty and ingredient a roll rule wants.
 #[component]
-pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -> Element {
+pub fn AddRecipeDialog(
+    on_close: EventHandler<()>,
+    on_saved: EventHandler<()>,
+    #[props(default)] seed: RecipeSeed,
+) -> Element {
     let mut panel = use_signal(|| Panel::Recipe);
     let form = use_recipe_form(None);
+    use_hook(|| form.prefill(&seed));
     let catalogs = use_recipe_catalogs();
     let mut units = use_get_units();
     let ingredients = use_get_ingredients();
@@ -85,9 +108,9 @@ pub fn AddRecipeDialog(on_close: EventHandler<()>, on_saved: EventHandler<()>) -
     let mut managing = use_signal(|| None as Option<ManageTab>);
     let mut confirm_discard = use_signal(|| false);
 
-    let mut lines = use_signal(Vec::<RecipeLine>::new);
+    let mut lines = use_signal(|| seeded_lines(&seed));
     // Hands out unique ids for the in-memory recipe lines (not persisted yet).
-    let mut next_id = use_signal(|| 1usize);
+    let mut next_id = use_signal(|| lines.peek().len() + 1);
     // Inline edit of an already-added line (one at a time).
     let mut editing_id = use_signal(|| None as Option<usize>);
 

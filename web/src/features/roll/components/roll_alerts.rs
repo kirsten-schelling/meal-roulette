@@ -1,6 +1,26 @@
 use crate::components::ui::*;
+use crate::features::roll::components::FixButtons;
+use crate::features::roll::fix::Fix;
 use crate::features::roll::settings::Conflict;
+use crate::models::error_message;
 use dioxus::prelude::*;
+
+/// Why a roll failed, and whether its rules are to blame (the server answers
+/// 422 when no combination of recipes meets them) rather than the connection.
+#[derive(Clone, PartialEq)]
+pub struct RollFailure {
+    pub message: String,
+    pub rules_unmet: bool,
+}
+
+impl From<&ServerFnError> for RollFailure {
+    fn from(error: &ServerFnError) -> Self {
+        Self {
+            message: error_message(error),
+            rules_unmet: matches!(error, ServerFnError::ServerError { code: 422, .. }),
+        }
+    }
+}
 
 /// Rules that cannot all hold, found before rolling. Offers to turn the
 /// required ones into preferences so the roll can go ahead.
@@ -25,12 +45,21 @@ pub fn ConflictAlert(conflicts: Vec<Conflict>, on_loosen: EventHandler<()>) -> E
     }
 }
 
-/// Why a roll failed. It stays until dismissed or the next roll starts.
+/// Why a roll failed, with the fixes when its rules are the cause. It stays
+/// until dismissed or the next roll starts.
 #[component]
-pub fn RollErrorAlert(message: String, on_dismiss: EventHandler<()>) -> Element {
+pub fn RollErrorAlert(
+    message: String,
+    fixes: Vec<Fix>,
+    on_fix: EventHandler<Fix>,
+    on_dismiss: EventHandler<()>,
+) -> Element {
     rsx! {
         Alert { tone: Tone::Red, title: "Couldn't roll".to_string(),
             p { class: "mr-alert__text", "{message}" }
+            if !fixes.is_empty() {
+                FixButtons { fixes, on_fix }
+            }
             div { class: "mr-alert__actions",
                 Button {
                     variant: ButtonVariant::Outline,

@@ -322,9 +322,10 @@ numbered existing dinners by their dates, so no plan lost its order.
 **`cook_log`** — the permanent record of what was actually cooked. `household_id`
 (`NOT NULL`), `recipe_id` (`ON DELETE RESTRICT`), `cooked_on`, `planned_meal_id` (nullable
 FK, `ON DELETE SET NULL` — links back to the plan slot when the cook came from a roll; null
-for unplanned cooks, and history survives even if the plan is deleted). This table is the
-source of truth for recency and min/max-interval rules, and the raw material for the
-insights dashboard (most/least cooked).
+for unplanned cooks, and history survives even if the plan is deleted).
+`uq_cook_log_planned_meal (planned_meal_id)`: a planned dinner is logged at most once, while
+unplanned cooks repeat freely. This table is the source of truth for recency and
+min/max-interval rules, and the raw material for the insights dashboard (most/least cooked).
 
 ### Shopping
 
