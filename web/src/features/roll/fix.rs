@@ -115,6 +115,7 @@ impl RollSettings {
                     Some(ComboOption::new(rule.id, rule.name.clone()).with_hint(&ingredient.unit))
                 });
             }
+            RuleFamily::Tag => {}
             RuleFamily::Difficulty => {
                 seed.difficulty = self
                     .difficulties
