@@ -9,22 +9,23 @@ pub fn bound_options() -> Vec<SelectOption> {
     vec![
         SelectOption::new("AtLeast", "At least"),
         SelectOption::new("AtMost", "At most"),
+        SelectOption::new("Exactly", "Exactly"),
     ]
 }
 
 pub fn parse_bound(value: &str) -> Bound {
-    if value == "AtMost" {
-        Bound::AtMost
-    } else {
-        Bound::AtLeast
+    match value {
+        "AtMost" => Bound::AtMost,
+        "Exactly" => Bound::Exactly,
+        _ => Bound::AtLeast,
     }
 }
 
-/// "At most 0" means "none of these"; "at least 0" would ask for nothing.
+/// "At most 0" and "exactly 0" mean "none of these"; "at least 0" would ask for nothing.
 pub fn count_floor(bound: Bound) -> u32 {
     match bound {
         Bound::AtLeast => 1,
-        Bound::AtMost => 0,
+        Bound::AtMost | Bound::Exactly => 0,
     }
 }
 
@@ -42,7 +43,7 @@ pub fn RuleSentence(
         div { class: "mr-rule__body",
             Select {
                 compact: true,
-                aria_label: format!("{name}: at least or at most"),
+                aria_label: format!("{name}: at least, at most or exactly"),
                 value: format!("{bound:?}"),
                 options: bound_options(),
                 onchange: move |value: String| {

@@ -15,6 +15,7 @@ use crate::features::roll::hooks::use_roll::{keep_roll, preview_roll, reroll_pre
 use crate::features::roll::settings::{
     band_label, RollSettings, RuleTarget, DEFAULT_NUM_DAYS, MAX_ROLL_DAYS,
 };
+use crate::features::tag::hooks::use_tag::use_get_tags;
 use crate::hooks::use_toast::use_toast;
 use crate::models::error_message;
 use crate::router::Route;
@@ -39,6 +40,7 @@ pub fn Roll() -> Element {
     let proteins = use_get_proteins();
     let cuisines = use_get_cuisines();
     let ingredients = use_get_ingredients();
+    let tags = use_get_tags();
     let toast = use_toast();
     let navigator = use_navigator();
 
@@ -144,9 +146,18 @@ pub fn Roll() -> Element {
             _ => None,
         },
     );
-    let still_loading = proteins().is_none() || cuisines().is_none() || ingredients().is_none();
-    let load_error = (load_failed && !still_loading)
-        .then(|| "Some proteins, cuisines or ingredients are missing from the list.".to_string());
+    add_lookups(
+        RuleFamily::Tag,
+        match tags() {
+            Some(Ok(list)) => Some(list.into_iter().map(|t| (t.tag.id, t.tag.name)).collect()),
+            _ => None,
+        },
+    );
+    let still_loading =
+        proteins().is_none() || cuisines().is_none() || ingredients().is_none() || tags().is_none();
+    let load_error = (load_failed && !still_loading).then(|| {
+        "Some proteins, cuisines, ingredients or tags are missing from the list.".to_string()
+    });
 
     let do_roll = move |_| {
         if rolling() || keeping() {

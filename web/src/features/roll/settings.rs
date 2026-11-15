@@ -45,6 +45,8 @@ pub struct RollSettings {
     #[serde(default)]
     pub ingredients: Vec<LookupRule>,
     #[serde(default)]
+    pub tags: Vec<LookupRule>,
+    #[serde(default)]
     pub every_dinner: EveryDinner,
     /// Presets saved before "Every dinner" kept per-day limits instead. Only
     /// read, and turned into the every-dinner caps.
@@ -73,8 +75,8 @@ pub struct RuleLine {
     pub importance: Importance,
 }
 
-/// Something a rule can be about: a difficulty band, or a protein, cuisine or
-/// ingredient picked from the recipe data.
+/// Something a rule can be about: a difficulty band, or a protein, cuisine,
+/// ingredient or tag picked from the recipe data.
 #[derive(Clone, PartialEq)]
 pub enum RuleTarget {
     Band(DifficultyBand),
@@ -212,6 +214,7 @@ impl RollSettings {
             &mut self.proteins,
             &mut self.cuisines,
             &mut self.ingredients,
+            &mut self.tags,
         ] {
             rules
                 .iter_mut()
@@ -220,7 +223,7 @@ impl RollSettings {
         self
     }
 
-    /// Every rule, difficulty first, then proteins, cuisines and ingredients.
+    /// Every rule, difficulty first, then proteins, cuisines, ingredients and tags.
     pub fn lines(&self) -> Vec<RuleLine> {
         let mut lines = Vec::new();
         for (index, rule) in self.difficulties.iter().enumerate() {
@@ -238,6 +241,7 @@ impl RollSettings {
             (RuleFamily::Protein, &self.proteins),
             (RuleFamily::Cuisine, &self.cuisines),
             (RuleFamily::Ingredient, &self.ingredients),
+            (RuleFamily::Tag, &self.tags),
         ] {
             for (index, rule) in rules.iter().enumerate() {
                 lines.push(RuleLine {
@@ -259,6 +263,7 @@ impl RollSettings {
             RuleFamily::Protein => Some(&mut self.proteins),
             RuleFamily::Cuisine => Some(&mut self.cuisines),
             RuleFamily::Ingredient => Some(&mut self.ingredients),
+            RuleFamily::Tag => Some(&mut self.tags),
             RuleFamily::Difficulty => None,
         }
     }
@@ -356,6 +361,7 @@ impl RollSettings {
             cuisines: count_rules(&self.cuisines),
             proteins: count_rules(&self.proteins),
             ingredients: count_rules(&self.ingredients),
+            tags: count_rules(&self.tags),
             difficulties: self.difficulties.clone(),
             day_limits: self.every_dinner.plan(),
         }
@@ -418,10 +424,11 @@ impl RollSettings {
     }
 
     /// Required rules that cannot all hold in a roll of `days` dinners, found
-    /// without looking at any recipes: a floor above the number of dinners, a
-    /// family whose floors add up to more than the dinners (a dinner has one
-    /// protein, one cuisine and one difficulty), and ceilings on every
-    /// difficulty band that together allow fewer dinners than rolled.
+    /// without looking at any recipes: a floor (at least or exactly) above the
+    /// number of dinners, a family whose floors add up to more than the dinners
+    /// (a dinner has one protein, one cuisine and one difficulty), and ceilings
+    /// (at most or exactly) on every difficulty band that together allow fewer
+    /// dinners than rolled.
     pub fn conflicts(&self, days: u32) -> Vec<Conflict> {
         let mut found = Vec::new();
         if days == 0 {
@@ -429,13 +436,15 @@ impl RollSettings {
         }
         let lines = self.lines();
         let required = |l: &&RuleLine| l.importance == Importance::Required;
-        let floor = |l: &&RuleLine| required(l) && l.bound == Bound::AtLeast;
+        let floor = |l: &&RuleLine| required(l) && l.bound.has_floor();
 
         for line in lines.iter().filter(floor).filter(|l| l.times > days) {
             found.push(Conflict {
                 message: format!(
-                    "{}: at least {} dinners, but you are rolling {days}.",
-                    line.name, line.times
+                    "{}: {} {} dinners, but you are rolling {days}.",
+                    line.name,
+                    bound_phrase(line.bound),
+                    line.times
                 ),
                 rules: vec![(line.family, line.index)],
             });
@@ -469,7 +478,7 @@ impl RollSettings {
             .iter()
             .filter(|l| l.family == RuleFamily::Difficulty)
             .filter(required)
-            .filter(|l| l.bound == Bound::AtMost)
+            .filter(|l| l.bound.has_ceiling())
             .collect();
         let total: u32 = ceilings.iter().map(|l| l.times).sum();
         if ceilings.len() == DifficultyBand::ALL.len() && total < days {
@@ -486,13 +495,14 @@ impl RollSettings {
                 let above_cap = rule.band.levels().0 > cap.levels().1;
                 if above_cap
                     && rule.importance == Importance::Required
-                    && rule.bound == Bound::AtLeast
+                    && rule.bound.has_floor()
                     && rule.times > 0
                 {
                     found.push(Conflict {
                         message: format!(
-                            "{}: at least {} dinners, but every dinner is at most {}.",
+                            "{}: {} {} dinners, but every dinner is at most {}.",
                             band_label(rule.band),
+                            bound_phrase(rule.bound),
                             rule.times,
                             band_label(cap),
                         ),
@@ -528,7 +538,7 @@ fn one() -> u32 {
     1
 }
 
-/// A protein, cuisine or must-use ingredient rule, kept with its label so rows
+/// A protein, cuisine, must-use ingredient or tag rule, kept with its label so rows
 /// render without a lookup. Older presets stored ingredients as `{id, label}`
 /// and rules without a bound or importance; those read as at least once, required.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -548,6 +558,7 @@ pub fn bound_phrase(bound: Bound) -> &'static str {
     match bound {
         Bound::AtLeast => "at least",
         Bound::AtMost => "at most",
+        Bound::Exactly => "exactly",
     }
 }
 
@@ -565,6 +576,7 @@ pub fn family_label(family: RuleFamily) -> &'static str {
         RuleFamily::Protein => "Protein",
         RuleFamily::Cuisine => "Cuisine",
         RuleFamily::Ingredient => "Ingredient",
+        RuleFamily::Tag => "Tag",
     }
 }
 
@@ -584,6 +596,7 @@ pub fn family_noun(family: RuleFamily) -> &'static str {
         RuleFamily::Protein => "protein",
         RuleFamily::Cuisine => "cuisine",
         RuleFamily::Ingredient => "ingredient",
+        RuleFamily::Tag => "tag",
     }
 }
 
@@ -643,6 +656,95 @@ mod tests {
             bands,
             [(DifficultyBand::Easy, 3), (DifficultyBand::Hard, 1)]
         );
+    }
+
+    #[test]
+    fn a_preset_saved_before_tag_rules_and_exactly_loads_unchanged() {
+        let saved = r#"{
+            "num_days": "5",
+            "proteins": [{"id": "01a04351-39b7-7761-8bfb-58dad6017b5e", "name": "Beef", "times": 2, "bound": "AtMost", "importance": "Required"}]
+        }"#;
+        let settings: RollSettings = serde_json::from_str(saved).expect("old presets parse");
+        assert!(settings.tags.is_empty());
+        assert_eq!(settings.proteins[0].bound, Bound::AtMost);
+        assert!(settings.constraints().tags.is_empty());
+    }
+
+    #[test]
+    fn exactly_and_tag_rules_round_trip_through_a_preset() {
+        let settings = RollSettings {
+            tags: vec![lookup("Quick", 2, Bound::Exactly, Importance::Required)],
+            ..RollSettings::default()
+        };
+        let json = serde_json::to_string(&settings).expect("serialises");
+        let back: RollSettings = serde_json::from_str(&json).expect("parses");
+        let rule = &back.constraints().tags[0];
+        assert_eq!((rule.times, rule.bound), (2, Bound::Exactly));
+        assert!(back.normalized() == settings);
+    }
+
+    #[test]
+    fn tag_rules_are_listed_after_ingredients_and_added_like_other_lookups() {
+        let mut settings = RollSettings::default();
+        let quick = RuleTarget::Lookup {
+            family: RuleFamily::Tag,
+            id: Uuid::now_v7(),
+            name: "Quick".to_string(),
+        };
+        settings.add_rule(&quick, 2, Bound::Exactly, Importance::Medium);
+        settings.add_rule(&protein("Beef"), 1, Bound::AtLeast, Importance::Medium);
+        let lines = settings.lines();
+        assert_eq!(lines[1].family, RuleFamily::Tag);
+        assert!(settings.has_rule(&quick));
+        settings.remove_rule(RuleFamily::Tag, 0);
+        assert!(!settings.has_rule(&quick));
+    }
+
+    #[test]
+    fn an_exactly_counts_as_both_a_floor_and_a_ceiling_in_the_conflict_check() {
+        let mut settings = RollSettings {
+            proteins: vec![lookup("Beef", 9, Bound::Exactly, Importance::Required)],
+            ..RollSettings::default()
+        };
+        let found = settings.conflicts(7);
+        assert_eq!(found.len(), 1);
+        assert_eq!(
+            found[0].message,
+            "Beef: exactly 9 dinners, but you are rolling 7."
+        );
+
+        settings.proteins = vec![
+            lookup("Beef", 4, Bound::Exactly, Importance::Required),
+            lookup("Chicken", 4, Bound::Exactly, Importance::Required),
+        ];
+        assert_eq!(settings.conflicts(7).len(), 1);
+        settings.make_nice_to_have(&[(RuleFamily::Protein, 0)]);
+        assert!(settings.conflicts(7).is_empty());
+
+        settings.difficulties = [
+            DifficultyBand::Easy,
+            DifficultyBand::Medium,
+            DifficultyBand::Hard,
+        ]
+        .map(|b| band(b, 1, Bound::Exactly, Importance::Required))
+        .to_vec();
+        assert_eq!(settings.conflicts(7).len(), 1);
+    }
+
+    #[test]
+    fn the_unmet_sentence_for_an_exactly_says_exactly() {
+        let settings = RollSettings {
+            tags: vec![lookup("Quick", 2, Bound::Exactly, Importance::Medium)],
+            ..RollSettings::default()
+        };
+        let sentences = settings.unmet_sentences(&[UnmetRule {
+            family: RuleFamily::Tag,
+            index: 0,
+            bound: Bound::Exactly,
+            times: 2,
+            got: 4,
+        }]);
+        assert_eq!(sentences, ["Quick: wanted exactly 2, got 4."]);
     }
 
     #[test]
