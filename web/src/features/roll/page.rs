@@ -168,16 +168,6 @@ pub fn Roll() -> Element {
         "Some proteins, cuisines, ingredients or tags are missing from the list.".to_string()
     });
 
-    let apply_fix = move |fix: Fix| {
-        roll_error.set(None);
-        match fix {
-            Fix::MakeNiceToHave(rules) => settings.write().make_nice_to_have(&rules),
-            Fix::ClearCaps => settings.write().every_dinner = EveryDinner::default(),
-            Fix::RollDays(days) => settings.write().num_days = days.to_string(),
-            Fix::AddRecipe(seed) => adding.set(Some(seed)),
-        }
-    };
-
     let do_roll = move |_| {
         if rolling() || keeping() {
             return;
@@ -233,12 +223,31 @@ pub fn Roll() -> Element {
                     }));
                 }
                 Err(e) => {
-                    roll_error.set(Some(RollFailure::from(&e)));
+                    roll_error.set(Some(RollFailure {
+                        pins_sent: !pinned.is_empty(),
+                        ..RollFailure::from(&e)
+                    }));
                     rules_open.set(true);
                 }
             }
             rolling.set(false);
         });
+    };
+
+    let apply_fix = move |fix: Fix| {
+        roll_error.set(None);
+        match fix {
+            Fix::MakeNiceToHave(rules) => settings.write().make_nice_to_have(&rules),
+            Fix::ClearCaps => settings.write().every_dinner = EveryDinner::default(),
+            Fix::RollDays(days) => settings.write().num_days = days.to_string(),
+            Fix::AddRecipe(seed) => adding.set(Some(seed)),
+            Fix::UnpinAll => {
+                if let Some(current) = shown.write().as_mut() {
+                    current.week.pinned.clear();
+                }
+                do_roll(());
+            }
+        }
     };
 
     let do_reroll = move |day: usize| {
@@ -365,7 +374,7 @@ pub fn Roll() -> Element {
             if let Some(failure) = roll_error() {
                 RollErrorAlert {
                     message: failure.message,
-                    fixes: if failure.rules_unmet { settings.read().failure_fixes() } else { Vec::new() },
+                    fixes: if failure.rules_unmet { settings.read().failure_fixes(failure.pins_sent) } else { Vec::new() },
                     on_fix: apply_fix,
                     on_dismiss: move |_| roll_error.set(None),
                 }

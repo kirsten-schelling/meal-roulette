@@ -11,6 +11,8 @@ use dioxus::prelude::*;
 pub struct RollFailure {
     pub message: String,
     pub rules_unmet: bool,
+    /// Whether the roll that failed held pinned dinners.
+    pub pins_sent: bool,
 }
 
 impl From<&ServerFnError> for RollFailure {
@@ -18,6 +20,7 @@ impl From<&ServerFnError> for RollFailure {
         Self {
             message: error_message(error),
             rules_unmet: matches!(error, ServerFnError::ServerError { code: 422, .. }),
+            pins_sent: false,
         }
     }
 }
