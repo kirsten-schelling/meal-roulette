@@ -121,6 +121,8 @@ pub fn Combobox(
     #[props(default)] required: bool,
     manage_label: Option<String>,
     on_manage: Option<EventHandler<()>>,
+    /// Label of the phone keyboard's Enter key (`next`, `done`, …).
+    enterkeyhint: Option<String>,
 ) -> Element {
     let id = use_control_id();
     let list_id = format!("{id}-list");
@@ -183,6 +185,7 @@ pub fn Combobox(
                     r#type: "text",
                     role: "combobox",
                     autocomplete: "off",
+                    enterkeyhint,
                     aria_autocomplete: "list",
                     aria_expanded: open(),
                     aria_controls: "{list_id}",
