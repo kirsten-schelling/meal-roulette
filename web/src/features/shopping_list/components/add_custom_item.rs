@@ -51,9 +51,16 @@ mod tests {
 
     #[test]
     fn add_button_submits_the_form() {
-        let html = dioxus_ssr::render_element(rsx! {
-            AddCustomItem { busy: false, on_add: |_| {} }
-        });
+        #[component]
+        fn Harness() -> Element {
+            rsx! {
+                AddCustomItem { busy: false, on_add: |_| {} }
+            }
+        }
+
+        let mut dom = VirtualDom::new(Harness);
+        dom.rebuild_in_place();
+        let html = dioxus_ssr::render(&dom);
 
         let button = &html[html.find("<button").expect("the form renders a button")..];
         let button = &button[..button.find('>').unwrap()];
