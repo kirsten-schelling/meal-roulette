@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// A row from `cook_log` — the permanent record of what was actually cooked.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct CookLog {
     pub id: Uuid,
     pub household_id: Uuid,
@@ -13,6 +13,16 @@ pub struct CookLog {
     pub cooked_on: time::Date,
     pub created_at: time::OffsetDateTime,
     pub updated_at: time::OffsetDateTime,
+}
+
+/// A cook as the log lists it: the row plus the recipe's title.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct CookLogEntry {
+    pub id: Uuid,
+    pub recipe_id: Uuid,
+    pub title: String,
+    #[serde(with = "crate::date_format::iso_date")]
+    pub cooked_on: time::Date,
 }
 
 /// Incoming body for `POST /cook-logs`. Dates are ISO `YYYY-MM-DD`.
