@@ -81,7 +81,8 @@ async fn solve(pool: &PgPool, request: &RollRequest) -> Result<Rolled, AppError>
         &open_days,
         seed as u64,
     )
-    .await?
+    .await
+    .map_err(|error| suggest_unpinning(error, &request.pinned))?
     .into_iter();
     let picks = (0..num_days)
         .filter_map(|day| pinned.get(&day).copied().or_else(|| open.next()))
@@ -719,6 +720,15 @@ fn fresh_seed() -> i64 {
     i64::from(rand::random::<u32>())
 }
 
+fn suggest_unpinning(error: AppError, pinned: &[PinnedDinner]) -> AppError {
+    match error {
+        AppError::Unprocessable(message) if !pinned.is_empty() => {
+            AppError::Unprocessable(format!("{message} Or unpin a dinner."))
+        }
+        other => other,
+    }
+}
+
 fn solver_error(error: SolveError) -> AppError {
     match error {
         SolveError::Unsatisfiable => AppError::Unprocessable(
@@ -1267,6 +1277,30 @@ mod tests {
             .expect("rolls");
         let week: Vec<Uuid> = preview.meals.iter().map(|m| m.recipe_id).collect();
         assert_eq!(week, ids[3..7]);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn an_unsolvable_roll_suggests_unpinning_only_when_dinners_are_pinned(pool: PgPool) {
+        let first = stored_recipe(&pool, "Dinner 0").await;
+        stored_recipe(&pool, "Dinner 1").await;
+        let request = |pinned: Vec<PinnedDinner>| RollRequest {
+            household_id: None,
+            start_date: None,
+            num_days: 3,
+            seed: Some(1),
+            constraints: RollConstraints::default(),
+            pinned,
+        };
+        let message = |result: Result<_, AppError>| match result {
+            Err(AppError::Unprocessable(message)) => message,
+            _ => panic!("expected an unprocessable roll"),
+        };
+        let pinned = vec![PinnedDinner {
+            day: 0,
+            recipe_id: first,
+        }];
+        assert!(message(preview_roll(&pool, request(pinned)).await).contains("unpin a dinner"));
+        assert!(!message(preview_roll(&pool, request(Vec::new())).await).contains("unpin"));
     }
 
     #[test]
