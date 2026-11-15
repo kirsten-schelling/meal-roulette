@@ -240,7 +240,7 @@ pub fn Roll() -> Element {
             Fix::MakeNiceToHave(rules) => settings.write().make_nice_to_have(&rules),
             Fix::ClearCaps => settings.write().every_dinner = EveryDinner::default(),
             Fix::RollDays(days) => settings.write().num_days = days.to_string(),
-            Fix::AddRecipe(seed) => adding.set(Some(seed)),
+            Fix::AddRecipe(seed) => adding.set(Some(*seed)),
             Fix::UnpinAll => {
                 if let Some(current) = shown.write().as_mut() {
                     current.week.pinned.clear();
