@@ -1,4 +1,4 @@
-//! What the household estimates it has in stock. Counts rise when a shop is cleared from
+//! What the household estimates it has in stock. Counts rise when a purchase is ticked on
 //! the shopping list and fall when a dinner is cooked; the shopping list subtracts them.
 //! They are estimates, so every count can be corrected here.
 
