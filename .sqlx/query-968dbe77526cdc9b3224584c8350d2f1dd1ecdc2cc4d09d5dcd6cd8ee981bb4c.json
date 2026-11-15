@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            WITH unticked AS (\n                UPDATE shopping_list_item\n                SET is_purchased = false, pantry_added = NULL\n                FROM shopping_list_item AS before\n                WHERE shopping_list_item.id = $1\n                  AND before.id = shopping_list_item.id\n                  AND shopping_list_item.is_purchased\n                RETURNING shopping_list_item.shopping_list_id, shopping_list_item.ingredient_id,\n                          before.pantry_added\n            ), taken AS (\n                UPDATE pantry_item\n                SET qty = GREATEST(pantry_item.qty - unticked.pantry_added, 0)\n                FROM unticked\n                JOIN shopping_list ON shopping_list.id = unticked.shopping_list_id\n                WHERE pantry_item.household_id = shopping_list.household_id\n                  AND pantry_item.ingredient_id = unticked.ingredient_id\n                  AND unticked.pantry_added IS NOT NULL\n                RETURNING pantry_item.id\n            )\n            SELECT id AS \"id!\" FROM taken\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "pantry_item",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "968dbe77526cdc9b3224584c8350d2f1dd1ecdc2cc4d09d5dcd6cd8ee981bb4c"
+}

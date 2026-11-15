@@ -14,8 +14,9 @@ use crate::features::history::format::{dinner_count, plan_title};
 use crate::features::history::hooks::use_local_offset::use_local_offset;
 use crate::features::shopping_list::components::{AddCustomItem, LineRow, SleepBar};
 use crate::features::shopping_list::hooks::use_shopping_list::{
-    add_custom_item, clear_bought_items, generate_shopping_list, remove_custom_item,
-    set_item_purchased, sleep_ingredients, use_get_shopping_list, wake_ingredient,
+    add_covered_item, add_custom_item, clear_bought_items, generate_shopping_list,
+    remove_custom_item, set_item_purchased, sleep_ingredients, use_get_shopping_list,
+    wake_ingredient,
 };
 use crate::hooks::use_toast::use_toast;
 use crate::models::{date_label, error_message};
@@ -82,6 +83,9 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
     let mut selected = use_signal(Vec::<Uuid>::new);
     let mut basket_open = use_signal(|| false);
     let mut sleeping_open = use_signal(|| false);
+    let mut covered_open = use_signal(|| false);
+    // The covered line whose "Add anyway" is in flight.
+    let mut adding_anyway = use_signal(|| None as Option<Uuid>);
     let mut sleeping = use_signal(|| false);
     // The line whose "Add back" is in flight.
     let mut waking = use_signal(|| None as Option<Uuid>);
@@ -106,7 +110,8 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
     let is_stale = view
         .and_then(|v| v.list.as_ref())
         .is_some_and(|detail| detail.is_stale);
-    let items = lines(&loaded);
+    let (covered, items): (Vec<ShoppingListLine>, Vec<ShoppingListLine>) =
+        lines(&loaded).into_iter().partition(|line| line.is_covered);
     let subtitle = page_subtitle(view, offset());
 
     let purchased = move |line: &ShoppingListLine| {
@@ -257,6 +262,31 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         });
     };
 
+    let mut add_anyway = move |line: ShoppingListLine| {
+        if adding_anyway().is_some() {
+            return;
+        }
+        adding_anyway.set(Some(line.id));
+        spawn(async move {
+            match add_covered_item(line.id).await {
+                Ok(_) => {
+                    data.restart();
+                    toast.show(
+                        Some("Added to the list".to_string()),
+                        format!("{} is on the list.", line.ingredient),
+                        Tone::Green,
+                    );
+                }
+                Err(e) => toast.show(
+                    Some("Couldn't add it".to_string()),
+                    error_message(&e),
+                    Tone::Red,
+                ),
+            }
+            adding_anyway.set(None);
+        });
+    };
+
     let sleep_selected = move |weeks: i32| {
         let Some((_, household_id)) = shown_plan else {
             return;
@@ -270,6 +300,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
             .filter(|line| {
                 picked.contains(&line.id)
                     && line.ingredient_id.is_some()
+                    && !line.is_covered
                     && line.sleep_until.is_none()
                     && !purchased(line)
             })
@@ -469,7 +500,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                             }
                         }
                     }
-                    if items.is_empty() {
+                    if items.is_empty() && covered.is_empty() {
                         Text { muted: true, "None of this week's recipes list any ingredients yet." }
                     } else if all_bought {
                         div { class: "mr-empty mr-empty--inline", role: "status", aria_live: "polite",
@@ -513,6 +544,45 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                                             on_tick: tick(line),
                                             if line.ingredient_id.is_none() {
                                                 {own_item_action(line)}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if !covered.is_empty() {
+                        section { class: "mr-linegroup",
+                            div { class: "mr-linegroup__head",
+                                button {
+                                    class: "mr-linegroup__toggle",
+                                    r#type: "button",
+                                    aria_expanded: "{covered_open()}",
+                                    onclick: move |_| covered_open.set(!covered_open()),
+                                    span { class: "mr-linegroup__chev", aria_hidden: "true",
+                                        if covered_open() { "\u{25be}" } else { "\u{25b8}" }
+                                    }
+                                    "Covered by pantry ({covered.len()})"
+                                }
+                            }
+                            if covered_open() {
+                                ul { class: "mr-linelist",
+                                    for line in covered.iter() {
+                                        LineRow {
+                                            key: "{line.id}",
+                                            line: line.clone(),
+                                            checked: false,
+                                            on_tick: None,
+                                            Button {
+                                                variant: ButtonVariant::Ghost,
+                                                size: Size::Sm,
+                                                loading: adding_anyway() == Some(line.id),
+                                                disabled: adding_anyway().is_some(),
+                                                onclick: {
+                                                    let target = line.clone();
+                                                    move |_| add_anyway(target.clone())
+                                                },
+                                                "Add anyway"
                                             }
                                         }
                                     }
