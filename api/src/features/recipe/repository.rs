@@ -414,7 +414,11 @@ mod tests {
         }
     }
 
-    fn update_to(min_gap_weeks: Option<i16>, max_gap_weeks: Option<i16>) -> UpdateRecipe {
+    fn update_to(
+        recipe: &Recipe,
+        min_gap_weeks: Option<i16>,
+        max_gap_weeks: Option<i16>,
+    ) -> UpdateRecipe {
         UpdateRecipe {
             title: "Pasta".to_string(),
             difficulty: 2,
@@ -423,7 +427,7 @@ mod tests {
             healthiness: None,
             min_gap_weeks,
             max_gap_weeks,
-            protein: ProteinEntry::New("Beef".to_string()),
+            protein: ProteinEntry::Existing(recipe.main_protein_id.unwrap()),
             cuisine: None,
             tags: Vec::new(),
         }
@@ -440,7 +444,7 @@ mod tests {
             (Some(2), Some(6))
         );
 
-        let updated = update(&pool, created.id, update_to(None, Some(12)))
+        let updated = update(&pool, created.id, update_to(&created, None, Some(12)))
             .await
             .unwrap();
         assert_eq!(
@@ -464,7 +468,7 @@ mod tests {
             .unwrap()
             .recipe;
 
-        let refused = update(&pool, created.id, update_to(Some(8), Some(2)))
+        let refused = update(&pool, created.id, update_to(&created, Some(8), Some(2)))
             .await
             .unwrap_err();
         assert_eq!(
@@ -472,7 +476,7 @@ mod tests {
             "The shortest gap can't be longer than the longest."
         );
 
-        let fixed = update(&pool, created.id, update_to(Some(2), Some(8)))
+        let fixed = update(&pool, created.id, update_to(&created, Some(2), Some(8)))
             .await
             .unwrap();
         assert_eq!(
