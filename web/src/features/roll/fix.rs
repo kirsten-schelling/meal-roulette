@@ -121,6 +121,7 @@ impl RollSettings {
                     .get(index)
                     .map(|rule| rule.band.levels().0);
             }
+            RuleFamily::Tag => {}
         }
         seed
     }
