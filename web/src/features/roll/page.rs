@@ -168,7 +168,7 @@ pub fn Roll() -> Element {
         "Some proteins, cuisines, ingredients or tags are missing from the list.".to_string()
     });
 
-    let do_roll = move |_| {
+    let mut do_roll = move |_| {
         if rolling() || keeping() {
             return;
         }
