@@ -982,6 +982,19 @@ body { margin: 0; }
   .mr-theme__opt[aria-pressed="true"] { border: 1px solid Highlight; }
 }
 
+/* ── build id and update check, under the theme control ─────────────────── */
+.mr-version {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--mr-space-2);
+  margin-top: var(--mr-space-3); font-size: var(--mr-text-sm); color: var(--mr-text-muted);
+}
+.mr-update-banner {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--mr-space-3);
+  padding: var(--mr-space-2) var(--mr-space-4); font-size: var(--mr-text-sm);
+  background: var(--mr-amber-bg); color: var(--mr-amber-fg);
+  border-bottom: 1px solid color-mix(in srgb, var(--mr-amber-fg) 18%, transparent);
+}
+
 /* ── main content column ────────────────────────────────────────────────── */
 .mr-main { grid-area: main; min-width: 0; overflow-y: auto; }
 .mr-main__inner { max-width: 920px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }

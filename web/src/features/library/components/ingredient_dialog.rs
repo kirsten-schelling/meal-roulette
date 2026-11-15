@@ -33,7 +33,9 @@ pub fn IngredientDialog(
     let unit = use_signal(|| {
         let mut picker = Picker::default();
         if let Some(i) = &start {
-            picker.pick(ComboOption::new(i.unit_id, i.unit.clone()));
+            if let Some(unit_id) = i.unit_id {
+                picker.pick(ComboOption::new(unit_id, i.unit.clone()));
+            }
         }
         picker
     });
@@ -67,13 +69,16 @@ pub fn IngredientDialog(
     // The parts only exist once every field is valid; the button keys off them,
     // so nothing here can panic on half-filled input.
     let size_check = parse_purchase_size(&purchase_size());
-    let parts: Option<(String, Option<i32>, UnitEntry)> = {
+    let parts: Option<(String, Option<i32>, Option<UnitEntry>)> = {
         let n = name().trim().to_string();
         let u = unit();
-        match (n.is_empty(), &size_check, u.is_resolved()) {
-            (false, Ok(size), true) => {
-                Some((n, *size, u.resolve(UnitEntry::Existing, UnitEntry::New)))
-            }
+        let unit_entry = if u.is_resolved() {
+            Some(Some(u.resolve(UnitEntry::Existing, UnitEntry::New)))
+        } else {
+            u.query.trim().is_empty().then_some(None)
+        };
+        match (n.is_empty(), &size_check, unit_entry) {
+            (false, Ok(size), Some(unit_entry)) => Some((n, *size, unit_entry)),
             _ => None,
         }
     };
@@ -138,11 +143,10 @@ pub fn IngredientDialog(
                 }
                 div { class: "mr-form-grid",
                     Combobox {
-                        label: "Unit".to_string(),
+                        label: "Unit (optional)".to_string(),
                         placeholder: "Search, or type + Enter…".to_string(),
                         options: unit_options.clone(),
                         picker: unit,
-                        required: true,
                         manage_label: "Manage units…".to_string(),
                         on_manage: move |_| managing.set(true),
                     }

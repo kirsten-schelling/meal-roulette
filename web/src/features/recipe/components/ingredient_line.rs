@@ -4,7 +4,7 @@ use crate::components::ui::{
 };
 use crate::features::recipe::components::import_match::ImportMatch;
 use crate::features::recipe::components::ingredient_composer::parse_qty;
-use crate::models::amount_label;
+use crate::models::{amount_label, qty_label};
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
 use domain::recipe_import::{ImportedLine, MatchSuggestion};
@@ -67,7 +67,7 @@ pub fn IngredientLine(
                 div { class: "mr-inline-add",
                     div { class: "mr-qty",
                         Input {
-                            label: format!("Qty ({})", line.unit),
+                            label: qty_label(&line.unit),
                             kind: "number".to_string(),
                             value: draft_qty(),
                             oninput: move |e: FormEvent| draft_qty.set(e.value()),

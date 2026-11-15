@@ -7,8 +7,12 @@ pub mod app_layout;
 pub mod mobile_nav;
 pub mod sidebar;
 pub mod theme_toggle;
+pub mod update_banner;
+pub mod version_line;
 
 pub use app_layout::AppLayout;
 pub use mobile_nav::MobileNav;
 pub use sidebar::{NavEntry, Sidebar};
 pub use theme_toggle::ThemeToggle;
+pub use update_banner::UpdateBanner;
+pub use version_line::VersionLine;

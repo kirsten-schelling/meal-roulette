@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, unit.name as unit, ingredient.unit_id, ingredient.created_at, ingredient.updated_at\n        FROM ingredient\n        JOIN unit ON ingredient.unit_id = unit.id\n        ORDER BY ingredient.created_at DESC\n    ",
+  "query": "\n        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", ingredient.unit_id, ingredient.created_at, ingredient.updated_at\n        FROM ingredient\n        LEFT JOIN unit ON ingredient.unit_id = unit.id\n        WHERE ingredient.id = $1\n    ",
   "describe": {
     "columns": [
       {
@@ -49,14 +49,9 @@
       },
       {
         "ordinal": 4,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "unit",
-            "name": "name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
@@ -93,18 +88,20 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
       true,
       false,
       true,
-      false,
-      false,
+      null,
+      true,
       false,
       false
     ]
   },
-  "hash": "04225bb304994ca5ce69e09d23c4ddb098d34f154e5927cc7d44b8a0c558b289"
+  "hash": "2f4c79ce3e2cd715e7118ff4fb92e4e51502a4ca17a157059dc1e3080fc2ce4d"
 }

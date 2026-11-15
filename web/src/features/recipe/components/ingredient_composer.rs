@@ -5,6 +5,7 @@ use crate::components::ui::{
 };
 use crate::features::ingredient::parse::parse_purchase_size;
 use crate::features::recipe::components::ingredient_line::RecipeLine;
+use crate::models::qty_label;
 use dioxus::prelude::*;
 use domain::ingredient::IngredientEntry;
 use domain::unit::UnitEntry;
@@ -62,19 +63,18 @@ pub fn IngredientComposer(
         u.new_name.clone().or(u.picked.map(|o| o.label))
     } else {
         ing.picked.as_ref().map(|o| o.hint.clone())
-    };
-    let qty_label = match &current_unit {
-        Some(u) => format!("Qty ({u})"),
-        None => "Qty".to_string(),
-    };
+    }
+    .filter(|u| !u.is_empty());
+    let qty_label = qty_label(current_unit.as_deref().unwrap_or_default());
 
     let qty_check = parse_qty(&qty());
+    let unit_ok = unit().is_resolved() || unit().query.trim().is_empty();
     let size_check = parse_purchase_size(&purchase_size());
     let can_add = !busy
         && !duplicate
         && qty_check.is_ok()
         && if creating {
-            unit().is_resolved() && size_check.is_ok()
+            unit_ok && size_check.is_ok()
         } else {
             ing.picked.is_some()
         };
@@ -119,8 +119,13 @@ pub fn IngredientComposer(
             (None, Some(name)) => {
                 let u = unit();
                 let (unit_label, unit_entry) = match (&u.new_name, &u.picked) {
-                    (Some(new_unit), _) => (new_unit.clone(), UnitEntry::New(new_unit.clone())),
-                    (None, Some(picked)) => (picked.label.clone(), UnitEntry::Existing(picked.id)),
+                    (Some(new_unit), _) => {
+                        (new_unit.clone(), Some(UnitEntry::New(new_unit.clone())))
+                    }
+                    (None, Some(picked)) => {
+                        (picked.label.clone(), Some(UnitEntry::Existing(picked.id)))
+                    }
+                    (None, None) if u.query.trim().is_empty() => (String::new(), None),
                     (None, None) => return,
                 };
                 let Ok(size) = parse_purchase_size(&purchase_size()) else {
@@ -175,7 +180,7 @@ pub fn IngredientComposer(
             }
 
             if creating && !duplicate {
-                Text { muted: true, small: true, "New ingredient: give it a unit, and a pack size if it comes in one." }
+                Text { muted: true, small: true, "New ingredient: give it a unit and a pack size if it has them." }
                 div { class: "mr-form-grid",
                     div {
                         id: "{unit_id}",
@@ -185,11 +190,10 @@ pub fn IngredientComposer(
                             }
                         },
                         Combobox {
-                            label: "Unit".to_string(),
+                            label: "Unit (optional)".to_string(),
                             placeholder: "Search, or type + Enter…".to_string(),
                             options: unit_options.clone(),
                             picker: unit,
-                            required: true,
                             manage_label: "Manage units…".to_string(),
                             on_manage: on_manage_units,
                             enterkeyhint: "next".to_string(),
@@ -201,7 +205,7 @@ pub fn IngredientComposer(
                         enterkeyhint: "next".to_string(),
                         autocomplete: "off".to_string(),
                         onkeydown: move |e: KeyboardEvent| {
-                            if e.key() == Key::Enter && unit().is_resolved() {
+                            if e.key() == Key::Enter && unit_ok {
                                 focus_at_end(&qty_id_for_size);
                             }
                         },
