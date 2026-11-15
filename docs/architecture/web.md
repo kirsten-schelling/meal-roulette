@@ -10,8 +10,8 @@ The `recipe` feature is the reference implementation.
 
 The web app compiles from one source tree into **two binaries**:
 
-- **Client build** — WebAssembly, runs in the browser. Enabled by the `web` feature.
-- **Server build** — native, runs the whole server side in one process: server-side rendering,
+- **Client build**: WebAssembly, runs in the browser. Enabled by the `web` feature.
+- **Server build**: native, runs the whole server side in one process: server-side rendering,
   the `#[server]` functions, and the REST routes from the `api` crate. Enabled by the `server`
   feature, which is also the only thing that pulls the `api` crate (and with it sqlx, axum and
   tokio) into the build.
@@ -60,22 +60,22 @@ Routes (`router.rs`): `/`, `/showcase`, `/recipes`, `/recipes/:id`, `/library`, 
 
 ## Responsibilities
 
-- **`features/<feature>/page.rs`** — the component a route renders. Composes UI and reads data
+- **`features/<feature>/page.rs`**: the component a route renders. Composes UI and reads data
   from the feature's hooks. No data access, no business logic.
-- **`features/<feature>/hooks/`** — client-side data hooks (`use_*`) that wrap `use_resource`
+- **`features/<feature>/hooks/`**: client-side data hooks (`use_*`) that wrap `use_resource`
   and call a `#[server]` function. They own the call-to-type mapping.
-- **`features/<feature>/components/`** — UI used only by this feature.
-- **`components/`** — UI reusable by more than one feature. Litmus test: if a second feature
+- **`features/<feature>/components/`**: UI used only by this feature.
+- **`components/`**: UI reusable by more than one feature. Litmus test: if a second feature
   could use it, it lives here; otherwise it lives in the feature.
-- **`server/api/<feature>.rs`** — the `#[server]` functions for that feature. The only surface
+- **`server/api/<feature>.rs`**: the `#[server]` functions for that feature. The only surface
   the browser calls. Each takes `AppState` from `app_state()`, calls the feature's repository
   (or, for roll, re-roll and swap, `api::features::roll::service`) in the `api` crate, and maps
   the error with `server_fn_error`.
-- **`server/serve.rs`** — server-only bootstrap: connects the pool, builds the Axum router
+- **`server/serve.rs`**: server-only bootstrap: connects the pool, builds the Axum router
   (Dioxus app, server functions, REST routes nested under `/api`), attaches `AppState` to every
   request as an extension, and serves.
-- **`server/state.rs`**, **`server/error.rs`** — the two helpers every server function uses.
-- **`hooks/`** — generic client hooks shared across features.
+- **`server/state.rs`**, **`server/error.rs`**: the two helpers every server function uses.
+- **`hooks/`**: generic client hooks shared across features.
 
 ## Data flow
 
@@ -94,13 +94,13 @@ them.
 1. **Server boundary.** The browser reaches data only through a `#[server]` function. No
    client-side calls to the REST routes.
 2. **Server function placement and shape.** `#[server]` functions live in
-   `server/api/<feature>.rs`. They are concrete — no generic type parameters, because each is
-   registered as a fixed endpoint — and return `Result<T, ServerFnError>`. `ServerFnError` is
+   `server/api/<feature>.rs`. They are concrete (no generic type parameters, because each is
+   registered as a fixed endpoint) and return `Result<T, ServerFnError>`. `ServerFnError` is
    the only error type permitted to cross the boundary; `AppError`, `sqlx::Error` and other
    server-only errors are mapped to it inside the function (`server_fn_error`) and must not
    appear in a hook or component type.
 3. **Server-only imports go inside the function body.** The `#[server]` macro gates only the
-   function _body_ for the server build — not the `use` statements beside it. A server-only
+   function _body_ for the server build, not the `use` statements beside it. A server-only
    import (`api`, `sqlx`, `crate::server::{app_state, server_fn_error}`, ...) at module scope
    in a file that also compiles on the client will fail the client build. Put such imports
    inside the `#[server]` body, or gate them with `#[cfg(feature = "server")]`. Types that
@@ -108,7 +108,7 @@ them.
    exist in both builds and belong at module scope.
 4. **Thin server functions.** A server function takes the state, calls one repository
    or service function, and maps the error. Logic that both the REST handler and the server function
-   need — a transaction spanning tables, resolving an inline lookup value — belongs in the
+   need (a transaction spanning tables, resolving an inline lookup value) belongs in the
    `api` crate's repository, not in the server function.
 5. **Hooks call server functions, not the data layer.** A feature hook imports its `#[server]`
    function; it must not import `api` or anything under `server/` other than `server/api`.

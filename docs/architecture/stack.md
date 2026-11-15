@@ -4,8 +4,7 @@ Companion to [the roadmap](../product/roadmap.md).
 
 ## Guiding principles
 
-- Learning project: deepen Rust on the path to embedded. UI styling is delegated; frontend code is part of the learning.
-- Prefer compile-time errors.
+- Type safety over brevity: prefer compile-time errors, even when that costs boilerplate ([0001](../decisions/0001-typed-server-functions-over-generic-proxy.md)).
 
 ## Backend
 
@@ -49,10 +48,10 @@ Companion to [the roadmap](../product/roadmap.md).
 
 **Decided: Dioxus 0.7** (fullstack, Rust to WASM) in **`web/`**, the only frontend (the `web2/` and `web3/` spikes were deleted). Alternatives built or evaluated: SvelteKit (shadcn-svelte, DaisyUI), Next 16 (Chakra v3), Leptos (signals model, non-React). No ready-made components; it uses `web/assets/primitives.css` ("Warm" tokens) and primitives in `web/src/components/ui/`. Module structure: [web.md](web.md). Run with `dx serve`.
 
-## C/C++ side-projects (embedded practice)
+## C and embedded work
 
-1. **Wire-format codec in portable C** (best starting point). Encodes/decodes the "week display" payload for the ESP32; the same C file serves the Rust backend (FFI) and the firmware. Teaches fixed buffers, no `malloc`, struct packing, endianness, bounds checks and FFI; TDD-able on the host. Tooling: `cc` crate, `bindgen`, `cbindgen`.
-2. **Kitchen-screen firmware in C++ / ESP-IDF**, with a host-side simulator.
+1. **Wire-format codec in portable C** (planned). Encodes and decodes the "week display" payload for the ESP32; the same C file serves the Rust backend (FFI) and the firmware. Fixed buffers, no `malloc`, explicit struct packing, endianness and bounds checks; testable on the host. Tooling: `cc` crate, `bindgen`, `cbindgen`.
+2. **Kitchen-screen firmware in C++ / ESP-IDF** (planned), with a host-side simulator.
 3. **Meal-roulette solver in C** (built). In the `solver` crate, called from `/roll` via FFI. Recipes cross as plain arrays; chosen indices come back. Server-only; never in the wasm build.
    ```
    solver/
@@ -61,11 +60,11 @@ Companion to [the roadmap](../product/roadmap.md).
      src/lib.rs             # unsafe extern "C" bindings + safe roll() wrapper + tests
    ```
    `solver.c` is a backtracking CSP search with a seeded PRNG (splitmix64), so a seed reproduces a week on any platform. Per-day limits (`SlotLimit`) restrict which recipes each day may take; the most restricted days fill first. Rust owns every buffer crossing the boundary; C allocates only internal scratch (`calloc`, freed on every path). Client-side C-to-WASM was dropped: it would ship all recipes to the browser.
-4. **(Stretch)** C++ + OpenCV receipt-OCR preprocessing CLI.
+4. **OCR preprocessing** (stretch): a C++ + OpenCV CLI that cleans receipt photos before OCR.
 
 ## Kitchen screen (future)
 
-- Firmware in C/C++ (ESP-IDF or Arduino); needs hardware and the partner's (electronics engineer) design input.
+- Firmware in C/C++ (ESP-IDF or Arduino); needs the hardware and a board design.
 - Display: e-ink (passive "this week") vs small TFT / repurposed tablet (cook-mode).
 - Decodes the payload with the wire-format codec.
 

@@ -3,18 +3,19 @@
 Randomizes a week of meals from a Postgres library of recipes and builds a shopping list
 from the result. A roll picks the dinners; you then put them on days, move any one to another
 date, and see tonight's dinner on the home page. Rolls follow per-week rules on difficulty,
-cuisine, protein and must-use ingredients, and each day of the roll (Day 1, Day 2, ...) can have
-its own difficulty and cook-time limits.
+cuisine, protein and must-use ingredients, with one cap on difficulty and cook time for every
+dinner.
 
-Personal project — also a deliberate excuse to learn a Rust backend (on the path toward
-embedded). The full feature vision lives in [docs/product/roadmap.md](docs/product/roadmap.md).
+The feature ideas and their status live in [docs/product/roadmap.md](docs/product/roadmap.md).
+The app is deployed to Fly.io and reachable only over Tailscale
+([deploy guide](docs/guides/deploy.md)).
 
 ## Stack
 
-- **Frontend** — Dioxus 0.7 (Rust, fullstack; `#[server]` functions call the data layer in-process) (`web/`)
-- **Backend** — Rust (Axum + SQLx) as a library the web server embeds; one Cargo workspace: `api`, `domain`, `solver`, `web`
-- **Solver** — the meal roller, written in C and compiled into the `solver` crate (`solver/`), called by the backend through a safe Rust wrapper
-- **Database** — Postgres (via Docker locally)
+- **Frontend**: Dioxus 0.7 (Rust, fullstack; `#[server]` functions call the data layer in-process) (`web/`)
+- **Backend**: Rust (Axum + SQLx) as a library the web server embeds; one Cargo workspace: `api`, `domain`, `solver`, `web`
+- **Solver**: the meal roller, written in C and compiled into the `solver` crate (`solver/`), called by the backend through a safe Rust wrapper
+- **Database**: Postgres 18 (via Docker locally)
 
 ## Layout
 
@@ -22,7 +23,7 @@ embedded). The full feature vision lives in [docs/product/roadmap.md](docs/produ
 api/                 data layer: state, errors, repositories, REST router (+ a thin standalone bin) + SQL migrations
 domain/              shared wire types (api <-> web <-> future device)
 solver/              the meal roller: C sources in csrc/, compiled by build.rs, safe wrapper in src/lib.rs
-web/                 Dioxus app (fullstack): SSR, #[server] functions, REST routes under /api — one process
+web/                 Dioxus app (fullstack): SSR, #[server] functions, REST routes under /api, one process
 docs/                architecture, product, decisions, guides
 docker-compose.yml   local Postgres
 ```
@@ -31,9 +32,9 @@ docker-compose.yml   local Postgres
 
 - [Rust](https://rustup.rs) (stable)
 - A C compiler for the solver: on Windows, the MSVC Build Tools the Rust toolchain already needs; gcc or clang elsewhere
-- [dioxus-cli](https://dioxuslabs.com/) (`dx`) — `cargo install dioxus-cli`
+- [dioxus-cli](https://dioxuslabs.com/) (`dx`): `cargo install dioxus-cli`
 - [Docker](https://www.docker.com/)
-- [sqlx-cli](https://crates.io/crates/sqlx-cli) and [just](https://github.com/casey/just) — migrations and the task recipes
+- [sqlx-cli](https://crates.io/crates/sqlx-cli) and [just](https://github.com/casey/just): migrations and the task recipes
 
 ## Run locally
 

@@ -1,4 +1,4 @@
-# Meal Roulette — MVP Data Model
+# Meal Roulette: MVP data model
 
 > The database design for the MVP core loop: roll a week of dinners, generate a shopping
 > list, and keep a history of what was cooked. Companion to [the roadmap](../product/roadmap.md)
@@ -10,8 +10,8 @@
 
 The MVP covers **dinners only**, for a **single household** running solo, with the
 ownership and extensibility hooks needed so the roadmap's later tracks (auth, members,
-pantry, ratings, pricing) slot in without painful retrofits. Everything past that line —
-pantry state, ratings, cost/pricing, receipt OCR, per-member collaboration — is deferred
+pantry, ratings, pricing) slot in without painful retrofits. Everything past that line
+(pantry state, ratings, cost/pricing, receipt OCR, per-member collaboration) is deferred
 and not modelled here.
 
 ---
@@ -19,7 +19,7 @@ and not modelled here.
 ## The map
 
 Every table also carries `id` (UUIDv7 primary key), `created_at`, and `updated_at`
-(auto-maintained) — omitted from the diagram below to keep it legible.
+(auto-maintained), omitted from the diagram below to keep it legible.
 
 ```mermaid
 erDiagram
@@ -30,12 +30,13 @@ erDiagram
     household |o--o{ cuisine : owns
     household |o--o{ tag : owns
     household |o--o{ roll_preset : owns
+    household |o--o{ ingredient_alias : owns
     household ||--o{ meal_plan : owns
     household ||--o{ shopping_list : owns
     household ||--o{ cook_log : records
     household ||--o{ slept_ingredient : sleeps
 
-    unit ||--o{ ingredient : "measured in"
+    unit |o--o{ ingredient : "measured in"
     protein |o--o{ recipe : "main protein"
     cuisine |o--o{ recipe : "cuisine of"
 
@@ -48,12 +49,13 @@ erDiagram
     recipe ||--o{ planned_meal : "scheduled as"
     meal_plan |o--o{ shopping_list : generates
     shopping_list ||--o{ shopping_list_item : contains
-    ingredient ||--o{ shopping_list_item : "listed as"
-    unit ||--o{ shopping_list_item : "snapshot unit"
+    ingredient |o--o{ shopping_list_item : "listed as"
+    unit |o--o{ shopping_list_item : "snapshot unit"
 
     recipe ||--o{ cook_log : "cooked as"
     planned_meal |o--o{ cook_log : "fulfilled by"
     ingredient ||--o{ slept_ingredient : "slept as"
+    ingredient ||--o{ ingredient_alias : "remembered as"
 
     household {
         text name
@@ -77,7 +79,7 @@ erDiagram
     }
     ingredient {
         uuid household_id FK "NULL = global"
-        uuid unit_id FK
+        uuid unit_id FK "nullable"
         text name
         int purchase_size "nullable"
     }
@@ -140,16 +142,23 @@ erDiagram
     }
     shopping_list_item {
         uuid shopping_list_id FK
-        uuid ingredient_id FK
-        uuid unit_id FK "snapshot"
+        uuid ingredient_id FK "nullable"
+        uuid unit_id FK "snapshot, nullable"
+        text name "nullable, free-text line"
         numeric qty "nullable"
         bool is_purchased
+        bool is_cleared
         text note
     }
     slept_ingredient {
         uuid household_id FK
         uuid ingredient_id FK
         date sleep_until
+    }
+    ingredient_alias {
+        uuid household_id FK "NULL = global"
+        uuid ingredient_id FK
+        text phrase "normalised"
     }
 ```
 
@@ -168,8 +177,8 @@ These rules apply to every table and migration in the project.
 - **Foreign keys**: `<referenced_table>_id` (`unit_id`, `recipe_id`, `main_protein_id`).
 - **Timestamps**: every table has `created_at` and `updated_at` (`TIMESTAMPTZ`, default
   `now()`), with a `<table>_set_updated_at` trigger calling the shared `set_updated_at()`
-  function. **No exceptions** — including junction, log, and lookup tables.
-- **Booleans**: read as a predicate — prefix `is_` / `has_` (`is_optional`, `is_purchased`).
+  function. **No exceptions**, including junction, log, and lookup tables.
+- **Booleans**: read as a predicate: prefix `is_` / `has_` (`is_optional`, `is_purchased`).
 - **Controlled vocabularies** (unit, protein, cuisine, tag): modelled as **lookup tables**,
   not native Postgres `ENUM` types. Enums are painful to `ALTER`; lookup tables are
   extensible per-household and support the "presets + user-added" model the roadmap wants.
@@ -181,7 +190,7 @@ These rules apply to every table and migration in the project.
   `rename_<old>_to_<new>`, `drop_<table>`. The verb leads so `ls migrations/` reads as a
   changelog. Examples: `create_meal_plan`, `add_main_protein_to_recipe`,
   `remove_last_cooked_from_recipe`.
-- Migrations are reversible (`-r`) and never edited once applied — a new migration supersedes.
+- Migrations are reversible (`-r`) and never edited once applied; a new migration supersedes.
 
 ### Constraint & index names
 
@@ -205,24 +214,24 @@ lands, the users table is named `app_user` (final choice deferred to the auth mi
 
 ## Ownership model
 
-Ownership is **per household**, not per user — a household owns recipes and plans; individual
+Ownership is **per household**, not per user; a household owns recipes and plans; individual
 members and auth arrive later without touching these tables.
 
 - A single `household` table anchors ownership. Solo use runs against one household: `household::repository::default_household` returns the
   oldest household, or creates one named "Home" when the table is empty, and the roll uses it
   when the request names no household.
-- **Catalog tables** (`recipe`, `ingredient`, `unit`, `protein`, `cuisine`, `tag`, `roll_preset`) carry a
+- **Catalog tables** (`recipe`, `ingredient`, `ingredient_alias`, `unit`, `protein`, `cuisine`, `tag`, `roll_preset`) carry a
   **nullable** `household_id`:
   - `household_id = <a household>` → owned by that household.
   - `household_id IS NULL` → a **global preset**, visible to everyone.
 - **Household-specific tables** (`meal_plan`, `shopping_list`, `cook_log`,
-  `slept_ingredient`) carry a **`NOT NULL`** `household_id` — there is no such thing as a
+  `slept_ingredient`) carry a **`NOT NULL`** `household_id`; there is no such thing as a
   global meal plan. Line tables (`planned_meal`, `shopping_list_item`, `recipe_ingredient`,
   `recipe_tag`) inherit scope through their parent and carry no `household_id` of their own.
 
 ### Uniqueness with nullable ownership
 
-Uniqueness on catalog tables is scoped by household — e.g. one recipe title per household:
+Uniqueness on catalog tables is scoped by household, e.g. one recipe title per household:
 
 ```sql
 CONSTRAINT uq_recipe_household_title UNIQUE NULLS NOT DISTINCT (household_id, title)
@@ -241,59 +250,69 @@ migrate to global (`household_id = NULL`) once a shared, curated set stabilises.
 
 ### Catalog
 
-**`household`** — ownership anchor. `name`. Seed one row for solo use.
+**`household`**: ownership anchor. `name`. Seed one row for solo use.
 
-**`unit`** — units of measure (grams, ml, each…). `name`, `description`. Scoped by
+**`unit`**: units of measure (grams, ml, each…). `name`, `description`. Scoped by
 `household_id` (nullable). `uq_unit_household_name`.
 
-**`protein`**, **`cuisine`**, **`tag`** — lookup vocabularies for recipe attributes. Each:
+**`protein`**, **`cuisine`**, **`tag`**: lookup vocabularies for recipe attributes. Each:
 `name`, nullable `household_id`, `uq_<table>_household_name`. `protein` and `cuisine` are
 single-valued on a recipe (FK on `recipe`); `tag` is many-valued (via `recipe_tag`).
 
-**`ingredient`** — a purchasable ingredient. `name`, `purchase_size` (nullable: not every
+**`ingredient`**: a purchasable ingredient. `name`, `purchase_size` (nullable: not every
 ingredient comes in a fixed pack; `chk_ingredient_purchase_size_positive CHECK
-(purchase_size > 0)` when set), `unit_id` (how it is measured). Scoped by `household_id` (nullable). `uq_ingredient_household_name`.
+(purchase_size > 0)` when set), `unit_id` (nullable: how it is measured, `NULL` for a counted
+or unmeasured ingredient such as eggs or salt; see
+[ADR 0004](../decisions/0004-optional-ingredient-unit.md)). Scoped by `household_id`
+(nullable). `uq_ingredient_household_name`.
 
-**`roll_preset`** — a saved set of Roll-page settings. `name`, `settings` (`JSONB`, opaque to
+**`roll_preset`**: a saved set of Roll-page settings. `name`, `settings` (`JSONB`, opaque to
 the database), `is_default` (default `false`), nullable `household_id` (`ON DELETE CASCADE`).
 `uq_roll_preset_household_name` (`NULLS NOT DISTINCT`) and the partial unique index
 `uq_roll_preset_one_default` on `(household_id) WHERE is_default` allow at most one default
 preset per household.
 
+**`ingredient_alias`**: a remembered recipe-import choice, mapping a normalised phrase from a
+recipe page ("large eggs") to the library ingredient picked for it, so the next import skips
+the guess. `phrase` (`chk_ingredient_alias_phrase_normalised`: non-empty, lower case, trimmed),
+`ingredient_id` (`ON DELETE CASCADE`), nullable `household_id` (`ON DELETE CASCADE`).
+`uq_ingredient_alias_household_phrase` (`NULLS NOT DISTINCT`), and an index on
+`ingredient_id`.
+
 ### Recipe composition
 
-**`recipe`** — recipe header and roll attributes.
+**`recipe`**: recipe header and roll attributes.
 
 | Column            | Notes                                                                        |
 | ----------------- | ---------------------------------------------------------------------------- |
 | `title`           | `uq_recipe_household_title` with `household_id`                              |
 | `difficulty`      | `smallint`, `chk_recipe_difficulty_range CHECK (difficulty BETWEEN 1 AND 5)` |
 | `time_mins`       | `smallint`, `chk_recipe_time_mins_positive CHECK (time_mins > 0)`            |
-| `servings`        | `smallint`, `> 0` — feeds leftovers planning later                           |
+| `servings`        | `smallint`, `> 0` - feeds leftovers planning later                           |
 | `healthiness`     | `smallint`, nullable, `BETWEEN 1 AND 5`                                      |
 | `min_gap_weeks`   | `smallint`, nullable, 1 to 52: weeks to wait after a cook                    |
 | `max_gap_weeks`   | `smallint`, nullable, 1 to 52, at least `min_gap_weeks`: weeks to pull in    |
 | `main_protein_id` | FK → `protein`, nullable                                                     |
 | `cuisine_id`      | FK → `cuisine`, nullable                                                     |
 
-The old `last_cooked` column is **removed** — recency now derives from `cook_log`
+The old `last_cooked` column is **removed**: recency now derives from `cook_log`
 (`MAX(cooked_on)`), so there is a single source of truth.
 
-**`recipe_ingredient`** — ingredients in a recipe. `recipe_id` (FK, `ON DELETE CASCADE`),
-`ingredient_id` (FK, `ON DELETE RESTRICT` — an ingredient in use can't be deleted out from
+**`recipe_ingredient`**: ingredients in a recipe. `recipe_id` (FK, `ON DELETE CASCADE`),
+`ingredient_id` (FK, `ON DELETE RESTRICT`: an ingredient in use can't be deleted out from
 under a recipe), `qty` (`numeric(10,2)`, nullable for a line with no set amount such as "salt, to taste";
 `chk_recipe_ingredient_qty_positive CHECK (qty > 0)` when set), `note`, `is_optional`. `uq_recipe_ingredient (recipe_id, ingredient_id)`. The
-unit is implicit — the ingredient's own unit (matches the roadmap's "simple mode", where
-recipe amounts and the ingredient are entered in the same unit, so no conversion is needed).
+unit is implicit: the ingredient's own unit, or none
+([ADR 0003](../decisions/0003-simple-units.md), [ADR 0004](../decisions/0004-optional-ingredient-unit.md)).
 
-**`recipe_tag`** — recipe↔tag junction. `recipe_id` (`ON DELETE CASCADE`), `tag_id`
+**`recipe_tag`**: recipe↔tag junction. `recipe_id` (`ON DELETE CASCADE`), `tag_id`
 (`ON DELETE RESTRICT`). `uq_recipe_tag (recipe_id, tag_id)`.
 
 ### Planning & history
 
-**`meal_plan`** — one rolled week (the header). `household_id` (`NOT NULL`), `start_date`
+**`meal_plan`**: one rolled week (the header). `household_id` (`NOT NULL`), `start_date`
 (nullable: the date the dinners were last laid out from, so `NULL` until the plan is put on
-days; plans are ordered by `created_at`, when they were rolled, not by it), `seed` (nullable — stored so a roll is reproducible, per the roadmap's seeded-rolls feature),
+days; plans are ordered by `created_at`, when they were rolled, not by it), `seed` (nullable, stored so a roll is reproducible, per the roadmap's seeded-rolls feature),
 `name` (nullable label), `roll_constraints` (`JSONB`, default `{}`: the rules the plan was
 rolled under, in the shape of `domain::roll::RollConstraints`, i.e. cuisine, protein,
 must-use-ingredient, tag and difficulty-band counts, each at least, at most or exactly, each Required or a
@@ -305,16 +324,16 @@ active history and is never the "latest" plan the home and plan pages show. Dele
 cascades to its days and frees their recipes to be deleted; its shopping list and cook-log
 entries stay, unlinked (`SET NULL`).
 
-**`planned_meal`** — one dinner slot in a plan. `meal_plan_id` (`ON DELETE CASCADE`),
+**`planned_meal`**: one dinner slot in a plan. `meal_plan_id` (`ON DELETE CASCADE`),
 `recipe_id` (`ON DELETE RESTRICT`), `day_index` (`NOT NULL`, from 1: the dinner's place in
 the roll, fixed once rolled), `scheduled_date` (nullable: the date the dinner is on, `NULL`
 until it is put on a day), `is_pinned` (reserved for pinning on a saved plan; nothing sets it yet, a roll writes `false`: pins live on the unsaved roll and are not stored),
 `target_difficulty` (nullable; unused: the roll always writes `NULL` and nothing reads it.
 Per-day limits live in `meal_plan.roll_constraints.day_limits`, keyed by day number, which is
-`day_index`, as a default for all days plus per-day overrides). `uq_planned_meal_day_index (meal_plan_id, day_index)` — roll
-positions are unique per plan; `uq_planned_meal (meal_plan_id, scheduled_date)` — one dinner
+`day_index`, as a default for all days plus per-day overrides). `uq_planned_meal_day_index (meal_plan_id, day_index)`: roll
+positions are unique per plan; `uq_planned_meal (meal_plan_id, scheduled_date)`: one dinner
 per date per plan when set (`NULL` dates never collide, so any number of dinners can be
-unscheduled); `uq_planned_meal_recipe (meal_plan_id, recipe_id)` — a recipe appears at most once per plan,
+unscheduled); `uq_planned_meal_recipe (meal_plan_id, recipe_id)`: a recipe appears at most once per plan,
 whether the solver picked it or a swap chose it.
 
 A roll produces dinners with a `day_index` and no date. Putting a plan on days
@@ -323,9 +342,9 @@ one dinner (`PUT /planned-meals/{id}/schedule`) sets or clears its date, and a d
 dinner holds is traded rather than refused. The migration that introduced `day_index`
 numbered existing dinners by their dates, so no plan lost its order.
 
-**`cook_log`** — the permanent record of what was actually cooked. `household_id`
+**`cook_log`**: the permanent record of what was actually cooked. `household_id`
 (`NOT NULL`), `recipe_id` (`ON DELETE RESTRICT`), `cooked_on`, `planned_meal_id` (nullable
-FK, `ON DELETE SET NULL` — links back to the plan slot when the cook came from a roll; null
+FK, `ON DELETE SET NULL`: links back to the plan slot when the cook came from a roll; null
 for unplanned cooks, and history survives even if the plan is deleted).
 `uq_cook_log_planned_meal (planned_meal_id)`: a planned dinner is logged at most once, while
 unplanned cooks repeat freely. This table is the source of truth for recency and
@@ -333,20 +352,25 @@ min/max-interval rules, and the raw material for the insights dashboard (most/le
 
 ### Shopping
 
-**`shopping_list`** — a generated list (the header). `household_id` (`NOT NULL`),
-`meal_plan_id` (nullable FK, `ON DELETE SET NULL` — the plan it was generated from; nullable
+**`shopping_list`**: a generated list (the header). `household_id` (`NOT NULL`),
+`meal_plan_id` (nullable FK, `ON DELETE SET NULL`: the plan it was generated from; nullable
 so a list can be ad-hoc or outlive its plan), `name` (nullable).
 `uq_shopping_list_meal_plan (meal_plan_id)`: a plan has at most one list, which regenerating
 updates in place. Ad-hoc lists (`meal_plan_id` `NULL`) never collide.
 
-**`shopping_list_item`** — one aggregated line. `shopping_list_id` (`ON DELETE CASCADE`),
-`ingredient_id` (`ON DELETE RESTRICT`), `qty` (`> 0`; NULL when none of the plan's recipes gave an amount), `unit_id` (a **snapshot** of the
-unit at generation time, so a historical list stays correct even if the ingredient's unit
-is later changed), `is_purchased` (simple check-off; a purchased-at timestamp is a trivial
-later add), `note`. `uq_shopping_list_item (shopping_list_id, ingredient_id)` — the list is
-the summed union of the week's ingredients, one row per ingredient.
+**`shopping_list_item`**: one line. Either an ingredient line, the summed union of the week's
+recipes, or a free-text line added by hand ("bin bags"). `shopping_list_id`
+(`ON DELETE CASCADE`), `ingredient_id` (nullable, `ON DELETE RESTRICT`), `qty` (`> 0`; NULL
+when none of the plan's recipes gave an amount), `unit_id` (nullable: a **snapshot** of the
+ingredient's unit at generation time, so a historical list stays correct even if the
+ingredient's unit later changes), `name` (the text of a free-text line), `is_purchased`
+(simple check-off), `is_cleared` (a bought ingredient line hidden by "clear bought", so a
+rebuild from the plan does not bring it back; bought free-text lines are deleted instead),
+`note`. `chk_shopping_list_item_kind`: an ingredient line has no `name`; a free-text line has
+a non-blank `name` and no ingredient, unit or amount. `uq_shopping_list_item
+(shopping_list_id, ingredient_id)`: one row per ingredient.
 
-**`slept_ingredient`** — the MVP "sleep ingredients" feature. Sleeping is a persistent,
+**`slept_ingredient`**: the MVP "sleep ingredients" feature. Sleeping is a persistent,
 per-household relationship to an ingredient that spans weeks, so it is its own table, not a
 flag on a single list. `household_id` (`NOT NULL`), `ingredient_id` (`ON DELETE CASCADE`),
 `sleep_until` (the wake date). `uq_slept_ingredient (household_id, ingredient_id)`. When a
@@ -374,7 +398,7 @@ Not built now, but the schema is shaped so these don't require rework:
 - **Customizable recipe attributes.** MVP attributes (protein, cuisine, healthiness, tags)
   stay as **fixed columns**. A future "define your own attribute" feature takes one of two
   shapes, to be decided when it's reached:
-  - **JSONB column** (`attributes jsonb` on `recipe` / `recipe_ingredient`) — flexible, no
+  - **JSONB column** (`attributes jsonb` on `recipe` / `recipe_ingredient`): flexible, no
     migration per attribute, but weaker typing and clunkier querying.
   - **EAV** (Entity-Attribute-Value): an `attribute_definition` table (name, data type,
     allowed values) plus `recipe_attribute` / `recipe_ingredient_attribute` join tables
@@ -382,9 +406,7 @@ Not built now, but the schema is shaped so these don't require rework:
     hand-rolled. This generalises the lookup-table pattern already used for protein/cuisine.
 - **Meal slots beyond dinner.** `planned_meal`'s uniqueness becomes
   `(meal_plan_id, scheduled_date, meal_slot)` when breakfast/lunch are added.
-- **Ad-hoc shopping items.** Non-recipe items (foil, bin bags) need `ingredient_id` to
-  become nullable on `shopping_list_item` plus a free-text name.
 - **Members & auth.** An `app_user` table + household membership; core tables already carry
   `household_id`, so no backfill is required.
 - **Purchase timing, ratings, pantry, cost.** New nullable columns or adjacent tables layered
-  on `cook_log`, `shopping_list_item`, and `ingredient` — see [the roadmap](../product/roadmap.md).
+  on `cook_log`, `shopping_list_item`, and `ingredient`; see [the roadmap](../product/roadmap.md).

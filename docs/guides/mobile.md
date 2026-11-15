@@ -58,13 +58,13 @@ before `just desktop`.
 
 ## A real phone
 
-`10.0.2.2` only works in the emulator. Build with `MR_SERVER_URL` set to the URL the phone can
-reach, which is the tailnet HTTPS URL that `tailscale serve` publishes for the server (the
-tailscale access setup describes how to turn it on). The phone must be signed in to the same
-tailnet.
+`10.0.2.2` only works in the emulator. For a phone, build with `MR_SERVER_URL` set to a server
+the phone can reach over the tailnet, such as the deployed app at
+`https://meal-roulette.<tailnet>.ts.net` ([deploy guide](deploy.md)). The phone must be signed
+in to the same tailnet.
 
 ```powershell
-$env:MR_SERVER_URL = "https://<machine>.<tailnet>.ts.net"
+$env:MR_SERVER_URL = "https://meal-roulette.<tailnet>.ts.net"
 just android
 ```
 
@@ -72,10 +72,9 @@ just android
 
 ## App identity
 
-`web/Dioxus.toml` sets the package id (`dev.kirsten.mealroulette`) and publisher. The launcher
+`web/Dioxus.toml` sets the package id and publisher. The launcher
 label comes from `web/android/AndroidManifest.xml`, because dx otherwise derives it from the
 crate name. dx has no Android icon setting and always writes its stock icons, so after
 `dx build --android` run `bash web/android/apply-icon.sh` (same `CARGO_TARGET_DIR`) to swap in
 `web/assets/pwa/icon-192.png` and rebuild the APK. `dx serve` / `just android` install with the
-stock icon. The package id differs from the old `com.example.Web`, so it installs as a separate
-app; the old "Web" app can be uninstalled.
+stock icon.
