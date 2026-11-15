@@ -1514,6 +1514,8 @@ button.mr-chip--active::before {
 
 .mr-tagpicker { display: flex; flex-direction: column; gap: .5rem; }
 .mr-tagpicker__chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.mr-cadence__presets { display: flex; flex-wrap: wrap; gap: .4rem; }
+.mr-cadence__exact { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-top: .4rem; }
 .mr-tagcell { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
 
 .mr-backlink {

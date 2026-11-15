@@ -53,6 +53,26 @@ pub async fn find_for_planned_meal(
     Ok(log)
 }
 
+pub struct LastCook {
+    pub recipe_id: Uuid,
+    pub cooked_on: time::Date,
+}
+
+/// The day each recipe was last cooked; a recipe never cooked has no entry.
+pub async fn last_cooks(pool: &PgPool) -> Result<Vec<LastCook>, sqlx::Error> {
+    let cooks = sqlx::query_as!(
+        LastCook,
+        r#"
+        SELECT recipe_id, MAX(cooked_on) AS "cooked_on!"
+        FROM cook_log
+        GROUP BY recipe_id
+        "#,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(cooks)
+}
+
 pub async fn get(pool: &PgPool, id: Uuid) -> Result<CookLog, sqlx::Error> {
     let log = sqlx::query_as!(
         CookLog,
@@ -253,5 +273,31 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(list_entries(&pool).await.unwrap().len(), 3);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn last_cooks_gives_each_recipe_its_latest_cook(pool: PgPool) {
+        let pasta = recipe_titled(&pool, "Pasta").await;
+        let curry = recipe_titled(&pool, "Curry").await;
+        let never = recipe_titled(&pool, "Stew").await;
+        log(&pool, pasta, None, date!(2026 - 11 - 10))
+            .await
+            .unwrap();
+        log(&pool, pasta, None, date!(2026 - 11 - 12))
+            .await
+            .unwrap();
+        log(&pool, curry, None, date!(2026 - 11 - 11))
+            .await
+            .unwrap();
+
+        let last: std::collections::HashMap<Uuid, time::Date> = last_cooks(&pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|cook| (cook.recipe_id, cook.cooked_on))
+            .collect();
+        assert_eq!(last.get(&pasta), Some(&date!(2026 - 11 - 12)));
+        assert_eq!(last.get(&curry), Some(&date!(2026 - 11 - 11)));
+        assert_eq!(last.get(&never), None);
     }
 }

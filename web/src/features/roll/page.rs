@@ -206,7 +206,7 @@ pub fn Roll() -> Element {
                     shown.set(Some(Shown {
                         week: RolledWeek {
                             seed: preview.seed,
-                            unmet: form.unmet_notes(&preview.unmet, &catalog),
+                            unmet: form.unmet_notes(&preview.unmet, &preview.meals, &catalog),
                             edited: false,
                             meals: preview.meals,
                         },
@@ -247,7 +247,9 @@ pub fn Roll() -> Element {
                         *slot = replaced.meal;
                     }
                     next.recipe_ids = next.week.meals.iter().map(|m| m.recipe_id).collect();
-                    next.week.unmet = next.settings.unmet_notes(&replaced.unmet, &catalog);
+                    next.week.unmet =
+                        next.settings
+                            .unmet_notes(&replaced.unmet, &next.week.meals, &catalog);
                     next.week.edited = false;
                     shown.set(Some(next));
                 }

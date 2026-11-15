@@ -120,6 +120,8 @@ mod tests {
                 time_mins: time,
                 servings: 2,
                 healthiness: Some(4),
+                min_gap_weeks: None,
+                max_gap_weeks: None,
                 main_protein_id: None,
                 cuisine_id: None,
                 created_at: time::OffsetDateTime::UNIX_EPOCH,

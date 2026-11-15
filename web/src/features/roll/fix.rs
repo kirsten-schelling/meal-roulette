@@ -5,7 +5,7 @@ use crate::components::ui::ComboOption;
 use crate::features::recipe::components::recipe_seed::RecipeSeed;
 use crate::features::roll::settings::RollSettings;
 use domain::ingredient::Ingredient;
-use domain::roll::{Bound, Importance, RuleFamily, UnmetRule};
+use domain::roll::{Bound, Importance, PreviewMeal, RuleFamily, UnmetRule};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Fix {
@@ -69,12 +69,18 @@ impl RollSettings {
         fixes
     }
 
-    /// The preferences a roll fell short of, each in a sentence. A shortfall
-    /// of a minimum can be met by a new recipe; an excess of a maximum only by
+    /// The preferences a roll fell short of, each in a sentence, then each
+    /// dinner cooked more recently than its gap allows. A shortfall of a
+    /// minimum can be met by a new recipe; an excess of a maximum only by
     /// swapping a dinner.
-    pub fn unmet_notes(&self, unmet: &[UnmetRule], ingredients: &[Ingredient]) -> Vec<UnmetNote> {
+    pub fn unmet_notes(
+        &self,
+        unmet: &[UnmetRule],
+        meals: &[PreviewMeal],
+        ingredients: &[Ingredient],
+    ) -> Vec<UnmetNote> {
         let sentences = self.unmet_sentences(unmet);
-        unmet
+        let mut notes: Vec<UnmetNote> = unmet
             .iter()
             .zip(sentences)
             .map(|(u, sentence)| UnmetNote {
@@ -82,7 +88,20 @@ impl RollSettings {
                 fix: (u.bound == Bound::AtLeast)
                     .then(|| Fix::AddRecipe(self.recipe_seed(u.family, u.index, ingredients))),
             })
-            .collect()
+            .collect();
+        notes.extend(
+            meals
+                .iter()
+                .filter(|meal| meal.within_min_gap)
+                .map(|meal| UnmetNote {
+                    sentence: format!(
+                        "{} was cooked recently, inside the gap set for it.",
+                        meal.title
+                    ),
+                    fix: None,
+                }),
+        );
+        notes
     }
 
     fn clear_caps(&self) -> Option<Fix> {
@@ -200,7 +219,7 @@ mod tests {
             proteins: vec![beef.clone()],
             ..RollSettings::default()
         };
-        let notes = settings.unmet_notes(&[unmet(RuleFamily::Protein, Bound::AtLeast)], &[]);
+        let notes = settings.unmet_notes(&[unmet(RuleFamily::Protein, Bound::AtLeast)], &[], &[]);
         let Some(Fix::AddRecipe(seed)) = &notes[0].fix else {
             panic!("expected an add-recipe fix");
         };
@@ -214,7 +233,7 @@ mod tests {
             proteins: vec![lookup("Beef", Importance::Medium)],
             ..RollSettings::default()
         };
-        let notes = settings.unmet_notes(&[unmet(RuleFamily::Protein, Bound::AtMost)], &[]);
+        let notes = settings.unmet_notes(&[unmet(RuleFamily::Protein, Bound::AtMost)], &[], &[]);
         assert_eq!(notes[0].fix, None);
     }
 
@@ -229,10 +248,29 @@ mod tests {
             }],
             ..RollSettings::default()
         };
-        let notes = settings.unmet_notes(&[unmet(RuleFamily::Difficulty, Bound::AtLeast)], &[]);
+        let notes =
+            settings.unmet_notes(&[unmet(RuleFamily::Difficulty, Bound::AtLeast)], &[], &[]);
         let Some(Fix::AddRecipe(seed)) = &notes[0].fix else {
             panic!("expected an add-recipe fix");
         };
         assert_eq!(seed.difficulty, Some(4));
+    }
+
+    #[test]
+    fn a_dinner_cooked_inside_its_gap_gets_a_note_without_a_fix() {
+        let meal = |title: &str, within_min_gap| PreviewMeal {
+            recipe_id: Uuid::now_v7(),
+            title: title.to_string(),
+            difficulty: 1,
+            time_mins: 20,
+            cuisine: None,
+            protein: None,
+            within_min_gap,
+        };
+        let meals = [meal("Pasta", true), meal("Curry", false)];
+        let notes = RollSettings::default().unmet_notes(&[], &meals, &[]);
+        assert_eq!(notes.len(), 1);
+        assert!(notes[0].sentence.starts_with("Pasta"));
+        assert_eq!(notes[0].fix, None);
     }
 }

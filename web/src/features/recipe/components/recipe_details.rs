@@ -6,6 +6,8 @@ use crate::components::ui::{
     Badge, Combobox, Editable, Heading, InlineEditor, Input, Rating, RatingScale,
 };
 use crate::features::library::components::ManageTab;
+use crate::features::recipe::cadence::describe;
+use crate::features::recipe::components::cadence_picker::CadencePicker;
 use crate::features::recipe::components::recipe_fields::{
     positive_count, use_recipe_form, RecipeCatalogs, RecipeForm,
 };
@@ -26,9 +28,10 @@ enum DetailField {
     Cuisine,
     Protein,
     Tags,
+    Cadence,
 }
 
-const SUMMARY_FIELDS: [DetailField; 7] = [
+const SUMMARY_FIELDS: [DetailField; 8] = [
     DetailField::Difficulty,
     DetailField::Healthiness,
     DetailField::Time,
@@ -36,6 +39,7 @@ const SUMMARY_FIELDS: [DetailField; 7] = [
     DetailField::Cuisine,
     DetailField::Protein,
     DetailField::Tags,
+    DetailField::Cadence,
 ];
 
 impl DetailField {
@@ -49,6 +53,7 @@ impl DetailField {
             DetailField::Cuisine => "Cuisine",
             DetailField::Protein => "Main protein",
             DetailField::Tags => "Tags",
+            DetailField::Cadence => "How often",
         }
     }
 }
@@ -89,6 +94,7 @@ fn value(field: DetailField, overview: &RecipeOverview) -> Element {
                 }
             }
         },
+        DetailField::Cadence => rsx! { "{describe(recipe.min_gap_weeks, recipe.max_gap_weeks)}" },
     }
 }
 
@@ -212,6 +218,8 @@ impl DetailsEditor {
             mut healthiness,
             mut time_mins,
             mut servings,
+            min_gap_weeks,
+            max_gap_weeks,
             cuisine,
             protein,
             tags,
@@ -342,6 +350,18 @@ impl DetailsEditor {
                     }
                 },
             ),
+            DetailField::Cadence => self.editor(
+                overview,
+                false,
+                false,
+                rsx! {
+                    CadencePicker {
+                        label: None,
+                        min_weeks: min_gap_weeks,
+                        max_weeks: max_gap_weeks,
+                    }
+                },
+            ),
         }
     }
 
@@ -362,7 +382,7 @@ impl DetailsEditor {
                 for field in SUMMARY_FIELDS {
                     div {
                         key: "{field.label()}",
-                        class: if field == DetailField::Tags { "mr-summary__item mr-summary__item--wide" } else { "mr-summary__item" },
+                        class: if matches!(field, DetailField::Tags | DetailField::Cadence) { "mr-summary__item mr-summary__item--wide" } else { "mr-summary__item" },
                         dt { class: "mr-summary__label", "{field.label()}" }
                         dd { class: "mr-summary__value",
                             if self.is_open(field) {

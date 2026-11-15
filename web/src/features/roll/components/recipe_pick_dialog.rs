@@ -14,6 +14,7 @@ fn as_meal(overview: &RecipeOverview) -> PreviewMeal {
         time_mins: overview.recipe.time_mins,
         cuisine: overview.cuisine.clone(),
         protein: overview.protein.clone(),
+        within_min_gap: false,
     }
 }
 
