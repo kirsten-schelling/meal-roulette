@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT shopping_list_item.id, shopping_list_item.ingredient_id,\n               COALESCE(ingredient.name, shopping_list_item.name) AS \"ingredient!\",\n               shopping_list_item.qty, COALESCE(unit.name, '') AS \"unit!\", ingredient.purchase_size,\n               CEIL(shopping_list_item.qty / ingredient.purchase_size)::int AS \"packs?\",\n               shopping_list_item.is_purchased, shopping_list_item.note,\n               ARRAY(\n                   SELECT recipe.title\n                   FROM planned_meal\n                   JOIN recipe ON recipe.id = planned_meal.recipe_id\n                   JOIN recipe_ingredient ON recipe_ingredient.recipe_id = recipe.id\n                   WHERE planned_meal.meal_plan_id = shopping_list.meal_plan_id\n                     AND recipe_ingredient.ingredient_id = shopping_list_item.ingredient_id\n                   ORDER BY planned_meal.scheduled_date NULLS LAST, planned_meal.day_index\n               ) AS \"used_in!\",\n               slept_ingredient.sleep_until AS \"sleep_until?\"\n        FROM shopping_list_item\n        JOIN shopping_list ON shopping_list.id = shopping_list_item.shopping_list_id\n        LEFT JOIN ingredient ON ingredient.id = shopping_list_item.ingredient_id\n        LEFT JOIN unit ON unit.id = shopping_list_item.unit_id\n        LEFT JOIN slept_ingredient\n               ON slept_ingredient.household_id = shopping_list.household_id\n              AND slept_ingredient.ingredient_id = shopping_list_item.ingredient_id\n              AND slept_ingredient.sleep_until >= CURRENT_DATE\n        WHERE shopping_list_item.shopping_list_id = $1\n          AND NOT shopping_list_item.is_cleared\n        ORDER BY slept_ingredient.id IS NOT NULL,\n                 shopping_list_item.ingredient_id IS NULL,\n                 COALESCE(ingredient.name, shopping_list_item.name)\n        ",
+  "query": "\n        SELECT shopping_list_item.id, shopping_list_item.ingredient_id,\n               COALESCE(ingredient.name, shopping_list_item.name) AS \"ingredient!\",\n               shopping_list_item.qty, COALESCE(unit.name, '') AS \"unit!\", ingredient.purchase_size,\n               CEIL(shopping_list_item.qty / ingredient.purchase_size)::int AS \"packs?\",\n               shopping_list_item.is_purchased, shopping_list_item.is_covered, shopping_list_item.note,\n               ARRAY(\n                   SELECT recipe.title\n                   FROM planned_meal\n                   JOIN recipe ON recipe.id = planned_meal.recipe_id\n                   JOIN recipe_ingredient ON recipe_ingredient.recipe_id = recipe.id\n                   WHERE planned_meal.meal_plan_id = shopping_list.meal_plan_id\n                     AND recipe_ingredient.ingredient_id = shopping_list_item.ingredient_id\n                   ORDER BY planned_meal.scheduled_date NULLS LAST, planned_meal.day_index\n               ) AS \"used_in!\",\n               slept_ingredient.sleep_until AS \"sleep_until?\"\n        FROM shopping_list_item\n        JOIN shopping_list ON shopping_list.id = shopping_list_item.shopping_list_id\n        LEFT JOIN ingredient ON ingredient.id = shopping_list_item.ingredient_id\n        LEFT JOIN unit ON unit.id = shopping_list_item.unit_id\n        LEFT JOIN slept_ingredient\n               ON slept_ingredient.household_id = shopping_list.household_id\n              AND slept_ingredient.ingredient_id = shopping_list_item.ingredient_id\n              AND slept_ingredient.sleep_until >= CURRENT_DATE\n        WHERE shopping_list_item.shopping_list_id = $1\n          AND NOT shopping_list_item.is_cleared\n        ORDER BY slept_ingredient.id IS NOT NULL,\n                 shopping_list_item.ingredient_id IS NULL,\n                 COALESCE(ingredient.name, shopping_list_item.name)\n        ",
   "describe": {
     "columns": [
       {
@@ -78,6 +78,17 @@
       },
       {
         "ordinal": 8,
+        "name": "is_covered",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "is_covered"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "note",
         "type_info": "Text",
         "origin": {
@@ -88,13 +99,13 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "used_in!",
         "type_info": "TextArray",
         "origin": "Expression"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "sleep_until?",
         "type_info": "Date",
         "origin": {
@@ -119,10 +130,11 @@
       true,
       null,
       false,
+      false,
       true,
       null,
       false
     ]
   },
-  "hash": "e49b7b21a87e0a43fda538c8001facbff6861fbf02ad0e1029423a80ac885e29"
+  "hash": "3959502003b83ee8bca3ddd13f45f683282e946d68c2e7f4c1dcd83451d88dde"
 }

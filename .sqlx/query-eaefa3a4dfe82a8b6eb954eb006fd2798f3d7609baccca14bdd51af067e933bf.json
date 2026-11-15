@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH deleted AS (\n            DELETE FROM recipe_ingredient\n            WHERE recipe_id = $1 AND ingredient_id = $2\n            RETURNING id, created_at, updated_at, recipe_id, ingredient_id, qty, note, is_optional\n        )\n        SELECT\n            deleted.id,\n            deleted.created_at,\n            deleted.updated_at,\n            deleted.recipe_id,\n            deleted.ingredient_id,\n            ingredient.name AS ingredient_name,\n            unit.name AS unit,\n            deleted.qty,\n            deleted.note,\n            deleted.is_optional\n        FROM deleted\n        JOIN ingredient ON deleted.ingredient_id = ingredient.id\n        JOIN unit ON ingredient.unit_id = unit.id\n        ",
+  "query": "\n        WITH updated AS (\n            UPDATE recipe_ingredient\n            SET qty = $3,\n                note = $4,\n                is_optional = $5\n            WHERE recipe_id = $1 AND ingredient_id = $2\n            RETURNING id, created_at, updated_at, recipe_id, ingredient_id, qty, note, is_optional\n        )\n        SELECT\n            updated.id,\n            updated.created_at,\n            updated.updated_at,\n            updated.recipe_id,\n            updated.ingredient_id,\n            ingredient.name AS ingredient_name,\n            COALESCE(unit.name, '') AS \"unit!\",\n            updated.qty,\n            updated.note,\n            updated.is_optional\n        FROM updated\n        JOIN ingredient ON updated.ingredient_id = ingredient.id\n        LEFT JOIN unit ON ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -71,14 +71,9 @@
       },
       {
         "ordinal": 6,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "unit",
-            "name": "name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 7,
@@ -117,7 +112,10 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Uuid"
+        "Uuid",
+        "Numeric",
+        "Text",
+        "Bool"
       ]
     },
     "nullable": [
@@ -127,11 +125,11 @@
       false,
       false,
       false,
-      false,
+      null,
       true,
       true,
       false
     ]
   },
-  "hash": "f422f53c270a3fe364c43e0f75ad2e13c024eb92df9028ca805ff70e45b36ee0"
+  "hash": "eaefa3a4dfe82a8b6eb954eb006fd2798f3d7609baccca14bdd51af067e933bf"
 }

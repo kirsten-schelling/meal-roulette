@@ -53,9 +53,11 @@ pub async fn find_for_plan(
 }
 
 /// Build a plan's list, or rebuild the one it already has. Each line is one
-/// ingredient summed across the plan's recipes, in the ingredient's current
-/// unit. Rebuilding keeps the purchased tick on lines that are still needed,
-/// drops lines that no longer are, leaves free-text lines alone, and bumps the list's `updated_at`, which is
+/// ingredient summed across the plan's recipes, less what the household's pantry
+/// holds, in the ingredient's current unit. A line with no amount is never reduced.
+/// A line the pantry covers in full keeps its whole amount and is marked covered.
+/// Rebuilding leaves lines already ticked as they are, drops lines the plan no longer
+/// needs, leaves free-text lines alone, and bumps the list's `updated_at`, which is
 /// what the stale check compares against.
 pub async fn generate_for_plan(
     pool: &PgPool,
@@ -79,31 +81,16 @@ pub async fn generate_for_plan(
     .fetch_one(&mut *tx)
     .await?;
 
-    let _removed = sqlx::query_scalar!(
+    let _upserted = sqlx::query_scalar!(
         r#"
-        DELETE FROM shopping_list_item
-        WHERE shopping_list_id = $1
-          AND shopping_list_item.ingredient_id IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1
-              FROM planned_meal
-              JOIN recipe_ingredient ON recipe_ingredient.recipe_id = planned_meal.recipe_id
-              WHERE planned_meal.meal_plan_id = $2
-                AND recipe_ingredient.ingredient_id = shopping_list_item.ingredient_id
-          )
-        RETURNING id
-        "#,
-        list.id,
-        meal_plan_id,
-    )
-    .fetch_all(&mut *tx)
-    .await?;
-
-    let _written = sqlx::query_scalar!(
-        r#"
-        INSERT INTO shopping_list_item (shopping_list_id, ingredient_id, unit_id, qty, note)
-        SELECT $1::uuid, needed.ingredient_id, ingredient.unit_id, needed.qty,
-               CASE WHEN needed.all_optional THEN 'optional' END
+        INSERT INTO shopping_list_item (shopping_list_id, ingredient_id, unit_id, qty, note, is_covered)
+        SELECT $1::uuid, needed.ingredient_id, ingredient.unit_id,
+               CASE WHEN needed.qty <= COALESCE(pantry_item.qty, 0)
+                    THEN needed.qty
+                    ELSE needed.qty - COALESCE(pantry_item.qty, 0)
+               END,
+               CASE WHEN needed.all_optional THEN 'optional' END,
+               COALESCE(needed.qty <= COALESCE(pantry_item.qty, 0), false)
         FROM (
             SELECT recipe_ingredient.ingredient_id,
                    SUM(recipe_ingredient.qty) AS qty,
@@ -114,10 +101,35 @@ pub async fn generate_for_plan(
             GROUP BY recipe_ingredient.ingredient_id
         ) AS needed
         JOIN ingredient ON ingredient.id = needed.ingredient_id
+        LEFT JOIN pantry_item
+               ON pantry_item.household_id = $3
+              AND pantry_item.ingredient_id = needed.ingredient_id
         ON CONFLICT ON CONSTRAINT uq_shopping_list_item
         DO UPDATE SET unit_id = EXCLUDED.unit_id,
                       qty = EXCLUDED.qty,
-                      note = EXCLUDED.note
+                      note = EXCLUDED.note,
+                      is_covered = EXCLUDED.is_covered
+        WHERE shopping_list_item.pantry_added IS NULL
+        RETURNING id
+        "#,
+        list.id,
+        meal_plan_id,
+        list.household_id,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
+
+    let _removed = sqlx::query_scalar!(
+        r#"
+        DELETE FROM shopping_list_item
+        WHERE shopping_list_id = $1
+          AND ingredient_id IS NOT NULL
+          AND ingredient_id NOT IN (
+              SELECT recipe_ingredient.ingredient_id
+              FROM planned_meal
+              JOIN recipe_ingredient ON recipe_ingredient.recipe_id = planned_meal.recipe_id
+              WHERE planned_meal.meal_plan_id = $2
+          )
         RETURNING id
         "#,
         list.id,
@@ -245,7 +257,7 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<ShoppingList, sqlx::Error
 mod tests {
     use super::*;
     use crate::features::shopping_list_item::repository::{
-        add_custom, clear_bought, lines, remove_custom, set_purchased,
+        add_anyway, add_custom, clear_bought, lines, remove_custom, set_purchased,
     };
 
     struct Fixture {
@@ -408,5 +420,285 @@ mod tests {
         generate_for_plan(&pool, f.plan_id).await.unwrap();
         let rebuilt = lines(&pool, list.id).await.unwrap();
         assert_eq!(names(&rebuilt), ["Spaghetti", "Candles"]);
+    }
+
+    async fn set_pantry(pool: &PgPool, ingredient: &str, qty: i32) {
+        let id = sqlx::query_scalar!("SELECT id FROM ingredient WHERE name = $1", ingredient)
+            .fetch_one(pool)
+            .await
+            .unwrap();
+        crate::features::pantry::repository::set_qty(pool, id, qty.into())
+            .await
+            .unwrap();
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn the_pantry_is_subtracted_and_a_covered_line_stays_marked_covered(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        assert_eq!(lines(&pool, list.id).await.unwrap().len(), 2);
+
+        set_pantry(&pool, "Spaghetti", 30).await;
+        set_pantry(&pool, "Rice", 100).await;
+        generate_for_plan(&pool, f.plan_id).await.unwrap();
+
+        let after = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&after), ["Rice", "Spaghetti"]);
+        assert!(after[0].is_covered);
+        assert_eq!(after[0].qty, Some(100.into()));
+        assert!(!after[1].is_covered);
+        assert_eq!(after[1].qty, Some(70.into()));
+
+        set_pantry(&pool, "Rice", 0).await;
+        generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let back = lines(&pool, list.id).await.unwrap();
+        assert!(back.iter().all(|line| !line.is_covered));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn add_anyway_puts_a_covered_line_back_at_its_full_amount(pool: PgPool) {
+        let f = fixture(&pool).await;
+        set_pantry(&pool, "Rice", 100).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let covered = lines(&pool, list.id).await.unwrap()[0].clone();
+        assert!(covered.is_covered);
+
+        add_anyway(&pool, covered.id).await.unwrap();
+
+        let after = lines(&pool, list.id).await.unwrap();
+        assert!(after.iter().all(|line| !line.is_covered));
+        assert_eq!(after[0].qty, Some(100.into()));
+        assert!(add_anyway(&pool, covered.id).await.is_err());
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_covered_line_cannot_be_ticked_and_clear_bought_leaves_it(pool: PgPool) {
+        let f = fixture(&pool).await;
+        set_pantry(&pool, "Rice", 100).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let covered = lines(&pool, list.id).await.unwrap()[0].id;
+
+        let ticked = set_purchased(&pool, covered, true).await.unwrap();
+        assert!(!ticked.is_purchased);
+        clear_bought(&pool, list.id).await.unwrap();
+
+        let after = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&after), ["Rice", "Spaghetti"]);
+        assert_eq!(pantry_counts(&pool).await.len(), 1);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_line_with_no_amount_is_not_reduced_by_the_pantry(pool: PgPool) {
+        let f = fixture(&pool).await;
+        sqlx::query_scalar!(
+            "UPDATE recipe_ingredient SET qty = NULL WHERE recipe_id = $1 RETURNING id",
+            f.rice_recipe,
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        set_pantry(&pool, "Rice", 1000).await;
+
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+
+        let after = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&after), ["Rice", "Spaghetti"]);
+        assert_eq!(after[0].qty, None);
+    }
+
+    async fn pantry_counts(pool: &PgPool) -> Vec<(String, rust_decimal::Decimal)> {
+        crate::features::pantry::repository::list(pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|p| (p.ingredient, p.qty))
+            .collect()
+    }
+
+    async fn line_named(pool: &PgPool, list_id: Uuid, name: &str) -> Uuid {
+        lines(pool, list_id)
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|line| line.ingredient == name)
+            .unwrap()
+            .id
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn ticking_stocks_the_pantry_in_whole_packs_when_the_pack_size_is_known(pool: PgPool) {
+        let f = fixture(&pool).await;
+        sqlx::query_scalar!(
+            "UPDATE ingredient SET purchase_size = 250 WHERE name = 'Rice' RETURNING id"
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let bags = add_custom(&pool, list.id, "Bin bags").await.unwrap();
+        for line in lines(&pool, list.id).await.unwrap() {
+            set_purchased(&pool, line.id, true).await.unwrap();
+        }
+        assert_eq!(bags.qty, None);
+
+        assert_eq!(
+            pantry_counts(&pool).await,
+            [
+                ("Rice".to_string(), 250.into()),
+                ("Spaghetti".to_string(), 100.into())
+            ]
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn unticking_takes_back_what_the_tick_added(pool: PgPool) {
+        let f = fixture(&pool).await;
+        sqlx::query_scalar!(
+            "UPDATE ingredient SET purchase_size = 250 WHERE name = 'Rice' RETURNING id"
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        set_pantry(&pool, "Rice", 40).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let rice = line_named(&pool, list.id, "Rice").await;
+
+        set_purchased(&pool, rice, true).await.unwrap();
+        assert_eq!(
+            pantry_counts(&pool).await,
+            [("Rice".to_string(), 290.into())]
+        );
+
+        sqlx::query_scalar!(
+            "UPDATE ingredient SET purchase_size = 500 WHERE name = 'Rice' RETURNING id"
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        let item = set_purchased(&pool, rice, false).await.unwrap();
+
+        assert!(!item.is_purchased);
+        assert_eq!(
+            pantry_counts(&pool).await,
+            [("Rice".to_string(), 40.into())]
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn unticking_floors_the_count_at_zero_after_a_manual_edit(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let rice = line_named(&pool, list.id, "Rice").await;
+        set_purchased(&pool, rice, true).await.unwrap();
+
+        set_pantry(&pool, "Rice", 30).await;
+        set_purchased(&pool, rice, false).await.unwrap();
+
+        assert_eq!(pantry_counts(&pool).await, [("Rice".to_string(), 0.into())]);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn ticking_twice_adds_once(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let rice = line_named(&pool, list.id, "Rice").await;
+
+        set_purchased(&pool, rice, true).await.unwrap();
+        set_purchased(&pool, rice, true).await.unwrap();
+
+        assert_eq!(
+            pantry_counts(&pool).await,
+            [("Rice".to_string(), 100.into())]
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn clearing_bought_leaves_the_pantry_counts_alone(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let rice = line_named(&pool, list.id, "Rice").await;
+        set_purchased(&pool, rice, true).await.unwrap();
+        set_pantry(&pool, "Rice", 55).await;
+
+        clear_bought(&pool, list.id).await.unwrap();
+
+        assert_eq!(
+            pantry_counts(&pool).await,
+            [("Rice".to_string(), 55.into())]
+        );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_rebuild_leaves_a_ticked_line_the_pantry_now_holds(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let rice = line_named(&pool, list.id, "Rice").await;
+        set_purchased(&pool, rice, true).await.unwrap();
+
+        generate_for_plan(&pool, f.plan_id).await.unwrap();
+
+        let after = lines(&pool, list.id).await.unwrap();
+        let line = after.iter().find(|line| line.id == rice).unwrap();
+        assert!(line.is_purchased && !line.is_covered);
+        assert_eq!(line.qty, Some(100.into()));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_unitless_ingredient_gets_a_line_with_no_unit(pool: PgPool) {
+        let household =
+            sqlx::query_scalar!("INSERT INTO household (name) VALUES ('Home') RETURNING id")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let eggs =
+            sqlx::query_scalar!("INSERT INTO ingredient (name) VALUES ('Eggs') RETURNING id")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let recipe = sqlx::query_scalar!(
+            "INSERT INTO recipe (title, difficulty, time_mins, servings) VALUES ('Omelette', 1, 10, 2) RETURNING id",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        sqlx::query_scalar!(
+            "INSERT INTO recipe_ingredient (recipe_id, ingredient_id, qty) VALUES ($1, $2, 3) RETURNING id",
+            recipe,
+            eggs,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        let plan = sqlx::query_scalar!(
+            "INSERT INTO meal_plan (household_id, start_date) VALUES ($1, '2026-11-02') RETURNING id",
+            household,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        sqlx::query_scalar!(
+            "INSERT INTO planned_meal (meal_plan_id, recipe_id, day_index, scheduled_date)
+             VALUES ($1, $2, 1, '2026-11-02')
+             RETURNING id",
+            plan,
+            recipe,
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let list = generate_for_plan(&pool, plan).await.unwrap();
+
+        let items = sqlx::query_scalar!(
+            "SELECT unit_id FROM shopping_list_item WHERE shopping_list_id = $1",
+            list.id,
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        assert_eq!(items, vec![None]);
+        let lines = lines(&pool, list.id).await.unwrap();
+        assert_eq!(names(&lines), vec!["Eggs"]);
+        assert_eq!(lines[0].unit, "");
     }
 }

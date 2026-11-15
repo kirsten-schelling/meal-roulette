@@ -47,7 +47,7 @@ pub async fn lines(
                COALESCE(ingredient.name, shopping_list_item.name) AS "ingredient!",
                shopping_list_item.qty, COALESCE(unit.name, '') AS "unit!", ingredient.purchase_size,
                CEIL(shopping_list_item.qty / ingredient.purchase_size)::int AS "packs?",
-               shopping_list_item.is_purchased, shopping_list_item.note,
+               shopping_list_item.is_purchased, shopping_list_item.is_covered, shopping_list_item.note,
                ARRAY(
                    SELECT recipe.title
                    FROM planned_meal
@@ -78,20 +78,89 @@ pub async fn lines(
     .await
 }
 
+/// Tick or untick a line. Ticking an ingredient line with an amount adds it to the
+/// household's pantry, as whole packs when the ingredient has a pack size, and records
+/// what was added; unticking takes back exactly that, never below 0. Ticking a ticked
+/// line, or a line the pantry covers, changes nothing.
 pub async fn set_purchased(
     pool: &PgPool,
     id: Uuid,
     is_purchased: bool,
 ) -> Result<ShoppingListItem, sqlx::Error> {
+    let _changed = if is_purchased {
+        sqlx::query_scalar!(
+            r#"
+            WITH ticked AS (
+                UPDATE shopping_list_item
+                SET is_purchased = true,
+                    pantry_added = (
+                        SELECT COALESCE(
+                                   CEIL(shopping_list_item.qty / ingredient.purchase_size) * ingredient.purchase_size,
+                                   shopping_list_item.qty
+                               )
+                        FROM ingredient
+                        WHERE ingredient.id = shopping_list_item.ingredient_id
+                    )
+                WHERE id = $1 AND NOT is_purchased AND NOT is_covered
+                RETURNING shopping_list_id, ingredient_id, pantry_added
+            ), stocked AS (
+                INSERT INTO pantry_item (household_id, ingredient_id, qty)
+                SELECT shopping_list.household_id, ticked.ingredient_id, ticked.pantry_added
+                FROM ticked
+                JOIN shopping_list ON shopping_list.id = ticked.shopping_list_id
+                WHERE ticked.pantry_added IS NOT NULL
+                ON CONFLICT ON CONSTRAINT uq_pantry_item
+                DO UPDATE SET qty = pantry_item.qty + EXCLUDED.qty
+                RETURNING id
+            )
+            SELECT id AS "id!" FROM stocked
+            "#,
+            id,
+        )
+        .fetch_all(pool)
+        .await?
+    } else {
+        sqlx::query_scalar!(
+            r#"
+            WITH unticked AS (
+                UPDATE shopping_list_item
+                SET is_purchased = false, pantry_added = NULL
+                FROM shopping_list_item AS before
+                WHERE shopping_list_item.id = $1
+                  AND before.id = shopping_list_item.id
+                  AND shopping_list_item.is_purchased
+                RETURNING shopping_list_item.shopping_list_id, shopping_list_item.ingredient_id,
+                          before.pantry_added
+            ), taken AS (
+                UPDATE pantry_item
+                SET qty = GREATEST(pantry_item.qty - unticked.pantry_added, 0)
+                FROM unticked
+                JOIN shopping_list ON shopping_list.id = unticked.shopping_list_id
+                WHERE pantry_item.household_id = shopping_list.household_id
+                  AND pantry_item.ingredient_id = unticked.ingredient_id
+                  AND unticked.pantry_added IS NOT NULL
+                RETURNING pantry_item.id
+            )
+            SELECT id AS "id!" FROM taken
+            "#,
+            id,
+        )
+        .fetch_all(pool)
+        .await?
+    };
+    get(pool, id).await
+}
+
+/// Put a line the pantry covers onto the list, at its full amount.
+pub async fn add_anyway(pool: &PgPool, id: Uuid) -> Result<ShoppingListItem, sqlx::Error> {
     sqlx::query_as!(
         ShoppingListItem,
         r#"
         UPDATE shopping_list_item
-        SET is_purchased = $1
-        WHERE id = $2
+        SET is_covered = false
+        WHERE id = $1 AND is_covered
         RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, name, created_at, updated_at
         "#,
-        is_purchased,
         id,
     )
     .fetch_one(pool)
@@ -141,7 +210,7 @@ pub async fn remove_custom(
 
 /// Clear every ticked line of a list and say how many went. Free-text lines are
 /// deleted; ingredient lines are hidden instead, so a rebuild from the plan does
-/// not bring them back.
+/// not bring them back. The pantry already took the purchase when the line was ticked.
 pub async fn clear_bought(pool: &PgPool, shopping_list_id: Uuid) -> Result<u64, sqlx::Error> {
     let mut tx = pool.begin().await?;
     let removed = sqlx::query_scalar!(

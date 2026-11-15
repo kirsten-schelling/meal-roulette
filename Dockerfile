@@ -5,7 +5,7 @@ RUN rustup target add wasm32-unknown-unknown \
 WORKDIR /src
 COPY . .
 ENV SQLX_OFFLINE=true
-RUN dx bundle --package web --web --release
+RUN MR_BUILD_ID=$(date -u +%Y%m%d-%H%M%S) dx bundle --package web --web --release
 
 FROM tailscale/tailscale:v1.104.4 AS tailscale
 

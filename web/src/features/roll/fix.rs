@@ -18,6 +18,8 @@ pub enum Fix {
     RollDays(u32),
     /// Open the add-recipe form, filled in from the rule that wants it.
     AddRecipe(Box<RecipeSeed>),
+    /// Clear every pin on the shown week and roll again.
+    UnpinAll,
 }
 
 impl Fix {
@@ -28,6 +30,7 @@ impl Fix {
             Fix::RollDays(1) => "Roll 1 dinner".to_string(),
             Fix::RollDays(days) => format!("Roll {days} dinners"),
             Fix::AddRecipe(_) => "Add a recipe".to_string(),
+            Fix::UnpinAll => "Unpin all".to_string(),
         }
     }
 }
@@ -42,7 +45,8 @@ pub struct UnmetNote {
 
 impl RollSettings {
     /// What to offer when a roll could not satisfy its required rules.
-    pub fn failure_fixes(&self) -> Vec<Fix> {
+    /// `pins_sent` is whether that roll held pinned dinners.
+    pub fn failure_fixes(&self, pins_sent: bool) -> Vec<Fix> {
         let must: Vec<(RuleFamily, usize)> = self
             .lines()
             .iter()
@@ -55,6 +59,9 @@ impl RollSettings {
         }
         fixes.extend(self.clear_caps());
         fixes.push(Fix::AddRecipe(Box::default()));
+        if pins_sent {
+            fixes.push(Fix::UnpinAll);
+        }
         fixes
     }
 
@@ -171,12 +178,26 @@ mod tests {
             ..RollSettings::default()
         };
         assert_eq!(
-            settings.failure_fixes(),
+            settings.failure_fixes(false),
             [
                 Fix::MakeNiceToHave(vec![(RuleFamily::Protein, 0)]),
                 Fix::AddRecipe(Box::default()),
             ]
         );
+    }
+
+    #[test]
+    fn a_failed_roll_offers_unpin_all_only_when_it_sent_pins() {
+        let settings = RollSettings::default();
+        assert_eq!(settings.failure_fixes(true).last(), Some(&Fix::UnpinAll));
+        assert!(!settings.failure_fixes(false).contains(&Fix::UnpinAll));
+    }
+
+    #[test]
+    fn a_shortage_never_offers_unpin_all() {
+        assert!(!RollSettings::default()
+            .shortage_fixes(3)
+            .contains(&Fix::UnpinAll));
     }
 
     #[test]
@@ -293,7 +314,7 @@ mod tests {
             ..RollSettings::default()
         };
         assert_eq!(
-            settings.failure_fixes()[0],
+            settings.failure_fixes(false)[0],
             Fix::MakeNiceToHave(vec![(RuleFamily::Tag, 0)])
         );
     }

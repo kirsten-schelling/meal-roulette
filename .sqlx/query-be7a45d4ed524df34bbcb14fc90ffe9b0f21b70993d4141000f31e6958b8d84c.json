@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, unit.name as unit, ingredient.unit_id, ingredient.created_at, ingredient.updated_at\n        FROM ingredient\n        JOIN unit ON ingredient.unit_id = unit.id\n        WHERE ingredient.id = $1\n    ",
+  "query": "\n        with new_ingredient as (\n            INSERT INTO ingredient (household_id, name, purchase_size, unit_id) VALUES ($1, $2, $3, $4) RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT new_ingredient.id, new_ingredient.household_id, new_ingredient.name, new_ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", new_ingredient.unit_id, new_ingredient.created_at, new_ingredient.updated_at\n        FROM new_ingredient\n        LEFT JOIN unit ON new_ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -49,14 +49,9 @@
       },
       {
         "ordinal": 4,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "unit",
-            "name": "name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
@@ -94,6 +89,9 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Text",
+        "Int4",
         "Uuid"
       ]
     },
@@ -102,11 +100,11 @@
       true,
       false,
       true,
-      false,
-      false,
+      null,
+      true,
       false,
       false
     ]
   },
-  "hash": "a9fdb18c78ef00bb9eb2fc73182f0b4cc95fd2f60fc475853d36d4b2cfe1e85a"
+  "hash": "be7a45d4ed524df34bbcb14fc90ffe9b0f21b70993d4141000f31e6958b8d84c"
 }

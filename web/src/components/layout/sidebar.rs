@@ -6,7 +6,7 @@
 //! `Link` handles the routing and adds `mr-nav__link--active` to whichever entry
 //! matches the current URL, so the active-page highlight is free.
 
-use crate::components::layout::ThemeToggle;
+use crate::components::layout::{ThemeToggle, VersionLine};
 use crate::components::ui::{BrandMark, Icon, IconName};
 use crate::router::Route;
 use dioxus::prelude::*;
@@ -32,7 +32,10 @@ pub fn Sidebar(primary: Vec<NavEntry>, manage: Vec<NavEntry>) -> Element {
                 div { class: "mr-nav__group", id: "mr-nav-manage", "Manage" }
                 NavLinks { entries: manage, quiet: true }
             }
-            div { class: "mr-sidebar__foot", ThemeToggle {} }
+            div { class: "mr-sidebar__foot",
+                ThemeToggle {}
+                VersionLine {}
+            }
         }
     }
 }

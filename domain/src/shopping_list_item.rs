@@ -38,6 +38,8 @@ pub struct ShoppingListLine {
     /// Whole packs of `purchase_size` needed to cover `qty`; `None` unless both are known.
     pub packs: Option<i32>,
     pub is_purchased: bool,
+    /// The pantry holds all of it: the line keeps its full amount but is not to buy.
+    pub is_covered: bool,
     pub note: Option<String>,
     /// Titles of the plan's recipes that call for it, in date order.
     pub used_in: Vec<String>,

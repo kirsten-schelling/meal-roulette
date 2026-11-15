@@ -1,5 +1,5 @@
 use crate::components::ui::{Badge, Tone};
-use crate::models::amount_label;
+use crate::models::{amount_label, measure_label};
 use dioxus::prelude::*;
 use domain::shopping_list_item::ShoppingListLine;
 
@@ -7,8 +7,8 @@ use domain::shopping_list_item::ShoppingListLine;
 /// and pack size are known.
 fn packs_label(line: &ShoppingListLine) -> String {
     match (line.packs, line.purchase_size) {
-        (Some(packs), Some(size)) => format!("{packs} x {size} {}", line.unit),
-        (None, Some(size)) => format!("{size} {} packs", line.unit),
+        (Some(packs), Some(size)) => format!("{packs} x {}", measure_label(size, &line.unit)),
+        (None, Some(size)) => format!("{} packs", measure_label(size, &line.unit)),
         (_, None) => "No pack size".to_string(),
     }
 }

@@ -19,13 +19,13 @@ pub async fn list_for_recipe(
             recipe_ingredient.recipe_id,
             recipe_ingredient.ingredient_id,
             ingredient.name AS ingredient_name,
-            unit.name AS unit,
+            COALESCE(unit.name, '') AS "unit!",
             recipe_ingredient.qty,
             recipe_ingredient.note,
             recipe_ingredient.is_optional
         FROM recipe_ingredient
         JOIN ingredient ON recipe_ingredient.ingredient_id = ingredient.id
-        JOIN unit ON ingredient.unit_id = unit.id
+        LEFT JOIN unit ON ingredient.unit_id = unit.id
         WHERE recipe_ingredient.recipe_id = $1
         ORDER BY recipe_ingredient.created_at
         "#,
@@ -51,13 +51,13 @@ pub async fn get(
             recipe_ingredient.recipe_id,
             recipe_ingredient.ingredient_id,
             ingredient.name AS ingredient_name,
-            unit.name AS unit,
+            COALESCE(unit.name, '') AS "unit!",
             recipe_ingredient.qty,
             recipe_ingredient.note,
             recipe_ingredient.is_optional
         FROM recipe_ingredient
         JOIN ingredient ON recipe_ingredient.ingredient_id = ingredient.id
-        JOIN unit ON ingredient.unit_id = unit.id
+        LEFT JOIN unit ON ingredient.unit_id = unit.id
         WHERE recipe_ingredient.recipe_id = $1 AND recipe_ingredient.ingredient_id = $2
         "#,
         recipe_id,
@@ -91,13 +91,13 @@ where
             inserted.recipe_id,
             inserted.ingredient_id,
             ingredient.name AS ingredient_name,
-            unit.name AS unit,
+            COALESCE(unit.name, '') AS "unit!",
             inserted.qty,
             inserted.note,
             inserted.is_optional
         FROM inserted
         JOIN ingredient ON inserted.ingredient_id = ingredient.id
-        JOIN unit ON ingredient.unit_id = unit.id
+        LEFT JOIN unit ON ingredient.unit_id = unit.id
         "#,
         recipe_id,
         new.ingredient_id,
@@ -134,13 +134,13 @@ pub async fn update(
             updated.recipe_id,
             updated.ingredient_id,
             ingredient.name AS ingredient_name,
-            unit.name AS unit,
+            COALESCE(unit.name, '') AS "unit!",
             updated.qty,
             updated.note,
             updated.is_optional
         FROM updated
         JOIN ingredient ON updated.ingredient_id = ingredient.id
-        JOIN unit ON ingredient.unit_id = unit.id
+        LEFT JOIN unit ON ingredient.unit_id = unit.id
         "#,
         recipe_id,
         ingredient_id,
@@ -202,13 +202,13 @@ where
             inserted.recipe_id,
             inserted.ingredient_id,
             ingredient.name AS ingredient_name,
-            unit.name AS unit,
+            COALESCE(unit.name, '') AS "unit!",
             inserted.qty,
             inserted.note,
             inserted.is_optional
         FROM inserted
         JOIN ingredient ON inserted.ingredient_id = ingredient.id
-        JOIN unit ON ingredient.unit_id = unit.id
+        LEFT JOIN unit ON ingredient.unit_id = unit.id
         "#,
         from_recipe,
         to_recipe,
@@ -237,13 +237,13 @@ pub async fn delete(
             deleted.recipe_id,
             deleted.ingredient_id,
             ingredient.name AS ingredient_name,
-            unit.name AS unit,
+            COALESCE(unit.name, '') AS "unit!",
             deleted.qty,
             deleted.note,
             deleted.is_optional
         FROM deleted
         JOIN ingredient ON deleted.ingredient_id = ingredient.id
-        JOIN unit ON ingredient.unit_id = unit.id
+        LEFT JOIN unit ON ingredient.unit_id = unit.id
         "#,
         recipe_id,
         ingredient_id,

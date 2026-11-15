@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT\n            recipe_ingredient.id,\n            recipe_ingredient.created_at,\n            recipe_ingredient.updated_at,\n            recipe_ingredient.recipe_id,\n            recipe_ingredient.ingredient_id,\n            ingredient.name AS ingredient_name,\n            unit.name AS unit,\n            recipe_ingredient.qty,\n            recipe_ingredient.note,\n            recipe_ingredient.is_optional\n        FROM recipe_ingredient\n        JOIN ingredient ON recipe_ingredient.ingredient_id = ingredient.id\n        JOIN unit ON ingredient.unit_id = unit.id\n        WHERE recipe_ingredient.recipe_id = $1 AND recipe_ingredient.ingredient_id = $2\n        ",
+  "query": "\n        WITH inserted AS (\n            INSERT INTO recipe_ingredient (recipe_id, ingredient_id, qty, note, is_optional)\n            SELECT $2, ingredient_id, qty, note, is_optional\n            FROM recipe_ingredient\n            WHERE recipe_id = $1\n            RETURNING id, created_at, updated_at, recipe_id, ingredient_id, qty, note, is_optional\n        )\n        SELECT\n            inserted.id,\n            inserted.created_at,\n            inserted.updated_at,\n            inserted.recipe_id,\n            inserted.ingredient_id,\n            ingredient.name AS ingredient_name,\n            COALESCE(unit.name, '') AS \"unit!\",\n            inserted.qty,\n            inserted.note,\n            inserted.is_optional\n        FROM inserted\n        JOIN ingredient ON inserted.ingredient_id = ingredient.id\n        LEFT JOIN unit ON ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -71,14 +71,9 @@
       },
       {
         "ordinal": 6,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "unit",
-            "name": "name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 7,
@@ -127,11 +122,11 @@
       false,
       false,
       false,
-      false,
+      null,
       true,
       true,
       false
     ]
   },
-  "hash": "7c61add11e2eb965072b2bb5a27d2a89272d4dc3fd4b44e7951c85692dcd16ce"
+  "hash": "68a3ecca5d7625668090aee81e5e03209c3107a608f82de0bdb96a804934f758"
 }
