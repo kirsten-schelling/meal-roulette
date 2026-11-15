@@ -22,14 +22,15 @@ the single-day re-roll. Stretch surface: ESP32 kitchen screen.
   dinners on an unsaved roll so rolling again keeps them; roll presets (one default per
   household); shopping-list generation, check-off, free-text items and clearing bought lines;
   sleep for N weeks and wake; plan history (favourite, archive, delete); cooking log (mark a
-  planned dinner cooked on Home, log an unplanned cook, see the log at `/cooking-log`); Library
-  page with the manage-lists dialog and the housekeeping card on Home; recipe create, edit in
-  place, copy and import from a link; ingredients with or without a unit; toasts; an
-  installable web app that offers a reload when a new version is out.
+  planned dinner cooked on Home, log an unplanned cook, see the log at `/cooking-log`);
+  per-recipe minimum and maximum gaps between cooks; Library page with the manage-lists dialog
+  and the housekeeping card on Home; recipe create, edit in place, copy and import from a link;
+  ingredients with or without a unit; toasts; an installable web app that offers a reload when
+  a new version is out.
 - Partial: constraint-conflict prompts (see §1).
 - Not built: pinning on a saved plan (`planned_meal.is_pinned` exists, but nothing sets it: a
-  saved plan has no whole-week re-roll for a pin to survive); the roller does not use recency
-  from the cooking log.
+  saved plan has no whole-week re-roll for a pin to survive); recency weighting: the roller
+  reads the cooking log only for the minimum and maximum gaps.
 
 Core sub-features:
 
@@ -119,7 +120,7 @@ The individual features get much more powerful when they close into loops:
 - **Min/max cook interval**: **[Own]** M. Per-recipe **minimum gap** ("don't repeat within
   N weeks") and **maximum gap** ("cook at least every M weeks"), on top of the recency
   weighting. Default to friendly presets (e.g. _rarely / sometimes / often_), with an
-  **advanced setting** to specify exact weeks per recipe.
+  **advanced setting** to specify exact weeks per recipe. _Status: built._
 - **Busy-day / calendar awareness**: **[Own→Fiddly]** M. "Eating out
   Friday" → roll 6 days not 7; optional Google Calendar push of the plan.
 - **Budget as a constraint**: **[Own→External]** M. Keep the week under $X. Works today with
@@ -146,7 +147,7 @@ The individual features get much more powerful when they close into loops:
   choices** instead of silently failing: cook it anyway, add a new recipe, or pick a
   different existing one. _Status: partial. When the rules conflict or leave too few recipes,
   the Roll page offers fixes: turn off Must, remove the every-dinner caps, roll fewer dinners,
-  or add a recipe. "Cook it anyway" waits on the min interval._
+  or add a recipe. "Cook it anyway" is not built._
 
 ### 2 · Recipes & data entry
 
