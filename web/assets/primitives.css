@@ -1443,6 +1443,15 @@ button.mr-chip--active::before {
 .mr-cooklog__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
 .mr-cooklog__meta { color: var(--mr-text-muted); font-size: .85rem; }
 
+/* pantry: one count per row, the field sized for a thumb */
+.mr-pantry__row {
+  display: flex; align-items: center; gap: .75rem;
+  padding: .45rem 0; border-bottom: 1px solid var(--mr-border);
+}
+.mr-pantry__row:last-child { border-bottom: none; }
+.mr-pantry__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.mr-pantry__count { width: 6rem; }
+
 /* plan page: the "put on days" card, and the drop target on a day card */
 .mr-schedule { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .6rem; margin-bottom: .5rem; }
 .mr-schedule__field { width: 12rem; }

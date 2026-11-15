@@ -4,6 +4,7 @@ pub mod history;
 pub mod housekeeping;
 pub mod ingredient;
 pub mod library;
+pub mod pantry;
 pub mod plan;
 pub mod protein;
 pub mod recipe;

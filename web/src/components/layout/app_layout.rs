@@ -45,6 +45,11 @@ fn primary_entries() -> Vec<NavEntry> {
             to: Route::ShoppingList {},
         },
         NavEntry {
+            icon: IconName::Archive,
+            label: "Pantry",
+            to: Route::Pantry {},
+        },
+        NavEntry {
             icon: IconName::History,
             label: "Cooking Log",
             to: Route::CookingLog {},

@@ -7,6 +7,7 @@ pub mod housekeeping;
 pub mod ingredient;
 pub mod ingredient_alias;
 pub mod meal_plan;
+pub mod pantry;
 pub mod planned_meal;
 pub mod protein;
 pub mod recipe;

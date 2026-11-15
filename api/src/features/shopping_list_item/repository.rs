@@ -139,11 +139,36 @@ pub async fn remove_custom(
     .await
 }
 
-/// Clear every ticked line of a list and say how many went. Free-text lines are
+/// Clear every ticked line of a list and say how many went. Clearing is the moment a
+/// purchase is confirmed: each ticked ingredient line with an amount is added to the
+/// pantry, as whole packs when the ingredient has a pack size. Free-text lines are
 /// deleted; ingredient lines are hidden instead, so a rebuild from the plan does
 /// not bring them back.
 pub async fn clear_bought(pool: &PgPool, shopping_list_id: Uuid) -> Result<u64, sqlx::Error> {
     let mut tx = pool.begin().await?;
+    let _stocked = sqlx::query_scalar!(
+        r#"
+        INSERT INTO pantry_item (household_id, ingredient_id, qty)
+        SELECT shopping_list.household_id, shopping_list_item.ingredient_id,
+               COALESCE(
+                   CEIL(shopping_list_item.qty / ingredient.purchase_size) * ingredient.purchase_size,
+                   shopping_list_item.qty
+               )
+        FROM shopping_list_item
+        JOIN shopping_list ON shopping_list.id = shopping_list_item.shopping_list_id
+        JOIN ingredient ON ingredient.id = shopping_list_item.ingredient_id
+        WHERE shopping_list_item.shopping_list_id = $1
+          AND shopping_list_item.is_purchased
+          AND NOT shopping_list_item.is_cleared
+          AND shopping_list_item.qty IS NOT NULL
+        ON CONFLICT ON CONSTRAINT uq_pantry_item
+        DO UPDATE SET qty = pantry_item.qty + EXCLUDED.qty
+        RETURNING id
+        "#,
+        shopping_list_id,
+    )
+    .fetch_all(&mut *tx)
+    .await?;
     let removed = sqlx::query_scalar!(
         r#"
         DELETE FROM shopping_list_item

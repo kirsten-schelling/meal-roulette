@@ -11,6 +11,7 @@ use crate::components::layout::AppLayout;
 use crate::features::cook_log::page::CookingLog;
 use crate::features::history::page::History;
 use crate::features::library::page::Library;
+use crate::features::pantry::page::Pantry;
 use crate::features::plan::page::{PlanDetail, PlannedMeals};
 use crate::features::recipe::detail_page::RecipePage;
 use crate::features::recipe::page::Recipes;
@@ -38,6 +39,8 @@ pub enum Route {
     ShoppingList {},
     #[route("/shopping-list/:plan_id")]
     PlanShoppingList { plan_id: Uuid },
+    #[route("/pantry")]
+    Pantry {},
     #[route("/cooking-log")]
     CookingLog {},
     #[route("/planned-meals")]

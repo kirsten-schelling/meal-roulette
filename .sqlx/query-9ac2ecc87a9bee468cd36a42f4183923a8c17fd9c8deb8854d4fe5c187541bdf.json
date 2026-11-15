@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO shopping_list_item (shopping_list_id, ingredient_id, unit_id, qty, note)\n        SELECT $1::uuid, needed.ingredient_id, ingredient.unit_id,\n               needed.qty - COALESCE(pantry_item.qty, 0),\n               CASE WHEN needed.all_optional THEN 'optional' END\n        FROM (\n            SELECT recipe_ingredient.ingredient_id,\n                   SUM(recipe_ingredient.qty) AS qty,\n                   BOOL_AND(recipe_ingredient.is_optional) AS all_optional\n            FROM planned_meal\n            JOIN recipe_ingredient ON recipe_ingredient.recipe_id = planned_meal.recipe_id\n            WHERE planned_meal.meal_plan_id = $2\n            GROUP BY recipe_ingredient.ingredient_id\n        ) AS needed\n        JOIN ingredient ON ingredient.id = needed.ingredient_id\n        LEFT JOIN pantry_item\n               ON pantry_item.household_id = $3\n              AND pantry_item.ingredient_id = needed.ingredient_id\n        WHERE needed.qty IS NULL OR needed.qty > COALESCE(pantry_item.qty, 0)\n        ON CONFLICT ON CONSTRAINT uq_shopping_list_item\n        DO UPDATE SET unit_id = EXCLUDED.unit_id,\n                      qty = EXCLUDED.qty,\n                      note = EXCLUDED.note\n        RETURNING ingredient_id AS \"ingredient_id!\"\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ingredient_id!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "ingredient_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "9ac2ecc87a9bee468cd36a42f4183923a8c17fd9c8deb8854d4fe5c187541bdf"
+}
