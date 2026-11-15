@@ -38,8 +38,32 @@ pub fn AddCustomItem(busy: bool, on_add: EventHandler<String>) -> Element {
                 size: Size::Md,
                 loading: busy,
                 disabled: empty,
+                submit: true,
                 "Add"
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn add_button_submits_the_form() {
+        #[component]
+        fn Harness() -> Element {
+            rsx! {
+                AddCustomItem { busy: false, on_add: |_| {} }
+            }
+        }
+
+        let mut dom = VirtualDom::new(Harness);
+        dom.rebuild_in_place();
+        let html = dioxus_ssr::render(&dom);
+
+        let button = &html[html.find("<button").expect("the form renders a button")..];
+        let button = &button[..button.find('>').unwrap()];
+        assert!(button.contains(r#"type="submit""#), "{button}");
     }
 }
