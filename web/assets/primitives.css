@@ -1910,6 +1910,9 @@ button.mr-chip--active::before {
 }
 @media (hover: hover) { .mr-pick__row:hover { background: var(--mr-hover); } }
 .mr-result__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
+.mr-result__tools { display: flex; align-items: center; gap: .25rem; }
+.mr-result__row--pinned { border-color: var(--mr-accent-soft-border); }
+.mr-pin--on, .mr-pin--on:hover { color: var(--mr-accent-text); background: var(--mr-accent-soft); }
 @media (prefers-reduced-motion: reduce) { .mr-result__row { animation: none; } }
 
 @media (max-width: 720px) {

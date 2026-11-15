@@ -5,8 +5,8 @@ use domain::planned_meal::{NewPlannedMeal, PlannedMealDetail};
 use domain::recipe::{Recipe, RecipeOverview};
 use domain::roll::{
     Bound, CountRule, DayLimitPlan, DifficultyRule, FitCount, FitRequest, Importance,
-    KeepRollRequest, PreviewMeal, RerollPreview, RerollPreviewRequest, RollConstraints,
-    RollOutcome, RollPreview, RollRequest, RuleFamily, UnmetRule,
+    KeepRollRequest, PinnedDinner, PreviewMeal, RerollPreview, RerollPreviewRequest,
+    RollConstraints, RollOutcome, RollPreview, RollRequest, RuleFamily, UnmetRule,
 };
 use solver::{Problem, Requirement, SlotLimit, SolveError};
 use sqlx::PgPool;
@@ -67,30 +67,87 @@ async fn solve(pool: &PgPool, request: &RollRequest) -> Result<Rolled, AppError>
     let recipes = recipe::repository::list(pool).await?;
     let grid = Grid::build(pool, &recipes, &request.constraints).await?;
     let seed = request.seed.unwrap_or_else(fresh_seed);
-    let slot_limits = request
-        .constraints
-        .day_limits
-        .as_ref()
-        .map(|plan| {
-            (0..num_days)
-                .flat_map(|day| slot_limits_for(plan, day))
-                .collect()
-        })
-        .unwrap_or_default();
-    let solution = run_solver(Problem {
-        recipes: grid.rows.clone(),
-        requirements: grid.requirements(),
-        slot_limits,
-        num_to_pick: num_days,
-        seed: seed as u64,
-    })
-    .await?;
+    let pinned = pinned_days(&recipes, &request.pinned, num_days)?;
+    let open_days: Vec<usize> = (0..num_days)
+        .filter(|day| !pinned.contains_key(day))
+        .collect();
+    let pinned_rows: Vec<&Vec<i32>> = pinned.values().map(|&i| &grid.rows[i]).collect();
+    if pins_exceed_a_required_maximum(&grid.requirements(), &pinned_rows) {
+        return Err(suggest_unpinning(
+            solver_error(SolveError::Unsatisfiable),
+            &request.pinned,
+        ));
+    }
+    let kept: HashSet<Uuid> = pinned.values().map(|&i| recipes[i].id).collect();
+    let mut open = pick_open_days(
+        &grid,
+        &recipes,
+        &kept,
+        None,
+        request.constraints.day_limits.as_ref(),
+        &open_days,
+        seed as u64,
+    )
+    .await
+    .map_err(|error| suggest_unpinning(error, &request.pinned))?
+    .into_iter();
+    let picks = (0..num_days)
+        .filter_map(|day| pinned.get(&day).copied().or_else(|| open.next()))
+        .collect();
     Ok(Rolled {
         recipes,
         grid,
         seed,
-        picks: solution.picks,
+        picks,
     })
+}
+
+/// Whether the pinned dinners alone already match a required at-most or exactly
+/// rule more often than it allows, which no choice for the open days can undo.
+fn pins_exceed_a_required_maximum(requirements: &[Requirement], pinned: &[&Vec<i32>]) -> bool {
+    requirements
+        .iter()
+        .filter(|r| r.importance == solver::Importance::Required)
+        .any(|r| {
+            let matched = pinned.iter().filter(|row| r.matches(row)).count();
+            r.at_most
+                .is_some_and(|max| u32::try_from(matched).unwrap_or(u32::MAX) > max)
+        })
+}
+
+/// The pinned dinners as day to index into `recipes`, each checked against the roll.
+fn pinned_days(
+    recipes: &[Recipe],
+    pinned: &[PinnedDinner],
+    num_days: usize,
+) -> Result<HashMap<usize, usize>, AppError> {
+    let position: HashMap<Uuid, usize> =
+        recipes.iter().enumerate().map(|(i, r)| (r.id, i)).collect();
+    let mut days = HashMap::new();
+    for pin in pinned {
+        let day = usize::from(pin.day);
+        if day >= num_days {
+            return Err(AppError::BadRequest(
+                "A pinned dinner is on a day past the end of the roll.".to_string(),
+            ));
+        }
+        let Some(&index) = position.get(&pin.recipe_id) else {
+            return Err(AppError::BadRequest(
+                "A pinned recipe no longer exists. Unpin it and roll again.".to_string(),
+            ));
+        };
+        if days.values().any(|&taken| taken == index) {
+            return Err(AppError::BadRequest(
+                "A recipe can only be in a roll once.".to_string(),
+            ));
+        }
+        if days.insert(day, index).is_some() {
+            return Err(AppError::BadRequest(
+                "Two dinners are pinned to the same day.".to_string(),
+            ));
+        }
+    }
+    Ok(days)
 }
 
 async fn household_or_default(pool: &PgPool, id: Option<Uuid>) -> Result<Uuid, AppError> {
@@ -226,18 +283,45 @@ pub async fn keep_roll(
     .await
 }
 
-/// The recipe to put on `day` in place of `replaced` while `kept` stay: the
-/// pool excludes every recipe already in the roll, and only the part of each
-/// rule the kept days leave open is asked of the new pick. Returns an index into
-/// `recipes`.
-async fn pick_replacement(
+/// A recipe for each of `open_days` while the `kept` recipes stay on the other
+/// days, as indexes into `recipes` in the order of `open_days`. `replaced` is
+/// left out of the pool too, so a re-rolled day gets a different dinner.
+async fn pick_open_days(
     grid: &Grid,
     recipes: &[Recipe],
     kept: &HashSet<Uuid>,
-    replaced: Uuid,
+    replaced: Option<Uuid>,
     day_limits: Option<&DayLimitPlan>,
-    day: usize,
-) -> Result<usize, AppError> {
+    open_days: &[usize],
+    seed: u64,
+) -> Result<Vec<usize>, AppError> {
+    if open_days.is_empty() {
+        return Ok(Vec::new());
+    }
+    let (problem, candidates) =
+        open_problem(grid, recipes, kept, replaced, day_limits, open_days, seed);
+    let solution = run_solver(problem).await?;
+    Ok(solution
+        .picks
+        .iter()
+        .map(|&pick| candidates[pick])
+        .collect())
+}
+
+/// The solver's problem for the open days, and each of its rows' index into
+/// `recipes`. The pool leaves out every kept recipe, only the part of each rule
+/// the kept recipes leave open is asked of the picks, and the solver's slots
+/// are the open days in order. With nothing kept or replaced it is the plain
+/// roll, so a seed repeats the same week.
+fn open_problem(
+    grid: &Grid,
+    recipes: &[Recipe],
+    kept: &HashSet<Uuid>,
+    replaced: Option<Uuid>,
+    day_limits: Option<&DayLimitPlan>,
+    open_days: &[usize],
+    seed: u64,
+) -> (Problem, Vec<usize>) {
     let kept_rows: Vec<&Vec<i32>> = recipes
         .iter()
         .zip(&grid.rows)
@@ -247,21 +331,19 @@ async fn pick_replacement(
     let candidates: Vec<usize> = recipes
         .iter()
         .enumerate()
-        .filter(|(_, r)| !kept.contains(&r.id) && r.id != replaced)
+        .filter(|(_, r)| !kept.contains(&r.id) && Some(r.id) != replaced)
         .map(|(i, _)| i)
         .collect();
-
-    let solution = run_solver(Problem {
+    let problem = Problem {
         recipes: candidates.iter().map(|&i| grid.rows[i].clone()).collect(),
         requirements: residual(&grid.requirements(), &kept_rows),
         slot_limits: day_limits
-            .map(|limits| reroll_slot_limits(limits, day))
+            .map(|plan| open_slot_limits(plan, open_days))
             .unwrap_or_default(),
-        num_to_pick: 1,
-        seed: fresh_seed() as u64,
-    })
-    .await?;
-    Ok(candidates[solution.picks[0]])
+        num_to_pick: open_days.len(),
+        seed,
+    };
+    (problem, candidates)
 }
 
 /// Replace one dinner with a fresh pick that keeps the rest of the plan valid:
@@ -281,15 +363,16 @@ pub async fn reroll(pool: &PgPool, planned_meal_id: Uuid) -> Result<PlannedMealD
     let recipes = recipe::repository::list(pool).await?;
     let grid = Grid::build(pool, &recipes, &plan.constraints).await?;
     let day = usize::try_from(meal.day_index - 1).unwrap_or(0);
-    let replacement = pick_replacement(
+    let replacement = pick_open_days(
         &grid,
         &recipes,
         &kept,
-        meal.recipe_id,
+        Some(meal.recipe_id),
         plan.constraints.day_limits.as_ref(),
-        day,
+        &[day],
+        fresh_seed() as u64,
     )
-    .await?;
+    .await?[0];
     Ok(planned_meal::repository::set_recipe(pool, meal.id, recipes[replacement].id).await?)
 }
 
@@ -313,15 +396,16 @@ pub async fn reroll_preview(
         .collect();
     let recipes = recipe::repository::list(pool).await?;
     let grid = Grid::build(pool, &recipes, &request.constraints).await?;
-    let replacement = pick_replacement(
+    let replacement = pick_open_days(
         &grid,
         &recipes,
         &kept,
-        replaced,
+        Some(replaced),
         request.constraints.day_limits.as_ref(),
-        day,
+        &[day],
+        fresh_seed() as u64,
     )
-    .await?;
+    .await?[0];
 
     let position: HashMap<Uuid, usize> =
         recipes.iter().enumerate().map(|(i, r)| (r.id, i)).collect();
@@ -402,12 +486,17 @@ fn check_day_limits(plan: Option<&DayLimitPlan>) -> Result<(), AppError> {
     ))
 }
 
-/// Limits for re-rolling plan day `day`: the solver is asked for a single pick,
-/// so its one open slot is always slot 0.
-fn reroll_slot_limits(plan: &DayLimitPlan, day: usize) -> Vec<SlotLimit> {
-    slot_limits_for(plan, day)
-        .into_iter()
-        .map(|l| SlotLimit { day: 0, ..l })
+/// The limits of each open day, on the solver slot that day fills: the solver
+/// numbers its slots 0.. in the order of `open_days`.
+fn open_slot_limits(plan: &DayLimitPlan, open_days: &[usize]) -> Vec<SlotLimit> {
+    open_days
+        .iter()
+        .enumerate()
+        .flat_map(|(slot, &day)| {
+            slot_limits_for(plan, day)
+                .into_iter()
+                .map(move |l| SlotLimit { day: slot, ..l })
+        })
         .collect()
 }
 
@@ -678,6 +767,15 @@ impl Codes {
 /// type back in to repeat a roll.
 fn fresh_seed() -> i64 {
     i64::from(rand::random::<u32>())
+}
+
+fn suggest_unpinning(error: AppError, pinned: &[PinnedDinner]) -> AppError {
+    match error {
+        AppError::Unprocessable(message) if !pinned.is_empty() => {
+            AppError::Unprocessable(format!("{message} Or unpin a dinner."))
+        }
+        other => other,
+    }
 }
 
 fn solver_error(error: SolveError) -> AppError {
@@ -1084,7 +1182,7 @@ mod tests {
             let solution = solver::roll(&Problem {
                 recipes: grid.rows.clone(),
                 requirements: grid.requirements(),
-                slot_limits: reroll_slot_limits(&plan, 5),
+                slot_limits: open_slot_limits(&plan, &[5]),
                 num_to_pick: 1,
                 seed,
             })
@@ -1203,6 +1301,253 @@ mod tests {
             fitting_rows(&grid.rows, &requirements, Some(&hard_day), 2),
             1
         );
+    }
+
+    #[test]
+    fn pinned_dinners_count_toward_the_rules_and_are_not_picked_again() {
+        let (thai, italian, chicken, beef) = (
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+            Uuid::now_v7(),
+        );
+        let recipes = vec![
+            recipe(thai, chicken, 2),
+            recipe(thai, chicken, 3),
+            recipe(thai, beef, 2),
+            recipe(italian, chicken, 1),
+            recipe(italian, beef, 4),
+            recipe(italian, beef, 3),
+            recipe(thai, beef, 5),
+        ];
+        let constraints = RollConstraints {
+            cuisines: vec![rule(thai, 2, Bound::AtLeast, Importance::Required)],
+            proteins: vec![rule(chicken, 1, Bound::AtMost, Importance::Required)],
+            ..RollConstraints::default()
+        };
+        let grid = Grid::new(&recipes, &HashSet::new(), &HashSet::new(), &constraints);
+        let pinned = recipes[0].id;
+        let kept: HashSet<Uuid> = [pinned].into_iter().collect();
+        for seed in 0..30 {
+            let (problem, candidates) =
+                open_problem(&grid, &recipes, &kept, None, None, &[0, 2, 3], seed);
+            let solution = solver::roll(&problem).expect("the rules fit around the pin");
+            let open: Vec<&Recipe> = solution
+                .picks
+                .iter()
+                .map(|&pick| &recipes[candidates[pick]])
+                .collect();
+            assert!(open.iter().all(|r| r.id != pinned), "seed {seed}");
+            assert!(
+                open.iter().all(|r| r.main_protein_id != Some(chicken)),
+                "seed {seed}"
+            );
+            assert!(
+                open.iter().any(|r| r.cuisine_id == Some(thai)),
+                "seed {seed}"
+            );
+        }
+    }
+
+    #[test]
+    fn with_nothing_kept_the_open_problem_is_the_plain_roll() {
+        let recipes: Vec<Recipe> = (0..6).map(|n| timed(1 + n % 5, 20 + n)).collect();
+        let grid = Grid::new(
+            &recipes,
+            &HashSet::new(),
+            &HashSet::new(),
+            &RollConstraints::default(),
+        );
+        let plan = limit_plan();
+        let (problem, candidates) = open_problem(
+            &grid,
+            &recipes,
+            &HashSet::new(),
+            None,
+            Some(&plan),
+            &[0, 1, 2, 3],
+            7,
+        );
+        assert_eq!(candidates, (0..6).collect::<Vec<_>>());
+        assert_eq!(
+            problem,
+            Problem {
+                recipes: grid.rows.clone(),
+                requirements: grid.requirements(),
+                slot_limits: (0..4).flat_map(|d| slot_limits_for(&plan, d)).collect(),
+                num_to_pick: 4,
+                seed: 7,
+            }
+        );
+    }
+
+    #[test]
+    fn an_open_day_after_a_pinned_one_keeps_its_own_limits() {
+        let limits = open_slot_limits(&limit_plan(), &[0, 2, 5]);
+        assert!(limits.iter().all(|l| l.day < 3));
+        assert!(limits
+            .iter()
+            .any(|l| l.day == 2 && l.attribute == DIFFICULTY && l.low == 3));
+        assert!(limits
+            .iter()
+            .any(|l| l.day == 1 && l.attribute == DIFFICULTY && l.low == 1));
+    }
+
+    #[tokio::test]
+    async fn a_week_with_every_day_pinned_needs_no_solver() {
+        let recipes = vec![timed(1, 20), timed(2, 30)];
+        let grid = Grid::new(
+            &recipes,
+            &HashSet::new(),
+            &HashSet::new(),
+            &RollConstraints::default(),
+        );
+        let kept: HashSet<Uuid> = recipes.iter().map(|r| r.id).collect();
+        let picks = pick_open_days(&grid, &recipes, &kept, None, None, &[], 1)
+            .await
+            .expect("nothing to pick");
+        assert!(picks.is_empty());
+    }
+
+    #[test]
+    fn pins_must_fit_the_roll() {
+        let recipes = vec![timed(1, 20), timed(2, 30)];
+        let pin = |day: u16, recipe_id: Uuid| PinnedDinner { day, recipe_id };
+        let ok = pinned_days(&recipes, &[pin(2, recipes[1].id)], 3).expect("valid pin");
+        assert_eq!(ok.get(&2), Some(&1));
+        let rejected = [
+            vec![pin(3, recipes[0].id)],
+            vec![pin(0, Uuid::now_v7())],
+            vec![pin(0, recipes[0].id), pin(1, recipes[0].id)],
+            vec![pin(0, recipes[0].id), pin(0, recipes[1].id)],
+        ];
+        for pins in rejected {
+            assert!(
+                matches!(
+                    pinned_days(&recipes, &pins, 3),
+                    Err(AppError::BadRequest(_))
+                ),
+                "{pins:?}"
+            );
+        }
+    }
+
+    async fn stored_recipe(pool: &PgPool, title: &str) -> Uuid {
+        recipe::repository::create(
+            pool,
+            domain::recipe::InsertRecipe {
+                household_id: None,
+                title: title.to_string(),
+                difficulty: 2,
+                time_mins: 20,
+                servings: 2,
+                healthiness: None,
+                main_protein_id: None,
+                cuisine_id: None,
+            },
+        )
+        .await
+        .expect("recipe stored")
+        .id
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_roll_keeps_each_pinned_dinner_on_its_day(pool: PgPool) {
+        let mut ids = Vec::new();
+        for n in 0..8 {
+            ids.push(stored_recipe(&pool, &format!("Dinner {n}")).await);
+        }
+        let request = |pinned: Vec<PinnedDinner>, seed: i64| RollRequest {
+            household_id: None,
+            start_date: None,
+            num_days: 4,
+            seed: Some(seed),
+            constraints: RollConstraints::default(),
+            pinned,
+        };
+        for seed in 0..10 {
+            let pinned = vec![PinnedDinner {
+                day: 2,
+                recipe_id: ids[0],
+            }];
+            let preview = preview_roll(&pool, request(pinned, seed))
+                .await
+                .expect("rolls");
+            let week: Vec<Uuid> = preview.meals.iter().map(|m| m.recipe_id).collect();
+            assert_eq!(week[2], ids[0], "seed {seed}");
+            assert_eq!(week.iter().collect::<HashSet<_>>().len(), 4, "seed {seed}");
+        }
+        let every_day: Vec<PinnedDinner> = (0..4)
+            .map(|day| PinnedDinner {
+                day,
+                recipe_id: ids[usize::from(day) + 3],
+            })
+            .collect();
+        let preview = preview_roll(&pool, request(every_day, 1))
+            .await
+            .expect("rolls");
+        let week: Vec<Uuid> = preview.meals.iter().map(|m| m.recipe_id).collect();
+        assert_eq!(week, ids[3..7]);
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn an_unsolvable_roll_suggests_unpinning_only_when_dinners_are_pinned(pool: PgPool) {
+        let first = stored_recipe(&pool, "Dinner 0").await;
+        stored_recipe(&pool, "Dinner 1").await;
+        let request = |pinned: Vec<PinnedDinner>| RollRequest {
+            household_id: None,
+            start_date: None,
+            num_days: 3,
+            seed: Some(1),
+            constraints: RollConstraints::default(),
+            pinned,
+        };
+        let message = |result: Result<_, AppError>| match result {
+            Err(AppError::Unprocessable(message)) => message,
+            _ => panic!("expected an unprocessable roll"),
+        };
+        let pinned = vec![PinnedDinner {
+            day: 0,
+            recipe_id: first,
+        }];
+        assert!(message(preview_roll(&pool, request(pinned)).await).contains("unpin a dinner"));
+        assert!(!message(preview_roll(&pool, request(Vec::new())).await).contains("unpin"));
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn pins_alone_over_a_required_maximum_fail_the_roll_but_not_a_preference(pool: PgPool) {
+        let mut ids = Vec::new();
+        for n in 0..4 {
+            ids.push(stored_recipe(&pool, &format!("Dinner {n}")).await);
+        }
+        let request = |importance: Importance| RollRequest {
+            household_id: None,
+            start_date: None,
+            num_days: 3,
+            seed: Some(1),
+            constraints: RollConstraints {
+                difficulties: vec![DifficultyRule {
+                    band: DifficultyBand::Easy,
+                    times: 1,
+                    bound: Bound::AtMost,
+                    importance,
+                }],
+                ..RollConstraints::default()
+            },
+            pinned: (0..2)
+                .map(|day| PinnedDinner {
+                    day,
+                    recipe_id: ids[usize::from(day)],
+                })
+                .collect(),
+        };
+        match preview_roll(&pool, request(Importance::Required)).await {
+            Err(AppError::Unprocessable(message)) => assert!(message.contains("unpin a dinner")),
+            _ => panic!("expected an unprocessable roll"),
+        }
+        assert!(preview_roll(&pool, request(Importance::Medium))
+            .await
+            .is_ok());
     }
 
     #[test]

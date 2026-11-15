@@ -20,14 +20,16 @@ the single-day re-roll. Stretch surface: ESP32 kitchen screen.
 
 - Built: roll a week (`/roll`) under week-level rules (cuisine, protein, must-use ingredient and
   difficulty-band counts, each Required or a High / Medium / Low preference), with unmet
-  preferences reported back; seeded rolls; re-roll a day; swap a day for a chosen recipe; roll
-  presets (one default per household); shopping-list generation and check-off; sleep for N
-  weeks and wake; plan history (favourite, archive, delete); Library page with the manage-lists
-  dialog; recipe create, edit in place and copy; toasts.
+  preferences reported back; seeded rolls; re-roll a day; swap a day for a chosen recipe; pin
+  dinners on an unsaved roll so rolling again keeps them; roll presets (one default per
+  household); shopping-list generation and check-off; sleep for N weeks and wake; plan history
+  (favourite, archive, delete); Library page with the manage-lists dialog; recipe create, edit
+  in place and copy; toasts.
 - Partial: constraint-conflict prompts (see §1).
-- Not built: pin (`planned_meal.is_pinned` exists, but nothing sets it and there is no UI);
-  cooking log (`/cooking-log` is a placeholder page; `cook_log` has REST CRUD only, nothing
-  writes to it from the app, and the roller does not use recency).
+- Not built: pinning on a saved plan (`planned_meal.is_pinned` exists, but nothing sets it:
+  a saved plan has no whole-week re-roll for a pin to survive); cooking log (`/cooking-log` is
+  a placeholder page; `cook_log` has REST CRUD only, nothing writes to it from the app, and the
+  roller does not use recency).
 
 Core sub-features:
 

@@ -21,6 +21,7 @@ pub enum IconName {
     Edit,
     History,
     Menu,
+    Pin,
     Plus,
     Replace,
     Star,
@@ -70,6 +71,9 @@ impl IconName {
             }
             IconName::History => "M12 8l0 4l2 2 M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5",
             IconName::Menu => "M4 6l16 0 M4 12l16 0 M4 18l16 0",
+            IconName::Pin => {
+                "M15 4.5l-4 4l-4 1.5l-1.5 1.5l7 7l1.5 -1.5l1.5 -4l4 -4 M9 15l-4.5 4.5 M14.5 4l5.5 5.5"
+            }
             IconName::Plus => "M12 5l0 14 M5 12l14 0",
             IconName::Replace => {
                 "M3 4a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z \

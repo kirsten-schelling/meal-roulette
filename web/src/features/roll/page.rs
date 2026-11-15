@@ -23,7 +23,7 @@ use crate::hooks::use_toast::use_toast;
 use crate::router::Route;
 use dioxus::prelude::*;
 use domain::roll::{
-    DifficultyBand, FitRequest, KeepRollRequest, PreviewMeal, RerollPreviewRequest,
+    DifficultyBand, FitRequest, KeepRollRequest, PinnedDinner, PreviewMeal, RerollPreviewRequest,
     RollConstraints, RollRequest, RuleFamily,
 };
 
@@ -168,17 +168,7 @@ pub fn Roll() -> Element {
         "Some proteins, cuisines, ingredients or tags are missing from the list.".to_string()
     });
 
-    let apply_fix = move |fix: Fix| {
-        roll_error.set(None);
-        match fix {
-            Fix::MakeNiceToHave(rules) => settings.write().make_nice_to_have(&rules),
-            Fix::ClearCaps => settings.write().every_dinner = EveryDinner::default(),
-            Fix::RollDays(days) => settings.write().num_days = days.to_string(),
-            Fix::AddRecipe(seed) => adding.set(Some(seed)),
-        }
-    };
-
-    let do_roll = move |_| {
+    let mut do_roll = move |_| {
         if rolling() || keeping() {
             return;
         }
@@ -189,6 +179,21 @@ pub fn Roll() -> Element {
         }
         let constraints = form.constraints();
         let seed = seed().trim().parse::<i64>().ok();
+        // Pins past a shortened week fall away with their days.
+        let pinned: Vec<PinnedDinner> = shown()
+            .map(|current| {
+                current
+                    .week
+                    .pinned
+                    .iter()
+                    .filter(|&&day| day < days as usize)
+                    .map(|&day| PinnedDinner {
+                        day: day as u16,
+                        recipe_id: current.recipe_ids[day],
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         let catalog = ingredients().and_then(Result::ok).unwrap_or_default();
         rolling.set(true);
         roll_error.set(None);
@@ -199,6 +204,7 @@ pub fn Roll() -> Element {
                 num_days: days as u16,
                 seed,
                 constraints: constraints.clone(),
+                pinned: pinned.clone(),
             };
             match preview_roll(request).await {
                 Ok(preview) => {
@@ -209,6 +215,7 @@ pub fn Roll() -> Element {
                             unmet: form.unmet_notes(&preview.unmet, &catalog),
                             edited: false,
                             meals: preview.meals,
+                            pinned: pinned.iter().map(|pin| usize::from(pin.day)).collect(),
                         },
                         settings: form,
                         constraints,
@@ -216,12 +223,31 @@ pub fn Roll() -> Element {
                     }));
                 }
                 Err(e) => {
-                    roll_error.set(Some(RollFailure::from(&e)));
+                    roll_error.set(Some(RollFailure {
+                        pins_sent: !pinned.is_empty(),
+                        ..RollFailure::from(&e)
+                    }));
                     rules_open.set(true);
                 }
             }
             rolling.set(false);
         });
+    };
+
+    let apply_fix = move |fix: Fix| {
+        roll_error.set(None);
+        match fix {
+            Fix::MakeNiceToHave(rules) => settings.write().make_nice_to_have(&rules),
+            Fix::ClearCaps => settings.write().every_dinner = EveryDinner::default(),
+            Fix::RollDays(days) => settings.write().num_days = days.to_string(),
+            Fix::AddRecipe(seed) => adding.set(Some(seed)),
+            Fix::UnpinAll => {
+                if let Some(current) = shown.write().as_mut() {
+                    current.week.pinned.clear();
+                }
+                do_roll(());
+            }
+        }
     };
 
     let do_reroll = move |day: usize| {
@@ -249,6 +275,8 @@ pub fn Roll() -> Element {
                     next.recipe_ids = next.week.meals.iter().map(|m| m.recipe_id).collect();
                     next.week.unmet = next.settings.unmet_notes(&replaced.unmet, &catalog);
                     next.week.edited = false;
+                    // The pin was on the dinner that just left the day.
+                    next.week.pinned.remove(&day);
                     shown.set(Some(next));
                 }
                 Err(e) => {
@@ -257,6 +285,14 @@ pub fn Roll() -> Element {
             }
             rerolling.set(None);
         });
+    };
+
+    let toggle_pin = move |day: usize| {
+        if let Some(current) = shown.write().as_mut() {
+            if !current.week.pinned.remove(&day) {
+                current.week.pinned.insert(day);
+            }
+        }
     };
 
     let mut do_pick = move |(day, meal): (usize, PreviewMeal)| {
@@ -268,6 +304,7 @@ pub fn Roll() -> Element {
             *slot = meal;
         }
         current.recipe_ids = current.week.meals.iter().map(|m| m.recipe_id).collect();
+        current.week.pinned.remove(&day);
         current.week.unmet.clear();
         current.week.edited = true;
         shown.set(Some(current));
@@ -338,7 +375,7 @@ pub fn Roll() -> Element {
             if let Some(failure) = roll_error() {
                 RollErrorAlert {
                     message: failure.message,
-                    fixes: if failure.rules_unmet { settings.read().failure_fixes() } else { Vec::new() },
+                    fixes: if failure.rules_unmet { settings.read().failure_fixes(failure.pins_sent) } else { Vec::new() },
                     on_fix: apply_fix,
                     on_dismiss: move |_| roll_error.set(None),
                 }
@@ -361,6 +398,7 @@ pub fn Roll() -> Element {
                     on_keep: do_keep,
                     on_again: do_roll,
                     on_reroll: do_reroll,
+                    on_pin: toggle_pin,
                     on_pick: move |day| picking.set(Some(day)),
                     on_fix: apply_fix,
                 }
