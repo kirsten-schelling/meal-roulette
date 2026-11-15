@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, unit.name as unit, ingredient.unit_id, ingredient.created_at, ingredient.updated_at\n        FROM ingredient\n        JOIN unit ON ingredient.unit_id = unit.id\n        ORDER BY ingredient.created_at DESC\n    ",
+  "query": "\n        SELECT id, household_id, recipe_id, planned_meal_id, cooked_on, created_at, updated_at\n        FROM cook_log\n        WHERE planned_meal_id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -9,7 +9,7 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "ingredient",
+            "table": "cook_log",
             "name": "id"
           }
         }
@@ -20,91 +20,81 @@
         "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "ingredient",
+            "table": "cook_log",
             "name": "household_id"
           }
         }
       },
       {
         "ordinal": 2,
-        "name": "name",
-        "type_info": "Text",
+        "name": "recipe_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "ingredient",
-            "name": "name"
+            "table": "cook_log",
+            "name": "recipe_id"
           }
         }
       },
       {
         "ordinal": 3,
-        "name": "purchase_size",
-        "type_info": "Int4",
+        "name": "planned_meal_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
-            "table": "ingredient",
-            "name": "purchase_size"
+            "table": "cook_log",
+            "name": "planned_meal_id"
           }
         }
       },
       {
         "ordinal": 4,
-        "name": "unit",
-        "type_info": "Text",
+        "name": "cooked_on",
+        "type_info": "Date",
         "origin": {
           "Table": {
-            "table": "unit",
-            "name": "name"
+            "table": "cook_log",
+            "name": "cooked_on"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "unit_id",
-        "type_info": "Uuid",
-        "origin": {
-          "Table": {
-            "table": "ingredient",
-            "name": "unit_id"
-          }
-        }
-      },
-      {
-        "ordinal": 6,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "ingredient",
+            "table": "cook_log",
             "name": "created_at"
           }
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
-            "table": "ingredient",
+            "table": "cook_log",
             "name": "updated_at"
           }
         }
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
-      true,
+      false,
       false,
       true,
-      false,
       false,
       false,
       false
     ]
   },
-  "hash": "04225bb304994ca5ce69e09d23c4ddb098d34f154e5927cc7d44b8a0c558b289"
+  "hash": "160e1fb7d072a93adaa148bc75948bbfe105a19c0ab253edf973b55fbddc9a6c"
 }

@@ -2,6 +2,7 @@ use crate::components::ui::{ComboOption, Combobox, Input, Picker, Rating, Rating
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::library::components::ManageTab;
 use crate::features::protein::hooks::use_protein::use_get_proteins;
+use crate::features::recipe::components::recipe_seed::RecipeSeed;
 use crate::features::recipe::components::tag_picker::{TagChoice, TagPicker};
 use crate::features::tag::hooks::use_tag::use_get_tags;
 use dioxus::prelude::*;
@@ -178,6 +179,21 @@ impl RecipeForm {
         self.baseline.set(start);
     }
 
+    /// Fills the fields `seed` names and counts them as the starting point, so
+    /// closing the form untouched does not ask to discard them.
+    pub fn prefill(mut self, seed: &RecipeSeed) {
+        if let Some(option) = &seed.cuisine {
+            self.cuisine.write().pick(option.clone());
+        }
+        if let Some(option) = &seed.protein {
+            self.protein.write().pick(option.clone());
+        }
+        if let Some(difficulty) = seed.difficulty {
+            self.difficulty.set(difficulty);
+        }
+        self.baseline.set(self.snapshot());
+    }
+
     fn snapshot(&self) -> Snapshot {
         Snapshot {
             title: (self.title)(),
@@ -281,7 +297,8 @@ struct Parts {
     tags: Vec<domain::tag::TagEntry>,
 }
 
-/// The recipe's own details (everything but its ingredient lines).
+/// The recipe's own details (everything but its ingredient lines). `children` render
+/// right under the title.
 #[component]
 pub fn RecipeFields(
     form: RecipeForm,
@@ -289,6 +306,7 @@ pub fn RecipeFields(
     protein_options: Vec<ComboOption>,
     tag_options: Vec<ComboOption>,
     on_manage: EventHandler<ManageTab>,
+    children: Element,
 ) -> Element {
     let RecipeForm {
         mut title,
@@ -319,6 +337,7 @@ pub fn RecipeFields(
             oninput: move |e: FormEvent| title.set(e.value()),
             placeholder: "e.g. Pad Thai".to_string(),
         }
+        {children}
         div { class: "mr-form-grid",
             Combobox {
                 label: "Main protein".to_string(),

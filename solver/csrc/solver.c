@@ -250,7 +250,8 @@ static void keep_week(const Search *search, int32_t *week) {
 }
 
 // Switches preference `j` on at the tightest target the recipes allow,
-// loosening it one step at a time (a lower minimum, or a higher maximum), and
+// loosening it one step at a time (a lower minimum, a higher maximum, or both
+// for an exact count, so being one over costs what being one under does), and
 // switches it off again if even the loosest version fails.
 static void add_preference(Search *search, int32_t j, int32_t *week) {
     const Requirement *requirement = &search->input->requirements[j];
@@ -264,11 +265,17 @@ static void add_preference(Search *search, int32_t j, int32_t *week) {
             keep_week(search, week);
             return;
         }
-        if (target->min > 1) {
+        // A minimum with no maximum stops at 1: lower would ask for nothing.
+        bool loosened = false;
+        if (target->min > (target->max == MR_NO_LIMIT ? 1 : 0)) {
             target->min--;
-        } else if (target->max != MR_NO_LIMIT && target->max + 1 < days) {
+            loosened = true;
+        }
+        if (target->max != MR_NO_LIMIT && target->max + 1 < days) {
             target->max++;
-        } else {
+            loosened = true;
+        }
+        if (!loosened) {
             break;
         }
     }

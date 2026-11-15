@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        with new_ingredient as (\n            INSERT INTO ingredient (household_id, name, purchase_size, unit_id) VALUES ($1, $2, $3, $4) RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT new_ingredient.id, new_ingredient.household_id, new_ingredient.name, new_ingredient.purchase_size, unit.name as unit, new_ingredient.unit_id, new_ingredient.created_at, new_ingredient.updated_at\n        FROM new_ingredient\n        JOIN unit ON new_ingredient.unit_id = unit.id\n        ",
+  "query": "\n        with updated_ingredient as (\n            UPDATE ingredient SET name = $1, purchase_size = $2, unit_id = $3 WHERE id = $4 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT updated_ingredient.id, updated_ingredient.household_id, updated_ingredient.name, updated_ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", updated_ingredient.unit_id, updated_ingredient.created_at, updated_ingredient.updated_at\n        FROM updated_ingredient\n        LEFT JOIN unit ON updated_ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -49,14 +49,9 @@
       },
       {
         "ordinal": 4,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "unit",
-            "name": "name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
@@ -94,9 +89,9 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Text",
         "Int4",
+        "Uuid",
         "Uuid"
       ]
     },
@@ -105,11 +100,11 @@
       true,
       false,
       true,
-      false,
-      false,
+      null,
+      true,
       false,
       false
     ]
   },
-  "hash": "5aea84bc8b5f3021bbafea74111de954a832bd1b96194aaa3dff47a24a87ab48"
+  "hash": "eb1d8177792c670fa55ede4bc7333e7ceb2406bcbfac69937eeb1c0cad6aa2cb"
 }

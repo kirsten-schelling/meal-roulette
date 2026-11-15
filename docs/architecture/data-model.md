@@ -292,7 +292,7 @@ recipe amounts and the ingredient are entered in the same unit, so no conversion
 days; plans are ordered by `created_at`, when they were rolled, not by it), `seed` (nullable — stored so a roll is reproducible, per the roadmap's seeded-rolls feature),
 `name` (nullable label), `roll_constraints` (`JSONB`, default `{}`: the rules the plan was
 rolled under, in the shape of `domain::roll::RollConstraints`, i.e. cuisine, protein,
-must-use-ingredient and difficulty-band counts, each at least or at most, each Required or a
+must-use-ingredient, tag and difficulty-band counts, each at least, at most or exactly, each Required or a
 High / Medium / Low preference, plus optional per-day difficulty and cook-time limits by day
 number (`day_limits`); kept so a single day can be re-rolled against the same rules.
 Fields added later default when an older plan is read), `is_favourite` (default `false`),
@@ -322,9 +322,10 @@ numbered existing dinners by their dates, so no plan lost its order.
 **`cook_log`** — the permanent record of what was actually cooked. `household_id`
 (`NOT NULL`), `recipe_id` (`ON DELETE RESTRICT`), `cooked_on`, `planned_meal_id` (nullable
 FK, `ON DELETE SET NULL` — links back to the plan slot when the cook came from a roll; null
-for unplanned cooks, and history survives even if the plan is deleted). This table is the
-source of truth for recency and min/max-interval rules, and the raw material for the
-insights dashboard (most/least cooked).
+for unplanned cooks, and history survives even if the plan is deleted).
+`uq_cook_log_planned_meal (planned_meal_id)`: a planned dinner is logged at most once, while
+unplanned cooks repeat freely. This table is the source of truth for recency and
+min/max-interval rules, and the raw material for the insights dashboard (most/least cooked).
 
 ### Shopping
 

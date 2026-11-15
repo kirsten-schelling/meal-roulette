@@ -16,6 +16,24 @@ pub async fn list(pool: &PgPool) -> Result<Vec<RecipeTag>, sqlx::Error> {
     Ok(links)
 }
 
+/// Which recipes carry any of `tag_ids`.
+pub async fn links_for_tags(
+    pool: &PgPool,
+    tag_ids: &[Uuid],
+) -> Result<Vec<RecipeTag>, sqlx::Error> {
+    sqlx::query_as!(
+        RecipeTag,
+        r#"
+        SELECT id, recipe_id, tag_id, created_at, updated_at
+        FROM recipe_tag
+        WHERE tag_id = ANY($1)
+        "#,
+        tag_ids,
+    )
+    .fetch_all(pool)
+    .await
+}
+
 pub async fn get(pool: &PgPool, id: Uuid) -> Result<RecipeTag, sqlx::Error> {
     let link = sqlx::query_as!(
         RecipeTag,

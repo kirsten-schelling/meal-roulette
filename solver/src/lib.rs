@@ -694,6 +694,27 @@ mod tests {
     }
 
     #[test]
+    fn an_exact_preference_loosens_toward_the_nearest_count_on_either_side() {
+        let mut recipes: Vec<Vec<i32>> = (0..5).map(|d| recipe(1, 1, d + 1)).collect();
+        recipes.push(recipe(2, 1, 1));
+        for seed in 0..30 {
+            let problem = Problem {
+                recipes: recipes.clone(),
+                requirements: vec![Requirement {
+                    at_least: 2,
+                    at_most: Some(2),
+                    ..rule(CUISINE, 1, 0, Importance::Medium)
+                }],
+                num_to_pick: 4,
+                seed,
+                ..Problem::default()
+            };
+            let solution = roll(&problem).expect("preferences never fail a roll");
+            assert_eq!(solution.achieved, [3], "seed {seed}");
+        }
+    }
+
+    #[test]
     fn the_more_important_preference_wins_a_conflict() {
         for seed in 0..30 {
             let problem = Problem {

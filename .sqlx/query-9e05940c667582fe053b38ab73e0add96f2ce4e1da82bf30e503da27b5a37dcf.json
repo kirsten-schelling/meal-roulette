@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        with deleted_ingredient as (\n            DELETE FROM ingredient WHERE id = $1 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT deleted_ingredient.id, deleted_ingredient.household_id, deleted_ingredient.name, deleted_ingredient.purchase_size, unit.name as unit, deleted_ingredient.unit_id, deleted_ingredient.created_at, deleted_ingredient.updated_at\n        FROM deleted_ingredient\n        JOIN unit ON deleted_ingredient.unit_id = unit.id\n        ",
+  "query": "\n        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", ingredient.unit_id, ingredient.created_at, ingredient.updated_at\n        FROM ingredient\n        LEFT JOIN unit ON ingredient.unit_id = unit.id\n        ORDER BY ingredient.created_at DESC\n    ",
   "describe": {
     "columns": [
       {
@@ -49,14 +49,9 @@
       },
       {
         "ordinal": 4,
-        "name": "unit",
+        "name": "unit!",
         "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "unit",
-            "name": "name"
-          }
-        }
+        "origin": "Expression"
       },
       {
         "ordinal": 5,
@@ -93,20 +88,18 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
       true,
       false,
       true,
-      false,
-      false,
+      null,
+      true,
       false,
       false
     ]
   },
-  "hash": "1c5c72bac702f681aac01fa852d018fe836f19a10a5d2167ce6204547c51fc95"
+  "hash": "9e05940c667582fe053b38ab73e0add96f2ce4e1da82bf30e503da27b5a37dcf"
 }

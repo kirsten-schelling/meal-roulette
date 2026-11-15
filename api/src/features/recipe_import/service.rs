@@ -13,9 +13,6 @@ use sqlx::PgPool;
 use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Unit given to a new ingredient whose line named none ("2 eggs").
-const COUNT_UNIT: &str = "each";
-
 pub async fn import_from_url(pool: &PgPool, raw_url: &str) -> Result<RecipeImport, AppError> {
     let (url, html) = fetch_html(raw_url).await?;
     let parsed = parse_recipe(&html).ok_or_else(|| {
@@ -131,11 +128,12 @@ fn saved_line(saved: &Ingredient, line: &ParsedLine, text: &str) -> ImportedLine
 }
 
 fn new_line(phrase: &str, line: &ParsedLine, units: &[Unit]) -> ImportedLine {
-    let wanted = line.unit.as_deref().unwrap_or(COUNT_UNIT);
-    let wanted_key = canonical_unit(wanted);
-    let (label, entry) = match units.iter().find(|u| canonical_unit(&u.name) == wanted_key) {
-        Some(saved) => (saved.name.clone(), UnitEntry::Existing(saved.id)),
-        None => (wanted_key.clone(), UnitEntry::New(wanted_key)),
+    let (label, entry) = match line.unit.as_deref().map(canonical_unit) {
+        None => (String::new(), None),
+        Some(key) => match units.iter().find(|u| canonical_unit(&u.name) == key) {
+            Some(saved) => (saved.name.clone(), Some(UnitEntry::Existing(saved.id))),
+            None => (key.clone(), Some(UnitEntry::New(key))),
+        },
     };
     let name = capitalise_first(phrase);
     ImportedLine {
@@ -176,7 +174,7 @@ mod tests {
             name: name.to_string(),
             purchase_size: None,
             unit: unit.name.clone(),
-            unit_id: unit.id,
+            unit_id: Some(unit.id),
             created_at: OffsetDateTime::UNIX_EPOCH,
             updated_at: OffsetDateTime::UNIX_EPOCH,
         }
@@ -241,26 +239,38 @@ mod tests {
             IngredientEntry::New {
                 name: "Rice noodles".to_string(),
                 purchase_size: None,
-                unit: UnitEntry::Existing(g.id),
+                unit: Some(UnitEntry::Existing(g.id)),
             }
         );
         assert_eq!(line.as_new.qty, dec("200"));
     }
 
     #[test]
+    fn a_new_count_line_has_no_unit() {
+        let result = import(&["3 eggs"], &[], &[]);
+        let line = &result.ingredients[0].as_new;
+        assert_eq!(line.unit, "");
+        assert_eq!(line.qty, dec("3"));
+        assert!(matches!(
+            line.ingredient,
+            IngredientEntry::New { unit: None, .. }
+        ));
+    }
+
+    #[test]
     fn unknown_units_are_offered_as_new_ones() {
-        let result = import(&["2 cups flour", "3 eggs"], &[], &[]);
+        let result = import(&["2 cups flour", "3 bunches parsley"], &[], &[]);
         let units: Vec<_> = result
             .ingredients
             .iter()
             .map(|l| match &l.as_new.ingredient {
-                IngredientEntry::New { unit, .. } => unit.clone(),
+                IngredientEntry::New { unit, .. } => unit.clone().unwrap(),
                 other => panic!("expected new, got {other:?}"),
             })
             .collect();
         assert_eq!(
             units,
-            vec![UnitEntry::New("cup".into()), UnitEntry::New("each".into())]
+            vec![UnitEntry::New("cup".into()), UnitEntry::New("bunch".into())]
         );
     }
 
@@ -275,7 +285,7 @@ mod tests {
         let line = &result.ingredients[0].as_new;
         assert!(matches!(
             &line.ingredient,
-            IngredientEntry::New { unit: UnitEntry::Existing(id), .. } if *id == tablespoon.id
+            IngredientEntry::New { unit: Some(UnitEntry::Existing(id)), .. } if *id == tablespoon.id
         ));
         assert_eq!(line.unit, "Tablespoon");
     }

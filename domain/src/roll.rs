@@ -13,17 +13,29 @@ pub enum Importance {
     Required,
 }
 
-/// Whether a rule's count is a floor or a ceiling.
+/// Whether a rule's count is a floor, a ceiling or both.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum Bound {
     #[default]
     AtLeast,
     AtMost,
+    Exactly,
 }
 
-/// "At least / at most `times` of the week's dinners are this cuisine, protein
-/// or ingredient." Rules stored before bounds and importance existed read as
-/// at-least and required, which is what they meant then.
+impl Bound {
+    pub fn has_floor(self) -> bool {
+        matches!(self, Bound::AtLeast | Bound::Exactly)
+    }
+
+    pub fn has_ceiling(self) -> bool {
+        matches!(self, Bound::AtMost | Bound::Exactly)
+    }
+}
+
+/// "At least / at most / exactly `times` of the week's dinners are this
+/// cuisine, protein, ingredient or tag."
+/// Rules stored before bounds and importance existed read as at-least and
+/// required, which is what they meant then.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CountRule {
     pub id: Uuid,
@@ -150,6 +162,9 @@ pub struct RollConstraints {
     /// Ingredient rules count the dinners whose recipe uses the ingredient.
     #[serde(default)]
     pub ingredients: Vec<CountRule>,
+    /// Tag rules count the dinners whose recipe carries the tag.
+    #[serde(default)]
+    pub tags: Vec<CountRule>,
     #[serde(default)]
     pub difficulties: Vec<DifficultyRule>,
     /// Limits on what each day of the week may take. `None` = every day takes
@@ -193,6 +208,7 @@ pub enum RuleFamily {
     Cuisine,
     Protein,
     Ingredient,
+    Tag,
     Difficulty,
 }
 
@@ -314,6 +330,21 @@ mod tests {
         let plan = with.day_limits.expect("present");
         assert_eq!(plan.default.max_time_mins, Some(30));
         assert!(!plan.limits_for(4).is_limited());
+    }
+
+    #[test]
+    fn constraints_stored_before_tag_rules_and_exactly_still_read() {
+        let stored: RollConstraints = serde_json::from_str(
+            r#"{"cuisines": [{"id": "01a04351-39b7-7761-8bfb-58dad6017b5e", "times": 2, "bound": "AtMost"}]}"#,
+        )
+        .expect("parses");
+        assert!(stored.tags.is_empty());
+        assert_eq!(stored.cuisines[0].bound, Bound::AtMost);
+        let exactly: CountRule = serde_json::from_str(
+            r#"{"id": "01a04351-39b7-7761-8bfb-58dad6017b5e", "times": 1, "bound": "Exactly"}"#,
+        )
+        .expect("parses");
+        assert!(exactly.bound.has_floor() && exactly.bound.has_ceiling());
     }
 
     #[test]

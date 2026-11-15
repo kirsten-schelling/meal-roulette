@@ -1,0 +1,110 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        with new_ingredient as (\n            INSERT INTO ingredient (household_id, name, purchase_size, unit_id) VALUES ($1, $2, $3, $4) RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT new_ingredient.id, new_ingredient.household_id, new_ingredient.name, new_ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", new_ingredient.unit_id, new_ingredient.created_at, new_ingredient.updated_at\n        FROM new_ingredient\n        LEFT JOIN unit ON new_ingredient.unit_id = unit.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "household_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "household_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "purchase_size",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "purchase_size"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "unit!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "unit_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "unit_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      null,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "be7a45d4ed524df34bbcb14fc90ffe9b0f21b70993d4141000f31e6958b8d84c"
+}

@@ -75,7 +75,7 @@ mod tests {
                 household_id: None,
                 name: name.to_string(),
                 purchase_size: None,
-                unit: UnitEntry::New("each".to_string()),
+                unit: Some(UnitEntry::New("each".to_string())),
             },
         )
         .await
@@ -151,7 +151,7 @@ mod tests {
                     IngredientEntry::New {
                         name: "Chives".to_string(),
                         purchase_size: None,
-                        unit: UnitEntry::New("bunch".to_string()),
+                        unit: Some(UnitEntry::New("bunch".to_string())),
                     },
                     "snipped chive",
                 ),
