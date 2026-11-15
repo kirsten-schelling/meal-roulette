@@ -188,6 +188,9 @@ impl RecipeForm {
         if let Some(option) = &seed.protein {
             self.protein.write().pick(option.clone());
         }
+        if let Some(tag) = &seed.tag {
+            self.tags.write().push(tag.clone());
+        }
         if let Some(difficulty) = seed.difficulty {
             self.difficulty.set(difficulty);
         }
