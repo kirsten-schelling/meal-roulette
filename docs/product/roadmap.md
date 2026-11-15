@@ -79,9 +79,9 @@ Core sub-features:
 
 | Tag            | Meaning                                                                          |
 | -------------- | -------------------------------------------------------------------------------- |
-| **[Own]**      | Fully in your control — buildable anytime.                                       |
-| **[Fiddly]**   | Feasible but messy — parsing, mobile, or hardware work.                          |
-| **[External]** | Depends on third parties with **no official API** — research-grade, ToS caveats. |
+| **[Own]**      | Fully in your control - buildable anytime.                                       |
+| **[Fiddly]**   | Feasible but messy - parsing, mobile, or hardware work.                          |
+| **[External]** | Depends on third parties with **no official API** - research-grade, ToS caveats. |
 
 Size = rough effort (S / M / L).
 
@@ -108,7 +108,7 @@ The individual features get much more powerful when they close into loops:
 - **Leftovers-aware planning**: **[Own]** M. Recipes declare a yield; mark surplus
   servings as weekday lunches; the roller guarantees enough coverage for the week.
 - **Roll from a chosen ingredient**: **[Own]** M. The user names an ingredient they want to
-  use this run (e.g. sour cream) and the roller **guarantees a recipe that uses it** — or
+  use this run (e.g. sour cream) and the roller **guarantees a recipe that uses it**, or
   **N recipes** if they ask for several. Supports **multiple ingredients** and can span
   **multiple weeks** in one run. Like "use it up" (§3) but **user-driven and a hard
   requirement**, not a soft bias.
@@ -155,20 +155,20 @@ The individual features get much more powerful when they close into loops:
   week** (no chicken four nights running).
 - **Healthiness rating**: **[Own]** S. A per-meal healthiness rating (simple scale for
   now); the roller can **cap or balance less-healthy meals per week**. _Future:_ derive the
-  rating from the recipe's **ingredients** rather than a manual per-meal score — ideally
-  without making the user rate every ingredient by hand — via the **base ingredient library**
+  rating from the recipe's **ingredients** rather than a manual per-meal score, ideally
+  without making the user rate every ingredient by hand, via the **base ingredient library**
   (below).
 - **Dishes rating**: **[Own]** S. How much washing-up a recipe creates (one-pot →
   every-pan-you-own), as a simple per-recipe scale. A roll setting ("keep the dishes down")
-  biases or caps high-cleanup meals — per plan or per day, in the same spirit as
+  biases or caps high-cleanup meals, per plan or per day, in the same spirit as
   difficulty-by-day.
 - **Flavour profile**: **[Own]** S. A flavour profile per ingredient (eg Sugar = Sweet,
   Tomato = Acidic) to classify flavour profiles of recipes. Can be used for future recipe
   recommendations, based on a user's favourite or commonly cooked dishes.
 - **Base ingredient library**: **[Own→External]** L. A canonical, app-maintained set of
   common ingredients that users **extend with their own** when something's missing. Each
-  ingredient carries structured data — category, **main-protein** tag, **health** data and
-  **price** — so recipes reference one shared source instead of everyone re-entering the same
+  ingredient carries structured data (category, **main-protein** tag, **health** data and
+  **price**), so recipes reference one shared source instead of everyone re-entering the same
   facts. This is the backbone behind **per-meal cost** (§1), the **ingredient-derived
   healthiness** upgrade (above) and protein tagging.
   - **Multi-country / multi-currency**: prices (and product availability) vary by region, so
@@ -196,7 +196,7 @@ The individual features get much more powerful when they close into loops:
   point is building the list from _your_ version of the selected recipes.
 - **Cooking notes over time**: **[Own]** S. A per-recipe running log of
   timestamped notes ("used less chili last time"). Separate from editing the recipe itself
-  (users can also just adjust a recipe's ingredients) — this is the history, not the recipe.
+  (users can also just adjust a recipe's ingredients); this is the history, not the recipe.
 - **Nutrition (macros / calories)**: **[Own→External]** M. Beyond the health
   _rating_ above, per-recipe macros / calories derived from the **base ingredient library**.
 
@@ -206,16 +206,16 @@ The individual features get much more powerful when they close into loops:
   (user confirms they bought for a given recipe); the shopping list then subtracts pantry
   stock so you don't re-buy.
   - **Decrement on cooking**, driven by the recipe's ingredients.
-  - **Always allow manual override** — the user can add an item to the list even when the
+  - **Always allow manual override**: the user can add an item to the list even when the
     app thinks it's still stocked.
-  - **Correctable estimates** — the pantry count is an _estimate_ (it assumes you cooked
+  - **Correctable estimates**: the pantry count is an _estimate_ (it assumes you cooked
     what was planned), so let the user fix counts when they cooked something unplanned since
     the last purchase.
 - **Sleep as lightweight tracking**: **[Own]** S. Full pantry tracking (above) is
   inherently laborious and hard to make effortless/automated. **Sleeping ingredients** (MVP,
   see the core loop) is the low-effort middle ground: for users who don't want detailed
-  manual tracking, choosing to sleep an item — and later **accepting it back onto the list**
-  when you actually need it — is itself a simple form of "do I have this?" tracking.
+  manual tracking, choosing to sleep an item, and later **accepting it back onto the list**
+  when you actually need it, is itself a simple form of "do I have this?" tracking.
 - **Staples predictor**: **[Own]** M. Track non-recipe items (milk, paper towel, etc.)
   and typical usage cadence; predict run-out and auto-suggest adding to the list.
 - **"Use it up" bias**: **[Own]** S. Bias the roll toward recipes that use
@@ -223,7 +223,7 @@ The individual features get much more powerful when they close into loops:
 - **Ingredient shelf-life & use-up suggestions**: **[Own]** M. A "how long
   this lasts" value on the **ingredient table** predicts when a bought item will go off; use
   it to **suggest ingredients to use up** based on recent weeks' shopping (feeds "roll from a
-  chosen ingredient", §1). **Use-by is optional** per ingredient and off by default — keep
+  chosen ingredient", §1). **Use-by is optional** per ingredient and off by default; keep
   the noise down.
 - **Receipt OCR (mobile)**: **[Fiddly]** L. Camera, then OCR (Google ML Kit on-device, or a
   cloud Vision API), then parse line items and update the pantry. Parsing is the hard part:
@@ -247,17 +247,17 @@ Nothing planned yet.
 - **Kitchen screen**: **[Fiddly / Hardware]** L. Show day + planned meal; display the
   recipe while cooking; add recently-made recipes.
   - **Display:** e-ink is lovely for a _passive, always-on "this week"_ panel (low power)
-    but refreshes too slowly to scroll a recipe — a small **TFT/LCD** or a repurposed
+    but refreshes too slowly to scroll a recipe; a small **TFT/LCD** or a repurposed
     **tablet** is better for interactive cook mode. Possibly two modes / two devices.
   - **Input:** a full keyboard is awkward on embedded. Simpler: a **rotary encoder +
-    button**, a few **GPIO buttons**, or a **touchscreen** — or use your **phone as the
+    button**, a few **GPIO buttons**, or a **touchscreen**, or use your **phone as the
     remote** (the mobile app drives the screen). Voice is a stretch goal.
   - Reuses the shared **`domain` crate**: the device deserializes the exact types the API
     serializes.
 - **Physical re-roll button / rotary control**: **[Fiddly / Hardware]** S. A tactile "spin"
   on the kitchen screen to re-roll a day.
 - **NFC / RFID pantry tap**: **[Fiddly / Hardware]** L. Tap an item when you
-  use it to decrement the pantry — an embedded alternative to barcode / OCR (§3).
+  use it to decrement the pantry: an embedded alternative to barcode / OCR (§3).
 
 ### 6 · Household & collaboration
 
@@ -273,7 +273,7 @@ Nothing planned yet.
 - **Public recipes & recommended periods**: **[Own]** L. _Future._ Let users make recipes
   **publicly available** beyond their household. On top of that pool, the app recommends a
   **full week (or any chosen period) in one shot** from the household's settings, goals and
-  history — drawing on both the own library and public recipes, so a plan arrives ready to
+  history, drawing on both the own library and public recipes, so a plan arrives ready to
   accept or tweak instead of being assembled by hand. The endgame of the **preference loop**.
 
 > These, plus difficulty-by-day, leftovers, dietary constraints, ratings and vetoes, all
@@ -288,12 +288,12 @@ Nothing planned yet.
   across the week's recipes and reconcile units. _Status: simple mode is built and recorded in
   ADRs 0003 and 0004 (an ingredient may also have no unit); advanced mode is not built._
   Density makes ml↔g **product-specific** (water 1:1, flour not), so two modes:
-  - **Simple (default):** the user picks one unit per ingredient and enters _everything_ —
-    recipe amounts and the ingredient itself — in that unit, so no conversion is needed.
+  - **Simple (default):** the user picks one unit per ingredient and enters _everything_,
+    recipe amounts and the ingredient itself, in that unit, so no conversion is needed.
   - **Advanced:** ship a set of standard conversions, and let users add their own
     **per-product** conversions where the standard ones don't fit.
 - **Customisable list display**: **[Own]** M. Let users define **their own
-  sections and grouping** for the list — one person groups into _Longlife / Fresh / Meat_,
+  sections and grouping** for the list: one person groups into _Longlife / Fresh / Meat_,
   another wants different buckets. Ingredient categories from the library feed this, but the
   grouping stays user-configurable.
 - **Ad-hoc / non-recipe items**: **[Own]** S. Manually add items that aren't tied to any
@@ -304,7 +304,7 @@ Nothing planned yet.
 - **Insights dashboard**: **[Own]** M. Trends that make the attributes pay
   off: protein mix, cuisine spread, healthiness over time, weekly spend, most / least cooked.
 - **Goals & targets**: **[Own]** M. Let the user set **per-meal or per-week goals**, e.g.
-  _max one Chinese dish per week_, _≥ 40 g protein per meal_ — that constrain the roll. All
+  _max one Chinese dish per week_, _≥ 40 g protein per meal_, that constrain the roll. All
   **overridable in advanced settings when they spin the wheel**. (A roller input, surfaced
   here alongside the insights that track progress against it.)
 
@@ -341,7 +341,7 @@ Front-loads value: each step makes the app more useful on its own.
 - **Difficulty by day number, not weekday.** The solver and the plan take difficulty and max
   cook time limits per day number; the Roll page sends one "every dinner" limit for all days
   (see the core loop). Nothing is derived from the weekday.
-- **Recipe sources: both** — hand-entered _and_ imported from URL.
+- **Recipe sources: both**: hand-entered _and_ imported from URL.
 - **Pantry decrement: recipe-driven, with user override.** Cooking a planned recipe
   decrements its ingredients; the user can always add an item to the list even when the app
   thinks it's stocked, and can correct counts when they cooked unplanned things.
@@ -360,7 +360,7 @@ Front-loads value: each step makes the app more useful on its own.
 
 ## Still open (deferred)
 
-- **Kitchen-screen hardware + input method** — a _later_ hardware decision; nothing needed
-  now. (Which device displays it — e-ink panel vs small TFT/LCD vs a repurposed tablet — and
-  how you interact — a few buttons, a rotary encoder, a touchscreen, or just your phone as
+- **Kitchen-screen hardware + input method**: a _later_ hardware decision; nothing needed
+  now. (Which device displays it: e-ink panel vs small TFT/LCD vs a repurposed tablet; and
+  how you interact: a few buttons, a rotary encoder, a touchscreen, or just your phone as
   the remote.)

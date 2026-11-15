@@ -1,4 +1,4 @@
-# Meal Roulette — task runner. Run `just` to list recipes.
+# Meal Roulette: task runner. Run `just` to list recipes.
 
 set windows-shell := ["cmd.exe", "/c"]
 

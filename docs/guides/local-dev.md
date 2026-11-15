@@ -8,9 +8,9 @@ the tooling rationale.
 - Rust (rustup; MSVC toolchain on Windows)
 - A C compiler for the `solver` crate (the MSVC Build Tools on Windows, gcc or clang elsewhere)
 - Docker (local Postgres)
-- `dioxus-cli` (`dx`) — the web app
-- `sqlx-cli` — migrations
-- `just` — the task recipes
+- `dioxus-cli` (`dx`): the web app
+- `sqlx-cli`: migrations
+- `just`: the task recipes
 
 ## Services
 
@@ -19,7 +19,7 @@ Run the database, apply the migrations, then start the web server:
 | Service    | Command                | URL                                             |
 | ---------- | ---------------------- | ----------------------------------------------- |
 | Database   | `docker compose up -d` | Postgres on localhost:5432                      |
-| Migrations | `just migrate`         | — (first run, and after pulling new migrations) |
+| Migrations | `just migrate`         | - (first run, and after pulling new migrations) |
 | Web        | `cd web && dx serve`   | http://localhost:8080                           |
 
 The web server is the whole backend: it renders the app, runs the `#[server]` functions, and
@@ -29,7 +29,7 @@ does not need that process.
 
 One env var lives in the root `.env` (see `.env.example`):
 
-- `DATABASE_URL` — feeds `sqlx-cli`, the compile-time query macros, and both servers at
+- `DATABASE_URL`: feeds `sqlx-cli`, the compile-time query macros, and both servers at
   startup; the web server panics on startup without it.
 
 The server build compiles the sqlx queries. When no database is reachable at build time, set
@@ -38,7 +38,7 @@ after changing a query or the schema).
 
 ## just recipes
 
-Task recipes live in the `justfile` — run `just` to list them. The main ones: `db`, `db-down`,
+Task recipes live in the `justfile`, run `just` to list them. The main ones: `db`, `db-down`,
 `web`, `api`, `solver`, `migrate`, `migrate-down`, `new-migration`, `prepare`, `fmt`, `lint`,
 `check`. `cargo test --workspace` runs the tests.
 
@@ -53,7 +53,7 @@ without the server.
 ## Migrations
 
 SQL migrations live in `api/migrations`, managed with `sqlx-cli` and reversible (`-r`).
-Migrations are the schema source of truth — never edit one that has been applied; add a new
+Migrations are the schema source of truth, never edit one that has been applied; add a new
 one. The app does not apply migrations at startup: `just migrate` runs the pending ones and then
 refreshes `.sqlx`; `just migrate-down` reverts the latest; `just new-migration <name>` creates a
 reversible pair. See [../architecture/data-model.md](../architecture/data-model.md).
