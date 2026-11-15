@@ -157,6 +157,32 @@ pub struct Conflict {
 }
 
 impl RollSettings {
+    /// Reads a saved preset's JSON, keeping every field that parses and
+    /// dropping the ones that do not. Returns the settings and the names of the
+    /// dropped fields; the error text when nothing can be read at all.
+    pub fn from_saved(saved: &serde_json::Value) -> Result<(Self, Vec<String>), String> {
+        let whole_error = match serde_json::from_value::<Self>(saved.clone()) {
+            Ok(settings) => return Ok((settings, Vec::new())),
+            Err(e) => e.to_string(),
+        };
+        let Some(fields) = saved.as_object() else {
+            return Err(whole_error);
+        };
+        let mut kept = serde_json::Map::new();
+        let mut dropped = Vec::new();
+        for (name, value) in fields {
+            let alone = serde_json::json!({ name: value });
+            if serde_json::from_value::<Self>(alone).is_ok() {
+                kept.insert(name.clone(), value.clone());
+            } else {
+                dropped.push(name.clone());
+            }
+        }
+        serde_json::from_value(serde_json::Value::Object(kept))
+            .map(|settings| (settings, dropped))
+            .map_err(|_| whole_error)
+    }
+
     /// How many dinners to roll; 0 when the text is not a number.
     pub fn days(&self) -> u32 {
         self.num_days.trim().parse().unwrap_or(0)
@@ -1030,5 +1056,35 @@ mod tests {
             settings.rules_summary(),
             "4 rules, 1 Must: Easy, Beef, max 30 min +1 more"
         );
+    }
+
+    #[test]
+    fn a_preset_with_one_unreadable_field_keeps_the_rest() {
+        let saved = serde_json::json!({
+            "num_days": "5",
+            "proteins": [{"id": "01a04351-39b7-7761-8bfb-58dad6017b5e", "name": "Beef", "times": 2}],
+            "every_dinner": {"max_time_mins": "soon"}
+        });
+        let (settings, dropped) = RollSettings::from_saved(&saved).expect("partly readable");
+        assert_eq!(dropped, ["every_dinner"]);
+        assert_eq!(settings.num_days, "5");
+        assert_eq!(settings.proteins[0].name, "Beef");
+        assert!(settings.every_dinner == EveryDinner::default());
+    }
+
+    #[test]
+    fn a_readable_preset_drops_nothing() {
+        let saved = serde_json::json!({"num_days": "4", "unknown": 1});
+        let (settings, dropped) = RollSettings::from_saved(&saved).expect("readable");
+        assert!(dropped.is_empty());
+        assert_eq!(settings.num_days, "4");
+    }
+
+    #[test]
+    fn a_preset_that_is_not_an_object_names_the_serde_error() {
+        let error = RollSettings::from_saved(&serde_json::json!(null))
+            .err()
+            .expect("unreadable");
+        assert!(error.contains("expected"), "{error}");
     }
 }
