@@ -4,6 +4,16 @@ The `web` crate also builds as a native client: the same components and CSS rend
 platform WebView, and `#[server]` functions are called over HTTP on the server you point it at.
 Only Android is covered here. iOS needs a Mac and is not set up.
 
+## Installing on the phone
+
+The installed web app is the supported phone client. Open the server's tailnet HTTPS URL in
+Chrome on the phone and choose "Install app". It loads from the server, so every deploy reaches
+it with no rebuild and no cable. When a new version is out, a "New version is ready" bar offers a
+reload; the menu also shows the running version and a "Check for updates" button.
+
+The native APK below is for development only: it bundles its own code, so each update means a
+rebuild and a USB install, and it does not show the update bar.
+
 ## What the native build does
 
 - Features: `mobile` (Android) and `desktop` (a native window on the dev machine, a faster loop
