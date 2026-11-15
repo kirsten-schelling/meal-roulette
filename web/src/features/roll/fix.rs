@@ -3,9 +3,10 @@
 
 use crate::components::ui::ComboOption;
 use crate::features::recipe::components::recipe_seed::RecipeSeed;
+use crate::features::recipe::components::tag_picker::TagChoice;
 use crate::features::roll::settings::RollSettings;
 use domain::ingredient::Ingredient;
-use domain::roll::{Bound, Importance, RuleFamily, UnmetRule};
+use domain::roll::{Importance, RuleFamily, UnmetRule};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum Fix {
@@ -16,7 +17,7 @@ pub enum Fix {
     /// Roll this many dinners instead.
     RollDays(u32),
     /// Open the add-recipe form, filled in from the rule that wants it.
-    AddRecipe(RecipeSeed),
+    AddRecipe(Box<RecipeSeed>),
 }
 
 impl Fix {
@@ -53,7 +54,7 @@ impl RollSettings {
             fixes.push(Fix::MakeNiceToHave(must));
         }
         fixes.extend(self.clear_caps());
-        fixes.push(Fix::AddRecipe(RecipeSeed::default()));
+        fixes.push(Fix::AddRecipe(Box::default()));
         fixes
     }
 
@@ -65,13 +66,13 @@ impl RollSettings {
             fixes.push(Fix::RollDays(fitting));
         }
         fixes.extend(self.clear_caps());
-        fixes.push(Fix::AddRecipe(RecipeSeed::default()));
+        fixes.push(Fix::AddRecipe(Box::default()));
         fixes
     }
 
     /// The preferences a roll fell short of, each in a sentence. A shortfall
-    /// of a minimum can be met by a new recipe; an excess of a maximum only by
-    /// swapping a dinner.
+    /// of a minimum (at least, or exactly) can be met by a new recipe; an
+    /// excess of a maximum only by swapping a dinner.
     pub fn unmet_notes(&self, unmet: &[UnmetRule], ingredients: &[Ingredient]) -> Vec<UnmetNote> {
         let sentences = self.unmet_sentences(unmet);
         unmet
@@ -79,8 +80,9 @@ impl RollSettings {
             .zip(sentences)
             .map(|(u, sentence)| UnmetNote {
                 sentence,
-                fix: (u.bound == Bound::AtLeast)
-                    .then(|| Fix::AddRecipe(self.recipe_seed(u.family, u.index, ingredients))),
+                fix: (u.bound.has_floor() && u.got < u.times).then(|| {
+                    Fix::AddRecipe(Box::new(self.recipe_seed(u.family, u.index, ingredients)))
+                }),
             })
             .collect()
     }
@@ -115,6 +117,12 @@ impl RollSettings {
                     Some(ComboOption::new(rule.id, rule.name.clone()).with_hint(&ingredient.unit))
                 });
             }
+            RuleFamily::Tag => {
+                seed.tag = self.tags.get(index).map(|rule| TagChoice {
+                    id: Some(rule.id),
+                    name: rule.name.clone(),
+                });
+            }
             RuleFamily::Difficulty => {
                 seed.difficulty = self
                     .difficulties
@@ -130,7 +138,7 @@ impl RollSettings {
 mod tests {
     use super::*;
     use crate::features::roll::settings::{EveryDinner, LookupRule};
-    use domain::roll::{DifficultyBand, DifficultyRule};
+    use domain::roll::{Bound, DifficultyBand, DifficultyRule};
     use uuid::Uuid;
 
     fn lookup(name: &str, importance: Importance) -> LookupRule {
@@ -166,7 +174,7 @@ mod tests {
             settings.failure_fixes(),
             [
                 Fix::MakeNiceToHave(vec![(RuleFamily::Protein, 0)]),
-                Fix::AddRecipe(RecipeSeed::default()),
+                Fix::AddRecipe(Box::default()),
             ]
         );
     }
@@ -174,10 +182,7 @@ mod tests {
     #[test]
     fn caps_are_offered_for_removal_only_when_set() {
         let mut settings = RollSettings::default();
-        assert_eq!(
-            settings.shortage_fixes(0),
-            [Fix::AddRecipe(RecipeSeed::default())]
-        );
+        assert_eq!(settings.shortage_fixes(0), [Fix::AddRecipe(Box::default())]);
         settings.every_dinner = EveryDinner {
             max_time_mins: Some(20),
             max_difficulty: None,
@@ -187,7 +192,7 @@ mod tests {
             [
                 Fix::RollDays(3),
                 Fix::ClearCaps,
-                Fix::AddRecipe(RecipeSeed::default()),
+                Fix::AddRecipe(Box::default()),
             ]
         );
     }
@@ -233,5 +238,73 @@ mod tests {
             panic!("expected an add-recipe fix");
         };
         assert_eq!(seed.difficulty, Some(4));
+    }
+
+    #[test]
+    fn a_missed_tag_minimum_seeds_the_tag() {
+        let vegan = lookup("Vegan", Importance::Medium);
+        let settings = RollSettings {
+            tags: vec![vegan.clone()],
+            ..RollSettings::default()
+        };
+        let notes = settings.unmet_notes(&[unmet(RuleFamily::Tag, Bound::AtLeast)], &[]);
+        let Some(Fix::AddRecipe(seed)) = &notes[0].fix else {
+            panic!("expected an add-recipe fix");
+        };
+        assert_eq!(
+            seed.tag,
+            Some(TagChoice {
+                id: Some(vegan.id),
+                name: "Vegan".to_string()
+            })
+        );
+        assert_eq!(seed.protein, None);
+    }
+
+    #[test]
+    fn an_exactly_rule_short_of_its_count_offers_a_recipe() {
+        let settings = RollSettings {
+            proteins: vec![lookup("Beef", Importance::Medium)],
+            ..RollSettings::default()
+        };
+        let short = unmet(RuleFamily::Protein, Bound::Exactly);
+        let notes = settings.unmet_notes(&[short], &[]);
+        assert!(matches!(notes[0].fix, Some(Fix::AddRecipe(_))));
+    }
+
+    #[test]
+    fn an_exactly_rule_over_its_count_offers_no_recipe() {
+        let settings = RollSettings {
+            proteins: vec![lookup("Beef", Importance::Medium)],
+            ..RollSettings::default()
+        };
+        let over = UnmetRule {
+            got: 3,
+            ..unmet(RuleFamily::Protein, Bound::Exactly)
+        };
+        let notes = settings.unmet_notes(&[over], &[]);
+        assert_eq!(notes[0].fix, None);
+    }
+
+    #[test]
+    fn a_failed_roll_offers_to_loosen_required_tag_rules() {
+        let settings = RollSettings {
+            tags: vec![lookup("Vegan", Importance::Required)],
+            ..RollSettings::default()
+        };
+        assert_eq!(
+            settings.failure_fixes()[0],
+            Fix::MakeNiceToHave(vec![(RuleFamily::Tag, 0)])
+        );
+    }
+
+    #[test]
+    fn a_missed_tag_rule_is_named_in_its_sentence() {
+        let settings = RollSettings {
+            tags: vec![lookup("Vegan", Importance::Medium)],
+            ..RollSettings::default()
+        };
+        let notes = settings.unmet_notes(&[unmet(RuleFamily::Tag, Bound::AtLeast)], &[]);
+        assert_eq!(notes[0].sentence, "Vegan: wanted at least 2, got 1.");
     }
 }
