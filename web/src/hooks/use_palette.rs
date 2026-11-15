@@ -200,6 +200,17 @@ mod tests {
     }
 
     #[test]
+    fn phone_status_bar_colour_is_the_top_bar_colour() {
+        let css = include_str!("../../assets/primitives.css");
+        let phone = &css[css.find("@media (max-width: 720px)").unwrap()..];
+        let topbar = &phone[phone.find(".mr-topbar {").unwrap()..];
+        let topbar = &topbar[..topbar.find('}').unwrap()];
+        assert!(topbar.contains("background: var(--mr-chrome);"));
+        assert!(phone.contains("--mr-chrome: var(--mr-surface);"));
+        assert!(css.contains("--mr-chrome:     var(--mr-bg);"));
+    }
+
+    #[test]
     fn stored_value_round_trips_and_unknown_falls_back_to_sunny() {
         for palette in PaletteChoice::ALL {
             assert!(PaletteChoice::from_stored(palette.key()) == palette);

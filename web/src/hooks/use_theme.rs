@@ -10,9 +10,15 @@ const STORAGE_KEY: &str = "mr-theme";
 /// OS theme first.
 pub const EARLY_SCRIPT: &str = "try{var t=localStorage.getItem('mr-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t)}}catch(e){}";
 
-/// Points the browser's `theme-color` (the Android status bar) at the page
-/// colour in force, so it follows the palette and light or dark.
-pub const SYNC_THEME_COLOR: &str = "var m=document.querySelector('meta[name=\"theme-color\"]'),s=document.querySelector('.mr-scope');if(m&&s){m.setAttribute('content',getComputedStyle(s).backgroundColor)}";
+/// Defines `window.mrSyncThemeColor`, which points the browser's `theme-color`
+/// (the Android status bar) at `--mr-chrome`, and re-runs it when the phone
+/// flips light or dark or the viewport crosses the phone breakpoint. Runs in
+/// `<head>` after the other early scripts so the first paint already matches
+/// the saved palette and theme. A probe element resolves the token, so it needs
+/// no page markup; a stylesheet that is not applied yet leaves the meta alone.
+pub const INSTALL_THEME_COLOR_SYNC: &str = "window.mrSyncThemeColor=function(){var m=document.querySelector('meta[name=\"theme-color\"]');if(!m){return}var p=document.createElement('div');p.style.background='var(--mr-chrome)';document.documentElement.appendChild(p);var c=getComputedStyle(p).backgroundColor;p.remove();if(c!=='rgba(0, 0, 0, 0)'){m.setAttribute('content',c)}};mrSyncThemeColor();addEventListener('resize',mrSyncThemeColor);matchMedia('(prefers-color-scheme: dark)').addEventListener('change',mrSyncThemeColor);";
+
+pub const SYNC_THEME_COLOR: &str = "window.mrSyncThemeColor()";
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ThemeChoice {
