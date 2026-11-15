@@ -8,7 +8,7 @@
 //! a link click or a swipe to the left close it and hand focus back to the button.
 
 use crate::components::layout::sidebar::NavLinks;
-use crate::components::layout::{NavEntry, ThemeToggle};
+use crate::components::layout::{NavEntry, ThemeToggle, VersionLine};
 use crate::components::ui::{BrandMark, Icon, IconButton, IconName};
 use crate::router::Route;
 use dioxus::prelude::*;
@@ -131,7 +131,10 @@ pub fn MobileNav(primary: Vec<NavEntry>, manage: Vec<NavEntry>) -> Element {
                 div { class: "mr-nav__group", "Manage" }
                 NavLinks { entries: manage, quiet: true, on_navigate: move |_| close() }
             }
-            div { class: "mr-drawer__foot", ThemeToggle {} }
+            div { class: "mr-drawer__foot",
+                ThemeToggle {}
+                VersionLine {}
+            }
         }
     }
 }

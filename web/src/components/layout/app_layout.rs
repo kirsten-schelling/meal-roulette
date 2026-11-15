@@ -2,20 +2,24 @@
 //! the left and the routed page in the main column. Below 720px the sidebar is
 //! hidden and `MobileNav` (a top bar and slide-out drawer) takes over. No state of its own.
 
-use crate::components::layout::{MobileNav, NavEntry, Sidebar};
+use crate::components::layout::{MobileNav, NavEntry, Sidebar, UpdateBanner};
 use crate::components::toast_master::ToastMaster;
 use crate::components::ui::IconName;
+use crate::hooks::use_app_update::provide_app_update;
 use crate::router::Route;
 use dioxus::prelude::*;
 
 #[component]
 pub fn AppLayout() -> Element {
+    provide_app_update();
+
     rsx! {
         div { class: "mr-scope mr-shell",
             ToastMaster {
                 Sidebar { primary: primary_entries(), manage: manage_entries() }
                 MobileNav { primary: primary_entries(), manage: manage_entries() }
                 main { class: "mr-main",
+                    UpdateBanner {}
                     div { class: "mr-main__inner",
                         // The current route's page renders here.
                         Outlet::<Route> {}

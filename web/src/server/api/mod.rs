@@ -11,3 +11,4 @@ pub mod roll_preset;
 pub mod shopping_list;
 pub mod tag;
 pub mod unit;
+pub mod version;
