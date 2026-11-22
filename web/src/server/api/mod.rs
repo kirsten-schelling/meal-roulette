@@ -10,6 +10,7 @@ pub mod recipe;
 pub mod roll;
 pub mod roll_preset;
 pub mod shopping_category;
+pub mod shopping_item;
 pub mod shopping_list;
 pub mod tag;
 pub mod unit;

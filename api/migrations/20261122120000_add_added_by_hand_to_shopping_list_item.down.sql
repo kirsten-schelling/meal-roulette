@@ -1,0 +1,2 @@
+ALTER TABLE shopping_list_item DROP CONSTRAINT chk_shopping_list_item_item_added_by_hand;
+ALTER TABLE shopping_list_item DROP COLUMN added_by_hand;

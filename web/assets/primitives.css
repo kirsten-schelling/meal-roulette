@@ -1898,6 +1898,7 @@ button.mr-chip--active::before {
   margin: .9rem 0 .25rem; font-size: var(--mr-text-sm); font-weight: 700;
   text-transform: uppercase; letter-spacing: .04em; color: var(--mr-text-muted);
 }
+.mr-library__section { margin: 1.5rem 0 .75rem; display: flex; flex-direction: column; gap: .25rem; }
 .mr-categorypick { display: flex; flex-direction: column; gap: .5rem; }
 
 @media (max-width: 520px) {

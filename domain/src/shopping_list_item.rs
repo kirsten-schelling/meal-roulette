@@ -43,11 +43,21 @@ pub struct ShoppingListLine {
     pub note: Option<String>,
     /// Titles of the plan's recipes that call for it, in date order.
     pub used_in: Vec<String>,
+    /// Put on the list by the user rather than by the plan's recipes.
+    pub added_by_hand: bool,
     /// The shopping category of the ingredient or shopping item behind the line.
     pub category_id: Option<Uuid>,
     /// Wake date of an active sleep. `None` = not asleep, so it goes on the list.
     #[serde(default, with = "crate::date_format::iso_date::option")]
     pub sleep_until: Option<time::Date>,
+}
+
+/// What the user picked to put on a list by hand.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum NewListLine {
+    Ingredient(Uuid),
+    /// An item that is not an ingredient, by name; a new name becomes a new item.
+    Item(String),
 }
 
 /// Incoming body for `POST /shopping-lists/{id}/custom-items`.

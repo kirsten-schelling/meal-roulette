@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use domain::shopping_list::{ShoppingList, ShoppingListForPlan};
-use domain::shopping_list_item::ShoppingListItem;
+use domain::shopping_list_item::{NewListLine, ShoppingListItem};
 use domain::slept_ingredient::SleptIngredient;
 use uuid::Uuid;
 
@@ -76,17 +76,17 @@ pub async fn add_covered_item(id: Uuid) -> Result<ShoppingListItem, ServerFnErro
         .map_err(server_fn_error)
 }
 
-/// Add a line for something that is not an ingredient to a list.
+/// Put an ingredient or another item on a list by hand.
 #[server]
-pub async fn add_custom_item(
+pub async fn add_list_line(
     shopping_list_id: Uuid,
-    name: String,
+    line: NewListLine,
 ) -> Result<ShoppingListItem, ServerFnError> {
     use crate::server::{app_state, server_fn_error};
     use api::features::shopping_list_item::repository;
 
     let state = app_state()?;
-    repository::add_custom(&state.db, shopping_list_id, &name)
+    repository::add(&state.db, shopping_list_id, line)
         .await
         .map_err(server_fn_error)
 }

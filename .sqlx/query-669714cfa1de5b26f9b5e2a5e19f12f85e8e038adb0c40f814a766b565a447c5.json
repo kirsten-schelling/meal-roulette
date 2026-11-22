@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        with updated_ingredient as (\n            UPDATE ingredient SET name = $1, purchase_size = $2, unit_id = $3 WHERE id = $4 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT updated_ingredient.id, updated_ingredient.household_id, updated_ingredient.name, updated_ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", updated_ingredient.unit_id, updated_ingredient.created_at, updated_ingredient.updated_at\n        FROM updated_ingredient\n        LEFT JOIN unit ON updated_ingredient.unit_id = unit.id\n        ",
+  "query": "\n        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", ingredient.unit_id, ingredient.shopping_category_id, ingredient.created_at, ingredient.updated_at\n        FROM ingredient\n        LEFT JOIN unit ON ingredient.unit_id = unit.id\n        ORDER BY ingredient.created_at DESC\n    ",
   "describe": {
     "columns": [
       {
@@ -66,6 +66,17 @@
       },
       {
         "ordinal": 6,
+        "name": "shopping_category_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "shopping_category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -76,7 +87,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -88,12 +99,7 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Text",
-        "Int4",
-        "Uuid",
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -102,9 +108,10 @@
       true,
       null,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "eb1d8177792c670fa55ede4bc7333e7ceb2406bcbfac69937eeb1c0cad6aa2cb"
+  "hash": "669714cfa1de5b26f9b5e2a5e19f12f85e8e038adb0c40f814a766b565a447c5"
 }

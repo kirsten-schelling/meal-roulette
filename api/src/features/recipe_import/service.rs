@@ -175,6 +175,7 @@ mod tests {
             purchase_size: None,
             unit: unit.name.clone(),
             unit_id: Some(unit.id),
+            shopping_category_id: None,
             created_at: OffsetDateTime::UNIX_EPOCH,
             updated_at: OffsetDateTime::UNIX_EPOCH,
         }

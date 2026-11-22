@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", ingredient.unit_id, ingredient.created_at, ingredient.updated_at\n        FROM ingredient\n        LEFT JOIN unit ON ingredient.unit_id = unit.id\n        ORDER BY ingredient.created_at DESC\n    ",
+  "query": "\n        with deleted_ingredient as (\n            DELETE FROM ingredient WHERE id = $1 RETURNING id, household_id, name, purchase_size, unit_id, shopping_category_id, created_at, updated_at\n        )\n        SELECT deleted_ingredient.id, deleted_ingredient.household_id, deleted_ingredient.name, deleted_ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", deleted_ingredient.unit_id, deleted_ingredient.shopping_category_id, deleted_ingredient.created_at, deleted_ingredient.updated_at\n        FROM deleted_ingredient\n        LEFT JOIN unit ON deleted_ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -66,6 +66,17 @@
       },
       {
         "ordinal": 6,
+        "name": "shopping_category_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "shopping_category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -76,7 +87,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -88,7 +99,9 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -97,9 +110,10 @@
       true,
       null,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "9e05940c667582fe053b38ab73e0add96f2ce4e1da82bf30e503da27b5a37dcf"
+  "hash": "7229638325e87467d9f5b6b676af9327269562897bcf350ab54fdf8c0d195c6f"
 }

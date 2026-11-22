@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        with deleted_ingredient as (\n            DELETE FROM ingredient WHERE id = $1 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at\n        )\n        SELECT deleted_ingredient.id, deleted_ingredient.household_id, deleted_ingredient.name, deleted_ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", deleted_ingredient.unit_id, deleted_ingredient.created_at, deleted_ingredient.updated_at\n        FROM deleted_ingredient\n        LEFT JOIN unit ON deleted_ingredient.unit_id = unit.id\n        ",
+  "query": "\n        with updated_ingredient as (\n            UPDATE ingredient SET name = $1, purchase_size = $2, unit_id = $3, shopping_category_id = $5 WHERE id = $4 RETURNING id, household_id, name, purchase_size, unit_id, shopping_category_id, created_at, updated_at\n        )\n        SELECT updated_ingredient.id, updated_ingredient.household_id, updated_ingredient.name, updated_ingredient.purchase_size, COALESCE(unit.name, '') as \"unit!\", updated_ingredient.unit_id, updated_ingredient.shopping_category_id, updated_ingredient.created_at, updated_ingredient.updated_at\n        FROM updated_ingredient\n        LEFT JOIN unit ON updated_ingredient.unit_id = unit.id\n        ",
   "describe": {
     "columns": [
       {
@@ -66,6 +66,17 @@
       },
       {
         "ordinal": 6,
+        "name": "shopping_category_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "shopping_category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -76,7 +87,7 @@
         }
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -89,6 +100,10 @@
     ],
     "parameters": {
       "Left": [
+        "Text",
+        "Int4",
+        "Uuid",
+        "Uuid",
         "Uuid"
       ]
     },
@@ -99,9 +114,10 @@
       true,
       null,
       true,
+      true,
       false,
       false
     ]
   },
-  "hash": "09f490d077f9cb16a205bb8ab971fa8410f87723e9d0df29bbcb4674f3ee5c59"
+  "hash": "aebada995973ef1eba39f44c3d2255b513293cae82cc23322d322474aff321ba"
 }

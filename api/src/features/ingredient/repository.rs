@@ -11,7 +11,7 @@ pub async fn list(pool: &PgPool) -> Result<Vec<Ingredient>, sqlx::Error> {
     let ingredients = sqlx::query_as!(
         Ingredient,
         r#"
-        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", ingredient.unit_id, ingredient.created_at, ingredient.updated_at
+        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", ingredient.unit_id, ingredient.shopping_category_id, ingredient.created_at, ingredient.updated_at
         FROM ingredient
         LEFT JOIN unit ON ingredient.unit_id = unit.id
         ORDER BY ingredient.created_at DESC
@@ -26,7 +26,7 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<Ingredient, sqlx::Error> {
     let ingredient = sqlx::query_as!(
         Ingredient,
         r#"
-        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", ingredient.unit_id, ingredient.created_at, ingredient.updated_at
+        SELECT ingredient.id, ingredient.household_id, ingredient.name, ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", ingredient.unit_id, ingredient.shopping_category_id, ingredient.created_at, ingredient.updated_at
         FROM ingredient
         LEFT JOIN unit ON ingredient.unit_id = unit.id
         WHERE ingredient.id = $1
@@ -49,9 +49,9 @@ where
         Ingredient,
         r#"
         with new_ingredient as (
-            INSERT INTO ingredient (household_id, name, purchase_size, unit_id) VALUES ($1, $2, $3, $4) RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at
+            INSERT INTO ingredient (household_id, name, purchase_size, unit_id, shopping_category_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, household_id, name, purchase_size, unit_id, shopping_category_id, created_at, updated_at
         )
-        SELECT new_ingredient.id, new_ingredient.household_id, new_ingredient.name, new_ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", new_ingredient.unit_id, new_ingredient.created_at, new_ingredient.updated_at
+        SELECT new_ingredient.id, new_ingredient.household_id, new_ingredient.name, new_ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", new_ingredient.unit_id, new_ingredient.shopping_category_id, new_ingredient.created_at, new_ingredient.updated_at
         FROM new_ingredient
         LEFT JOIN unit ON new_ingredient.unit_id = unit.id
         "#,
@@ -59,6 +59,7 @@ where
         ingredient.name,
         ingredient.purchase_size,
         ingredient.unit_id,
+        ingredient.shopping_category_id,
         )
         .fetch_one(executor)
         .await?;
@@ -95,6 +96,7 @@ pub async fn resolve(conn: &mut PgConnection, entry: IngredientEntry) -> Result<
             name,
             purchase_size,
             unit_id,
+            shopping_category_id: None,
         },
     )
     .await?;
@@ -114,6 +116,7 @@ pub async fn create_with_unit(
             name: new_ingredient.name,
             purchase_size: new_ingredient.purchase_size,
             unit_id,
+            shopping_category_id: new_ingredient.shopping_category_id,
         },
     )
     .await?;
@@ -132,9 +135,9 @@ pub async fn update(
         Ingredient,
         r#"
         with updated_ingredient as (
-            UPDATE ingredient SET name = $1, purchase_size = $2, unit_id = $3 WHERE id = $4 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at
+            UPDATE ingredient SET name = $1, purchase_size = $2, unit_id = $3, shopping_category_id = $5 WHERE id = $4 RETURNING id, household_id, name, purchase_size, unit_id, shopping_category_id, created_at, updated_at
         )
-        SELECT updated_ingredient.id, updated_ingredient.household_id, updated_ingredient.name, updated_ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", updated_ingredient.unit_id, updated_ingredient.created_at, updated_ingredient.updated_at
+        SELECT updated_ingredient.id, updated_ingredient.household_id, updated_ingredient.name, updated_ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", updated_ingredient.unit_id, updated_ingredient.shopping_category_id, updated_ingredient.created_at, updated_ingredient.updated_at
         FROM updated_ingredient
         LEFT JOIN unit ON updated_ingredient.unit_id = unit.id
         "#,
@@ -142,6 +145,7 @@ pub async fn update(
         ingredient.purchase_size,
         unit_id,
         id,
+        ingredient.shopping_category_id,
     )
     .fetch_one(&mut *tx)
     .await?;
@@ -154,9 +158,9 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<Ingredient, sqlx::Error> 
         Ingredient,
         r#"
         with deleted_ingredient as (
-            DELETE FROM ingredient WHERE id = $1 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at
+            DELETE FROM ingredient WHERE id = $1 RETURNING id, household_id, name, purchase_size, unit_id, shopping_category_id, created_at, updated_at
         )
-        SELECT deleted_ingredient.id, deleted_ingredient.household_id, deleted_ingredient.name, deleted_ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", deleted_ingredient.unit_id, deleted_ingredient.created_at, deleted_ingredient.updated_at
+        SELECT deleted_ingredient.id, deleted_ingredient.household_id, deleted_ingredient.name, deleted_ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", deleted_ingredient.unit_id, deleted_ingredient.shopping_category_id, deleted_ingredient.created_at, deleted_ingredient.updated_at
         FROM deleted_ingredient
         LEFT JOIN unit ON deleted_ingredient.unit_id = unit.id
         "#,
@@ -225,9 +229,9 @@ pub async fn delete_with_references(pool: &PgPool, id: Uuid) -> Result<Ingredien
         Ingredient,
         r#"
         with deleted_ingredient as (
-            DELETE FROM ingredient WHERE id = $1 RETURNING id, household_id, name, purchase_size, unit_id, created_at, updated_at
+            DELETE FROM ingredient WHERE id = $1 RETURNING id, household_id, name, purchase_size, unit_id, shopping_category_id, created_at, updated_at
         )
-        SELECT deleted_ingredient.id, deleted_ingredient.household_id, deleted_ingredient.name, deleted_ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", deleted_ingredient.unit_id, deleted_ingredient.created_at, deleted_ingredient.updated_at
+        SELECT deleted_ingredient.id, deleted_ingredient.household_id, deleted_ingredient.name, deleted_ingredient.purchase_size, COALESCE(unit.name, '') as "unit!", deleted_ingredient.unit_id, deleted_ingredient.shopping_category_id, deleted_ingredient.created_at, deleted_ingredient.updated_at
         FROM deleted_ingredient
         LEFT JOIN unit ON deleted_ingredient.unit_id = unit.id
         "#,
@@ -250,6 +254,7 @@ mod tests {
             name: "Eggs".to_string(),
             purchase_size: None,
             unit,
+            shopping_category_id: None,
         }
     }
 
@@ -281,6 +286,7 @@ mod tests {
             name: "Eggs".to_string(),
             purchase_size: None,
             unit: Some(UnitEntry::New("each".to_string())),
+            shopping_category_id: None,
         };
         let updated = update(&pool, created.id, with_unit).await.unwrap();
         assert_eq!(updated.unit, "each");
@@ -288,6 +294,7 @@ mod tests {
             name: "Eggs".to_string(),
             purchase_size: None,
             unit: None,
+            shopping_category_id: None,
         };
         let updated = update(&pool, created.id, without).await.unwrap();
         assert_eq!((updated.unit.as_str(), updated.unit_id), ("", None));

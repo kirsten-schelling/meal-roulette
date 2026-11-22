@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT shopping_list_item.id, shopping_list_item.ingredient_id,\n               COALESCE(ingredient.name, shopping_item.name) AS \"ingredient!\",\n               shopping_list_item.qty, COALESCE(unit.name, '') AS \"unit!\", ingredient.purchase_size,\n               CEIL(shopping_list_item.qty / ingredient.purchase_size)::int AS \"packs?\",\n               shopping_list_item.is_purchased, shopping_list_item.is_covered, shopping_list_item.note,\n               ARRAY(\n                   SELECT recipe.title\n                   FROM planned_meal\n                   JOIN recipe ON recipe.id = planned_meal.recipe_id\n                   JOIN recipe_ingredient ON recipe_ingredient.recipe_id = recipe.id\n                   WHERE planned_meal.meal_plan_id = shopping_list.meal_plan_id\n                     AND recipe_ingredient.ingredient_id = shopping_list_item.ingredient_id\n                   ORDER BY planned_meal.scheduled_date NULLS LAST, planned_meal.day_index\n               ) AS \"used_in!\",\n               COALESCE(ingredient.shopping_category_id, shopping_item.shopping_category_id) AS category_id,\n               slept_ingredient.sleep_until AS \"sleep_until?\"\n        FROM shopping_list_item\n        JOIN shopping_list ON shopping_list.id = shopping_list_item.shopping_list_id\n        LEFT JOIN ingredient ON ingredient.id = shopping_list_item.ingredient_id\n        LEFT JOIN shopping_item ON shopping_item.id = shopping_list_item.shopping_item_id\n        LEFT JOIN unit ON unit.id = shopping_list_item.unit_id\n        LEFT JOIN slept_ingredient\n               ON slept_ingredient.household_id = shopping_list.household_id\n              AND slept_ingredient.ingredient_id = shopping_list_item.ingredient_id\n              AND slept_ingredient.sleep_until >= CURRENT_DATE\n        WHERE shopping_list_item.shopping_list_id = $1\n          AND NOT shopping_list_item.is_cleared\n        ORDER BY slept_ingredient.id IS NOT NULL,\n                 shopping_list_item.ingredient_id IS NULL,\n                 COALESCE(ingredient.name, shopping_item.name)\n        ",
+  "query": "\n        SELECT shopping_list_item.id, shopping_list_item.ingredient_id,\n               COALESCE(ingredient.name, shopping_item.name) AS \"ingredient!\",\n               shopping_list_item.qty, COALESCE(unit.name, '') AS \"unit!\", ingredient.purchase_size,\n               CEIL(shopping_list_item.qty / ingredient.purchase_size)::int AS \"packs?\",\n               shopping_list_item.is_purchased, shopping_list_item.is_covered, shopping_list_item.note,\n               shopping_list_item.added_by_hand,\n               ARRAY(\n                   SELECT recipe.title\n                   FROM planned_meal\n                   JOIN recipe ON recipe.id = planned_meal.recipe_id\n                   JOIN recipe_ingredient ON recipe_ingredient.recipe_id = recipe.id\n                   WHERE planned_meal.meal_plan_id = shopping_list.meal_plan_id\n                     AND recipe_ingredient.ingredient_id = shopping_list_item.ingredient_id\n                   ORDER BY planned_meal.scheduled_date NULLS LAST, planned_meal.day_index\n               ) AS \"used_in!\",\n               COALESCE(ingredient.shopping_category_id, shopping_item.shopping_category_id) AS category_id,\n               slept_ingredient.sleep_until AS \"sleep_until?\"\n        FROM shopping_list_item\n        JOIN shopping_list ON shopping_list.id = shopping_list_item.shopping_list_id\n        LEFT JOIN ingredient ON ingredient.id = shopping_list_item.ingredient_id\n        LEFT JOIN shopping_item ON shopping_item.id = shopping_list_item.shopping_item_id\n        LEFT JOIN unit ON unit.id = shopping_list_item.unit_id\n        LEFT JOIN slept_ingredient\n               ON slept_ingredient.household_id = shopping_list.household_id\n              AND slept_ingredient.ingredient_id = shopping_list_item.ingredient_id\n              AND slept_ingredient.sleep_until >= CURRENT_DATE\n        WHERE shopping_list_item.shopping_list_id = $1\n          AND NOT shopping_list_item.is_cleared\n        ORDER BY slept_ingredient.id IS NOT NULL,\n                 shopping_list_item.ingredient_id IS NULL,\n                 COALESCE(ingredient.name, shopping_item.name)\n        ",
   "describe": {
     "columns": [
       {
@@ -100,18 +100,29 @@
       },
       {
         "ordinal": 10,
+        "name": "added_by_hand",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "added_by_hand"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
         "name": "used_in!",
         "type_info": "TextArray",
         "origin": "Expression"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "category_id",
         "type_info": "Uuid",
         "origin": "Expression"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "sleep_until?",
         "type_info": "Date",
         "origin": {
@@ -138,10 +149,11 @@
       false,
       false,
       true,
+      false,
       null,
       null,
       false
     ]
   },
-  "hash": "ad760e6d0d604702e5f6902a5a95dfaf4e98b482b9e6f2f87e3fadda82b5bb48"
+  "hash": "142e1f25fb936bbf494865fcc0373ee166d5b24169753110dbfedc870ebffeb6"
 }

@@ -17,6 +17,7 @@ pub mod recipe_tag;
 pub mod roll;
 pub mod roll_preset;
 pub mod shopping_category;
+pub mod shopping_item;
 pub mod shopping_list;
 pub mod shopping_list_item;
 pub mod slept_ingredient;

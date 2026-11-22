@@ -3,7 +3,7 @@ use crate::components::ui::{
 };
 use crate::features::ingredient::hooks::use_ingredient::{update_ingredient, use_add_ingredient};
 use crate::features::ingredient::parse::parse_purchase_size;
-use crate::features::library::components::{ManageListsDialog, ManageTab};
+use crate::features::library::components::{CategorySelect, ManageListsDialog, ManageTab};
 use crate::features::unit::hooks::use_unit::use_get_units;
 use crate::models::error_message;
 use dioxus::prelude::*;
@@ -40,6 +40,7 @@ pub fn IngredientDialog(
         picker
     });
     let mut units = use_get_units();
+    let mut category = use_signal(|| start.as_ref().and_then(|i| i.shopping_category_id));
 
     // The manage-lists dialog stacks over this one, opened on Units.
     let mut managing = use_signal(|| false);
@@ -94,6 +95,7 @@ pub fn IngredientDialog(
                 name,
                 purchase_size,
                 unit,
+                shopping_category_id: category(),
             }),
             Some(id) => {
                 updating.set(true);
@@ -103,6 +105,7 @@ pub fn IngredientDialog(
                         name,
                         purchase_size,
                         unit,
+                        shopping_category_id: category(),
                     };
                     match update_ingredient(id, update).await {
                         Ok(_) => on_saved.call(()),
@@ -159,6 +162,7 @@ pub fn IngredientDialog(
                         error: size_check.clone().err(),
                     }
                 }
+                CategorySelect { value: category(), onchange: move |id| category.set(id) }
 
                 if let Some(msg) = error {
                     Alert { tone: Tone::Red, title: error_title, "{msg}" }

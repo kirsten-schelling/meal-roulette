@@ -76,6 +76,7 @@ mod tests {
                 name: name.to_string(),
                 purchase_size: None,
                 unit: Some(UnitEntry::New("each".to_string())),
+                shopping_category_id: None,
             },
         )
         .await

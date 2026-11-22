@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        DELETE FROM shopping_list_item\n        WHERE shopping_list_id = $1\n          AND NOT added_by_hand\n          AND ingredient_id NOT IN (\n              SELECT recipe_ingredient.ingredient_id\n              FROM planned_meal\n              JOIN recipe_ingredient ON recipe_ingredient.recipe_id = planned_meal.recipe_id\n              WHERE planned_meal.meal_plan_id = $2\n          )\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_list_item",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e195321e1c36d53e3d3e35a640096fced7a9f5fbfdcd17aeea039992d174ae68"
+}

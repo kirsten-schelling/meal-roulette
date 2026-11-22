@@ -13,11 +13,11 @@ use crate::components::ui::{
 use crate::features::history::format::{dinner_count, plan_title};
 use crate::features::history::hooks::use_local_offset::use_local_offset;
 use crate::features::shopping_list::components::{
-    AddCustomItem, CategoryPicker, LineRow, ManageCategoriesDialog, SleepBar,
+    AddListItem, CategoryPicker, LineRow, ManageCategoriesDialog, SleepBar,
 };
 use crate::features::shopping_list::hooks::use_shopping_categories::use_shopping_categories;
 use crate::features::shopping_list::hooks::use_shopping_list::{
-    add_covered_item, add_custom_item, clear_bought_items, generate_shopping_list,
+    add_covered_item, add_list_line, clear_bought_items, generate_shopping_list,
     remove_custom_item, set_item_purchased, set_line_category, sleep_ingredients,
     use_get_shopping_list, wake_ingredient,
 };
@@ -27,7 +27,7 @@ use crate::router::Route;
 use dioxus::prelude::*;
 use domain::shopping_category::ShoppingCategory;
 use domain::shopping_list::ShoppingListForPlan;
-use domain::shopping_list_item::ShoppingListLine;
+use domain::shopping_list_item::{NewListLine, ShoppingListLine};
 use time::UtcOffset;
 use uuid::Uuid;
 
@@ -200,7 +200,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         });
     };
 
-    let add_own_item = move |name: String| {
+    let add_own_item = move |line: NewListLine| {
         let Some(list_id) = list_id else {
             return;
         };
@@ -209,7 +209,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         }
         adding.set(true);
         spawn(async move {
-            match add_custom_item(list_id, name).await {
+            match add_list_line(list_id, line).await {
                 Ok(_) => data.restart(),
                 Err(e) => toast.show(
                     Some("Couldn't add it".to_string()),
@@ -543,7 +543,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                         "{to_buy} to buy, {purchased_count} purchased, {sleeping_count} sleeping"
                     }
                     if add_open() {
-                        AddCustomItem { busy: adding(), on_add: add_own_item }
+                        AddListItem { busy: adding(), on_add: add_own_item }
                     }
                     for (label, section) in to_buy_sections {
                         if let Some(label) = label {
@@ -557,7 +557,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                                 checked: false,
                                 selected: selected().contains(&line.id),
                                 on_tick: tick(line),
-                                if line.ingredient_id.is_none() {
+                                if line.added_by_hand {
                                     {own_item_action(line)}
                                 } else {
                                     ActionMenu { label: "More actions for {line.ingredient}",
@@ -627,7 +627,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                                             line: line.clone(),
                                             checked: true,
                                             on_tick: tick(line),
-                                            if line.ingredient_id.is_none() {
+                                            if line.added_by_hand {
                                                 {own_item_action(line)}
                                             }
                                         }

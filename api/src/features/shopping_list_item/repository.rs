@@ -1,5 +1,5 @@
 use domain::shopping_list_item::{
-    NewShoppingListItem, ShoppingListItem, ShoppingListLine, UpdateShoppingListItem,
+    NewListLine, NewShoppingListItem, ShoppingListItem, ShoppingListLine, UpdateShoppingListItem,
 };
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -48,6 +48,7 @@ pub async fn lines(
                shopping_list_item.qty, COALESCE(unit.name, '') AS "unit!", ingredient.purchase_size,
                CEIL(shopping_list_item.qty / ingredient.purchase_size)::int AS "packs?",
                shopping_list_item.is_purchased, shopping_list_item.is_covered, shopping_list_item.note,
+               shopping_list_item.added_by_hand,
                ARRAY(
                    SELECT recipe.title
                    FROM planned_meal
@@ -117,6 +118,43 @@ pub async fn add_anyway(pool: &PgPool, id: Uuid) -> Result<ShoppingListItem, sql
     .await
 }
 
+/// Put something on a list by hand.
+pub async fn add(
+    pool: &PgPool,
+    shopping_list_id: Uuid,
+    line: NewListLine,
+) -> Result<ShoppingListItem, sqlx::Error> {
+    match line {
+        NewListLine::Ingredient(id) => add_ingredient(pool, shopping_list_id, id).await,
+        NewListLine::Item(name) => add_custom(pool, shopping_list_id, &name).await,
+    }
+}
+
+/// Put an ingredient on a list by hand, with no amount. If the list already has it, the
+/// line is shown again and unticked instead.
+async fn add_ingredient(
+    pool: &PgPool,
+    shopping_list_id: Uuid,
+    ingredient_id: Uuid,
+) -> Result<ShoppingListItem, sqlx::Error> {
+    sqlx::query_as!(
+        ShoppingListItem,
+        r#"
+        INSERT INTO shopping_list_item (shopping_list_id, ingredient_id, unit_id, added_by_hand)
+        SELECT $1, ingredient.id, ingredient.unit_id, true
+        FROM ingredient
+        WHERE ingredient.id = $2
+        ON CONFLICT ON CONSTRAINT uq_shopping_list_item
+        DO UPDATE SET added_by_hand = true, is_cleared = false, is_purchased = false
+        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, shopping_item_id, created_at, updated_at
+        "#,
+        shopping_list_id,
+        ingredient_id,
+    )
+    .fetch_one(pool)
+    .await
+}
+
 /// Add a line for something that is not an ingredient. It is matched by name, ignoring
 /// case, to a shopping item, which is created the first time, so the item's category
 /// carries over. Rebuilding the list from its plan leaves the line alone.
@@ -134,8 +172,8 @@ pub async fn add_custom(
             ON CONFLICT ((lower(name))) DO UPDATE SET name = shopping_item.name
             RETURNING id
         )
-        INSERT INTO shopping_list_item (shopping_list_id, shopping_item_id)
-        SELECT $1, item.id FROM item
+        INSERT INTO shopping_list_item (shopping_list_id, shopping_item_id, added_by_hand)
+        SELECT $1, item.id, true FROM item
         RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, shopping_item_id, created_at, updated_at
         "#,
         shopping_list_id,
@@ -181,8 +219,8 @@ pub async fn set_category(
     Ok(())
 }
 
-/// Remove a line that is not an ingredient. An ingredient line is not found here: it goes when the
-/// plan stops needing it.
+/// Remove a line the user added by hand. A line the plan put there is not found here: it goes
+/// when the plan stops needing it.
 pub async fn remove_custom(
     pool: &PgPool,
     shopping_list_id: Uuid,
@@ -192,7 +230,7 @@ pub async fn remove_custom(
         ShoppingListItem,
         r#"
         DELETE FROM shopping_list_item
-        WHERE id = $1 AND shopping_list_id = $2 AND ingredient_id IS NULL
+        WHERE id = $1 AND shopping_list_id = $2 AND added_by_hand
         RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, shopping_item_id, created_at, updated_at
         "#,
         id,

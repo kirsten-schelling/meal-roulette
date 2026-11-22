@@ -15,7 +15,7 @@ fn packs_label(line: &ShoppingListLine) -> String {
 
 /// The muted second line: the amount (and pack count) and the recipes that need it.
 fn secondary(line: &ShoppingListLine) -> String {
-    if line.ingredient_id.is_none() {
+    if line.used_in.is_empty() && line.added_by_hand {
         return "Added by you".to_string();
     }
     let mut parts = vec![amount_label(line.qty, &line.unit), packs_label(line)];

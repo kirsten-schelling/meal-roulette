@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        WITH item AS (\n            INSERT INTO shopping_item (name)\n            VALUES (btrim($2))\n            ON CONFLICT ((lower(name))) DO UPDATE SET name = shopping_item.name\n            RETURNING id\n        )\n        INSERT INTO shopping_list_item (shopping_list_id, shopping_item_id)\n        SELECT $1, item.id FROM item\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, shopping_item_id, created_at, updated_at\n        ",
+  "query": "\n        WITH item AS (\n            INSERT INTO shopping_item (name)\n            VALUES (btrim($2))\n            ON CONFLICT ((lower(name))) DO UPDATE SET name = shopping_item.name\n            RETURNING id\n        )\n        INSERT INTO shopping_list_item (shopping_list_id, shopping_item_id, added_by_hand)\n        SELECT $1, item.id, true FROM item\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, shopping_item_id, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -133,5 +133,5 @@
       false
     ]
   },
-  "hash": "4075ad3c1d8a53adc9f54329d9e3259e725dec2b8208685a39a33f7c59f895f0"
+  "hash": "c7dea687db21a5240c11fcf8990730ee3fe1bcd2b3e45272ec6e7eb8accc26bc"
 }

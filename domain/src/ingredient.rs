@@ -13,6 +13,8 @@ pub struct Ingredient {
     /// The unit's name; an empty string means the ingredient has no unit.
     pub unit: String,
     pub unit_id: Option<Uuid>,
+    /// The shopping list section it goes under. `None` = uncategorised.
+    pub shopping_category_id: Option<Uuid>,
     pub created_at: time::OffsetDateTime,
     pub updated_at: time::OffsetDateTime,
 }
@@ -25,6 +27,8 @@ pub struct NewIngredient {
     pub name: String,
     pub purchase_size: Option<i32>,
     pub unit: Option<UnitEntry>,
+    #[serde(default)]
+    pub shopping_category_id: Option<Uuid>,
 }
 
 /// The resolved columns actually written to `ingredient` — built server-side after
@@ -36,6 +40,7 @@ pub struct InsertIngredient {
     pub name: String,
     pub purchase_size: Option<i32>,
     pub unit_id: Option<Uuid>,
+    pub shopping_category_id: Option<Uuid>,
 }
 
 /// Body for `PUT /ingredients/{id}`. Like `NewIngredient`, the unit may be one to create.
@@ -44,6 +49,8 @@ pub struct UpdateIngredient {
     pub name: String,
     pub purchase_size: Option<i32>,
     pub unit: Option<UnitEntry>,
+    #[serde(default)]
+    pub shopping_category_id: Option<Uuid>,
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]

@@ -55,11 +55,11 @@ pub async fn find_for_plan(
 /// Build a plan's list, or rebuild the one it already has. Each line is one
 /// ingredient summed across the plan's recipes, in the ingredient's current unit.
 /// Rebuilding leaves lines already ticked as they are, drops lines the plan no longer
-/// needs, leaves lines that are not ingredients alone, and bumps the list's `updated_at`,
-/// which is what the stale check compares against.
+/// needs, leaves lines added by hand alone, and bumps the list's `updated_at`, which is
+/// what the stale check compares against.
 ///
-/// Lines that are not ingredients and are not yet bought move here from the household's
-/// lists for earlier plans, so what was added during the week survives rolling the next.
+/// Lines added by hand and not yet bought move here from the household's list for the
+/// plan before, so what was added during the week survives rolling the next.
 pub async fn generate_for_plan(
     pool: &PgPool,
     meal_plan_id: Uuid,
@@ -85,16 +85,29 @@ pub async fn generate_for_plan(
     let _carried = sqlx::query_scalar!(
         r#"
         UPDATE shopping_list_item
-        SET shopping_list_id = $1
-        FROM shopping_list AS earlier_list
-        JOIN meal_plan AS earlier_plan ON earlier_plan.id = earlier_list.meal_plan_id
-        JOIN meal_plan AS this_plan ON this_plan.id = $2
-        WHERE shopping_list_item.shopping_list_id = earlier_list.id
-          AND earlier_list.household_id = $3
-          AND earlier_plan.created_at < this_plan.created_at
-          AND shopping_list_item.ingredient_id IS NULL
-          AND NOT shopping_list_item.is_purchased
-        RETURNING shopping_list_item.id
+        SET shopping_list_id = $1, qty = NULL, note = NULL, is_covered = false
+        WHERE shopping_list_id = (
+                SELECT earlier_list.id
+                FROM shopping_list AS earlier_list
+                JOIN meal_plan AS earlier_plan ON earlier_plan.id = earlier_list.meal_plan_id
+                JOIN meal_plan AS this_plan ON this_plan.id = $2
+                WHERE earlier_list.household_id = $3
+                  AND earlier_plan.created_at < this_plan.created_at
+                ORDER BY earlier_plan.created_at DESC
+                LIMIT 1
+            )
+          AND added_by_hand
+          AND NOT is_purchased
+          AND NOT is_cleared
+          AND (
+              ingredient_id IS NULL
+              OR ingredient_id NOT IN (
+                  SELECT ingredient_id
+                  FROM shopping_list_item
+                  WHERE shopping_list_id = $1 AND ingredient_id IS NOT NULL
+              )
+          )
+        RETURNING id
         "#,
         list.id,
         meal_plan_id,
@@ -136,7 +149,7 @@ pub async fn generate_for_plan(
         r#"
         DELETE FROM shopping_list_item
         WHERE shopping_list_id = $1
-          AND ingredient_id IS NOT NULL
+          AND NOT added_by_hand
           AND ingredient_id NOT IN (
               SELECT recipe_ingredient.ingredient_id
               FROM planned_meal
@@ -270,8 +283,9 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<ShoppingList, sqlx::Error
 mod tests {
     use super::*;
     use crate::features::shopping_list_item::repository::{
-        add_custom, clear_bought, lines, remove_custom, set_category, set_purchased,
+        add, add_custom, clear_bought, lines, remove_custom, set_category, set_purchased,
     };
+    use domain::shopping_list_item::NewListLine;
 
     struct Fixture {
         plan_id: Uuid,
@@ -436,6 +450,35 @@ mod tests {
             names(&lines(&pool, this_week.id).await.unwrap()),
             ["Bin bags"]
         );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn an_ingredient_added_by_hand_survives_a_rebuild_and_moves_to_next_week(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let flour =
+            sqlx::query_scalar!("INSERT INTO ingredient (name) VALUES ('Flour') RETURNING id")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        let last_week = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        add(&pool, last_week.id, NewListLine::Ingredient(flour))
+            .await
+            .unwrap();
+
+        generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let rebuilt = lines(&pool, last_week.id).await.unwrap();
+        assert_eq!(names(&rebuilt), ["Flour", "Rice", "Spaghetti"]);
+        assert!(rebuilt[0].added_by_hand && rebuilt[0].qty.is_none());
+
+        let this_plan = next_week(&pool, f.plan_id).await;
+        let this_week = generate_for_plan(&pool, this_plan).await.unwrap();
+        let carried = lines(&pool, this_week.id).await.unwrap();
+        assert_eq!(names(&carried), ["Flour"]);
+
+        remove_custom(&pool, this_week.id, carried[0].id)
+            .await
+            .unwrap();
+        assert!(lines(&pool, this_week.id).await.unwrap().is_empty());
     }
 
     #[sqlx::test(migrations = "./migrations")]

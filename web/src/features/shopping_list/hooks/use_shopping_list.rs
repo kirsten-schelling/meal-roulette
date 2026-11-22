@@ -4,7 +4,7 @@ use domain::shopping_list::ShoppingListForPlan;
 use uuid::Uuid;
 
 pub use crate::server::api::shopping_list::{
-    add_covered_item, add_custom_item, clear_bought_items, ensure_shopping_list,
+    add_covered_item, add_list_line, clear_bought_items, ensure_shopping_list,
     generate_shopping_list, remove_custom_item, set_item_purchased, set_line_category,
     sleep_ingredients, wake_ingredient,
 };

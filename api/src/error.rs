@@ -81,6 +81,7 @@ fn constraint_message(constraint: &str) -> Option<AppError> {
             "This recipe is on a meal plan. Delete that plan from History first, or swap the recipe out of it.",
         ),
         "fk_cook_log_recipe" => conflict("This recipe is in the cooking log."),
+        "uq_shopping_item_name" => conflict("An item with that name already exists."),
         "uq_shopping_category_name" => conflict("A category with that name already exists."),
         "chk_shopping_category_name" => invalid("Give the category a name."),
         "chk_shopping_list_item_kind" | "chk_shopping_item_name" => {
