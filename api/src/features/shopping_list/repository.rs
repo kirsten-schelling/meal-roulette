@@ -57,8 +57,11 @@ pub async fn find_for_plan(
 /// holds, in the ingredient's current unit. A line with no amount is never reduced.
 /// A line the pantry covers in full keeps its whole amount and is marked covered.
 /// Rebuilding leaves lines already ticked as they are, drops lines the plan no longer
-/// needs, leaves free-text lines alone, and bumps the list's `updated_at`, which is
-/// what the stale check compares against.
+/// needs, leaves lines that are not ingredients alone, and bumps the list's `updated_at`,
+/// which is what the stale check compares against.
+///
+/// Lines that are not ingredients and are not yet bought move here from the household's
+/// lists for earlier plans, so what was added during the week survives rolling the next.
 pub async fn generate_for_plan(
     pool: &PgPool,
     meal_plan_id: Uuid,
@@ -79,6 +82,27 @@ pub async fn generate_for_plan(
         meal_plan_id,
     )
     .fetch_one(&mut *tx)
+    .await?;
+
+    let _carried = sqlx::query_scalar!(
+        r#"
+        UPDATE shopping_list_item
+        SET shopping_list_id = $1
+        FROM shopping_list AS earlier_list
+        JOIN meal_plan AS earlier_plan ON earlier_plan.id = earlier_list.meal_plan_id
+        JOIN meal_plan AS this_plan ON this_plan.id = $2
+        WHERE shopping_list_item.shopping_list_id = earlier_list.id
+          AND earlier_list.household_id = $3
+          AND earlier_plan.created_at < this_plan.created_at
+          AND shopping_list_item.ingredient_id IS NULL
+          AND NOT shopping_list_item.is_purchased
+        RETURNING shopping_list_item.id
+        "#,
+        list.id,
+        meal_plan_id,
+        list.household_id,
+    )
+    .fetch_all(&mut *tx)
     .await?;
 
     let _upserted = sqlx::query_scalar!(
@@ -379,6 +403,50 @@ mod tests {
 
         let after = lines(&pool, list.id).await.unwrap();
         assert_eq!(names(&after), ["Bin bags"]);
+    }
+
+    async fn next_week(pool: &PgPool, previous_plan: Uuid) -> Uuid {
+        sqlx::query_scalar!(
+            "UPDATE meal_plan SET created_at = now() - interval '7 days' WHERE id = $1 RETURNING id",
+            previous_plan,
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        sqlx::query_scalar!(
+            "INSERT INTO meal_plan (household_id, start_date)
+             SELECT household_id, '2026-11-09' FROM meal_plan WHERE id = $1
+             RETURNING id",
+            previous_plan,
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_new_week_takes_over_the_unbought_items_added_to_the_last(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let last_week = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        add_custom(&pool, last_week.id, "Bin bags").await.unwrap();
+        let candles = add_custom(&pool, last_week.id, "Candles").await.unwrap();
+        set_purchased(&pool, candles.id, true).await.unwrap();
+        let this_plan = next_week(&pool, f.plan_id).await;
+
+        let this_week = generate_for_plan(&pool, this_plan).await.unwrap();
+
+        assert_eq!(
+            names(&lines(&pool, this_week.id).await.unwrap()),
+            ["Bin bags"]
+        );
+        let left = lines(&pool, last_week.id).await.unwrap();
+        assert_eq!(names(&left), ["Rice", "Spaghetti", "Candles"]);
+
+        generate_for_plan(&pool, f.plan_id).await.unwrap();
+        assert_eq!(
+            names(&lines(&pool, this_week.id).await.unwrap()),
+            ["Bin bags"]
+        );
     }
 
     #[sqlx::test(migrations = "./migrations")]
