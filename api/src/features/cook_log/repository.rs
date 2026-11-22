@@ -1,4 +1,4 @@
-use crate::features::{household, pantry};
+use crate::features::household;
 use domain::cook_log::{CookLog, CookLogEntry, NewCookLog, UpdateCookLog};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -88,10 +88,8 @@ pub async fn get(pool: &PgPool, id: Uuid) -> Result<CookLog, sqlx::Error> {
     Ok(log)
 }
 
-/// Writes the cook and takes the recipe's ingredients out of the household's pantry counts.
 pub async fn create(pool: &PgPool, new_log: NewCookLog) -> Result<CookLog, sqlx::Error> {
-    let mut tx = pool.begin().await?;
-    let log = sqlx::query_as!(
+    sqlx::query_as!(
         CookLog,
         r#"
         INSERT INTO cook_log (household_id, recipe_id, planned_meal_id, cooked_on)
@@ -103,11 +101,8 @@ pub async fn create(pool: &PgPool, new_log: NewCookLog) -> Result<CookLog, sqlx:
         new_log.planned_meal_id,
         new_log.cooked_on,
     )
-    .fetch_one(&mut *tx)
-    .await?;
-    pantry::repository::use_up_recipe(&mut tx, log.household_id, log.recipe_id).await?;
-    tx.commit().await?;
-    Ok(log)
+    .fetch_one(pool)
+    .await
 }
 
 /// Records a cook for the household every unscoped request acts for.
@@ -151,10 +146,8 @@ pub async fn update(pool: &PgPool, id: Uuid, log: UpdateCookLog) -> Result<CookL
     Ok(log)
 }
 
-/// Removes the cook and puts the recipe's ingredients back into the pantry counts.
 pub async fn delete(pool: &PgPool, id: Uuid) -> Result<CookLog, sqlx::Error> {
-    let mut tx = pool.begin().await?;
-    let log = sqlx::query_as!(
+    sqlx::query_as!(
         CookLog,
         r#"
         DELETE FROM cook_log
@@ -163,11 +156,8 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<CookLog, sqlx::Error> {
         "#,
         id,
     )
-    .fetch_one(&mut *tx)
-    .await?;
-    pantry::repository::give_back_recipe(&mut tx, log.household_id, log.recipe_id).await?;
-    tx.commit().await?;
-    Ok(log)
+    .fetch_one(pool)
+    .await
 }
 
 #[cfg(test)]
@@ -307,45 +297,5 @@ mod tests {
         assert_eq!(last.get(&pasta), Some(&date!(2026 - 11 - 12)));
         assert_eq!(last.get(&curry), Some(&date!(2026 - 11 - 11)));
         assert_eq!(last.get(&never), None);
-    }
-
-    #[sqlx::test(migrations = "./migrations")]
-    async fn cooking_draws_the_pantry_down_and_removing_the_cook_puts_it_back(pool: PgPool) {
-        let unit = sqlx::query_scalar!("INSERT INTO unit (name) VALUES ('g') RETURNING id")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-        let rice = sqlx::query_scalar!(
-            "INSERT INTO ingredient (unit_id, name) VALUES ($1, 'Rice') RETURNING id",
-            unit,
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        let dish = recipe_titled(&pool, "Rice bowl").await;
-        sqlx::query_scalar!(
-            "INSERT INTO recipe_ingredient (recipe_id, ingredient_id, qty) VALUES ($1, $2, 200) RETURNING id",
-            dish,
-            rice,
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        pantry::repository::set_qty(&pool, rice, 500.into())
-            .await
-            .unwrap();
-
-        let cooked = log(&pool, dish, None, date!(2026 - 11 - 14)).await.unwrap();
-        let held = |lines: Vec<domain::pantry::PantryLine>| lines[0].qty;
-        assert_eq!(
-            held(pantry::repository::list(&pool).await.unwrap()),
-            300.into()
-        );
-
-        delete(&pool, cooked.id).await.unwrap();
-        assert_eq!(
-            held(pantry::repository::list(&pool).await.unwrap()),
-            500.into()
-        );
     }
 }
