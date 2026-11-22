@@ -2,7 +2,8 @@ use crate::components::ui::{Icon, IconButton, IconName};
 use dioxus::prelude::*;
 
 /// Runs once the dialog is on screen. Moves focus into it (the first control in
-/// the body, so a confirm dialog lands on Cancel), keeps Tab and Shift+Tab inside
+/// the body, so a confirm dialog lands on Cancel, or the dialog itself when it is
+/// marked `data-focus="dialog"`), keeps Tab and Shift+Tab inside
 /// it, and hands focus back to whatever had it before once the dialog is gone.
 pub(crate) const FOCUS_SCRIPT: &str = r#"
 const id = "__ID__";
@@ -11,7 +12,9 @@ if (dlg) {
   const prev = document.activeElement;
   const sel = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
   const focusables = () => Array.from(dlg.querySelectorAll(sel)).filter((el) => el.getClientRects().length > 0);
-  if (!dlg.contains(document.activeElement)) {
+  if (dlg.dataset.focus === 'dialog') {
+    dlg.focus();
+  } else if (!dlg.contains(document.activeElement)) {
     const bodyEl = dlg.querySelector('.mr-modal__body');
     const inBody = bodyEl ? Array.from(bodyEl.querySelectorAll(sel)) : [];
     const target = inBody.find((el) => el.getClientRects().length > 0) || focusables()[0] || dlg;
@@ -51,6 +54,9 @@ if (dlg) {
 /// inside the dialog (e.g. selecting text) and releases on the backdrop doesn't
 /// close it — only a press that begins on the backdrop does.
 ///
+/// `focus_dialog` lands focus on the dialog rather than its first field, so a form
+/// opens without a caret in it or a phone keyboard over it.
+///
 /// `wide` widens the dialog for form-heavy content (the default suits short
 /// confirmations). The dialog is never taller than the viewport: the title stays
 /// put and the body scrolls, with a `mr-dialog-foot` action row pinned to its bottom.
@@ -59,6 +65,7 @@ pub fn Modal(
     on_close: EventHandler<()>,
     #[props(optional)] title: Option<String>,
     #[props(default)] wide: bool,
+    #[props(default)] focus_dialog: bool,
     children: Element,
 ) -> Element {
     let id = use_hook(|| format!("mr-modal-{}", dioxus::core::current_scope_id().0));
@@ -90,6 +97,7 @@ pub fn Modal(
                 aria_modal: "true",
                 aria_labelledby: title.is_some().then(|| title_id.clone()),
                 tabindex: "-1",
+                "data-focus": focus_dialog.then_some("dialog"),
                 // A press that starts inside the dialog must not reach the
                 // backdrop, or a drag-select ending outside would close it.
                 onmousedown: move |e| e.stop_propagation(),

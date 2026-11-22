@@ -55,6 +55,7 @@ pub fn OtherItemDialog(
     rsx! {
         Modal {
             title: title.to_string(),
+            focus_dialog: true,
             on_close: move |_| on_close.call(()),
 
             div { class: "mr-dialog-form",
