@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        UPDATE shopping_list_item\n        SET ingredient_id = COALESCE($1, ingredient_id),\n            unit_id = COALESCE($2, unit_id),\n            qty = COALESCE($3, qty),\n            is_purchased = COALESCE($4, is_purchased),\n            note = COALESCE($5, note)\n        WHERE id = $6\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, name, created_at, updated_at\n        ",
+  "query": "\n        SELECT id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, shopping_item_id, created_at, updated_at\n        FROM shopping_list_item\n        ORDER BY created_at\n        ",
   "describe": {
     "columns": [
       {
@@ -82,12 +82,12 @@
       },
       {
         "ordinal": 7,
-        "name": "name",
-        "type_info": "Text",
+        "name": "shopping_item_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "shopping_list_item",
-            "name": "name"
+            "name": "shopping_item_id"
           }
         }
       },
@@ -115,14 +115,7 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Uuid",
-        "Uuid",
-        "Numeric",
-        "Bool",
-        "Text",
-        "Uuid"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -137,5 +130,5 @@
       false
     ]
   },
-  "hash": "cafb04add993ddc3df0bf7e0a7e1a4f5169c22b0db1ddb6b3d763218b5680288"
+  "hash": "b836d76d0e4823bb31d27ee31c99a150ce3fcec31dc6bfe542afb36bd2814f16"
 }

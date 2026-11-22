@@ -76,7 +76,7 @@ pub async fn add_covered_item(id: Uuid) -> Result<ShoppingListItem, ServerFnErro
         .map_err(server_fn_error)
 }
 
-/// Add a free-text line (something that is not an ingredient) to a list.
+/// Add a line for something that is not an ingredient to a list.
 #[server]
 pub async fn add_custom_item(
     shopping_list_id: Uuid,
@@ -87,6 +87,18 @@ pub async fn add_custom_item(
 
     let state = app_state()?;
     repository::add_custom(&state.db, shopping_list_id, &name)
+        .await
+        .map_err(server_fn_error)
+}
+
+/// File the ingredient or shopping item behind a line under `category_id`, or under none.
+#[server]
+pub async fn set_line_category(id: Uuid, category_id: Option<Uuid>) -> Result<(), ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::shopping_list_item::repository;
+
+    let state = app_state()?;
+    repository::set_category(&state.db, id, category_id)
         .await
         .map_err(server_fn_error)
 }
@@ -105,7 +117,7 @@ pub async fn remove_custom_item(
         .map_err(server_fn_error)
 }
 
-/// Clear the list's ticked lines (free-text lines deleted, ingredient lines hidden); returns how many.
+/// Clear the list's ticked lines (other items deleted, ingredient lines hidden); returns how many.
 #[server]
 pub async fn clear_bought_items(shopping_list_id: Uuid) -> Result<u64, ServerFnError> {
     use crate::server::{app_state, server_fn_error};

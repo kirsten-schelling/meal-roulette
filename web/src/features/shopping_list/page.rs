@@ -12,16 +12,20 @@ use crate::components::ui::{
 };
 use crate::features::history::format::{dinner_count, plan_title};
 use crate::features::history::hooks::use_local_offset::use_local_offset;
-use crate::features::shopping_list::components::{AddCustomItem, LineRow, SleepBar};
+use crate::features::shopping_list::components::{
+    AddCustomItem, CategoryPicker, LineRow, ManageCategoriesDialog, SleepBar,
+};
+use crate::features::shopping_list::hooks::use_shopping_categories::use_shopping_categories;
 use crate::features::shopping_list::hooks::use_shopping_list::{
     add_covered_item, add_custom_item, clear_bought_items, generate_shopping_list,
-    remove_custom_item, set_item_purchased, sleep_ingredients, use_get_shopping_list,
-    wake_ingredient,
+    remove_custom_item, set_item_purchased, set_line_category, sleep_ingredients,
+    use_get_shopping_list, wake_ingredient,
 };
 use crate::hooks::use_toast::use_toast;
 use crate::models::{date_label, error_message};
 use crate::router::Route;
 use dioxus::prelude::*;
+use domain::shopping_category::ShoppingCategory;
 use domain::shopping_list::ShoppingListForPlan;
 use domain::shopping_list_item::ShoppingListLine;
 use time::UtcOffset;
@@ -53,6 +57,30 @@ fn lines(loaded: &Loaded) -> Vec<ShoppingListLine> {
             .unwrap_or_default(),
         _ => Vec::new(),
     }
+}
+
+/// The lines under each category in list order, then the uncategorised ones. A section
+/// is named only when some line has a category.
+fn sections(
+    lines: Vec<ShoppingListLine>,
+    categories: &[ShoppingCategory],
+) -> Vec<(Option<String>, Vec<ShoppingListLine>)> {
+    let (mut rest, mut named) = (lines, Vec::new());
+    for category in categories {
+        let (inside, outside): (Vec<_>, Vec<_>) = rest
+            .into_iter()
+            .partition(|line| line.category_id == Some(category.id));
+        rest = outside;
+        if !inside.is_empty() {
+            named.push((Some(category.name.clone()), inside));
+        }
+    }
+    if rest.is_empty() {
+        return named;
+    }
+    let label = (!named.is_empty()).then(|| "Other".to_string());
+    named.push((label, rest));
+    named
 }
 
 fn page_subtitle(view: Option<&ShoppingListForPlan>, offset: UtcOffset) -> String {
@@ -98,6 +126,10 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
     // The own-item line whose "Remove" is in flight.
     let mut removing = use_signal(|| None as Option<Uuid>);
     let mut clearing = use_signal(|| false);
+    let mut categories = use_shopping_categories();
+    // The line whose category is being chosen.
+    let mut categorising = use_signal(|| None as Option<ShoppingListLine>);
+    let mut managing_categories = use_signal(|| false);
 
     let loaded = data();
     let view: Option<&ShoppingListForPlan> = match &loaded {
@@ -341,6 +373,23 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         });
     };
 
+    let pick_category = move |category_id: Option<Uuid>| {
+        let Some(line) = categorising() else {
+            return;
+        };
+        categorising.set(None);
+        spawn(async move {
+            match set_line_category(line.id, category_id).await {
+                Ok(()) => data.restart(),
+                Err(e) => toast.show(
+                    Some("Couldn't set the category".to_string()),
+                    error_message(&e),
+                    Tone::Red,
+                ),
+            }
+        });
+    };
+
     let tick = move |line: &ShoppingListLine| {
         let id = line.id;
         EventHandler::new(move |now: bool| toggle_purchased(id, now))
@@ -351,6 +400,13 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         let busy = removing().is_some();
         rsx! {
             ActionMenu { label: "More actions for {line.ingredient}",
+                ActionMenuItem {
+                    onclick: {
+                        let target = line.clone();
+                        move |_| categorising.set(Some(target.clone()))
+                    },
+                    "Category\u{2026}"
+                }
                 ActionMenuItem {
                     danger: true,
                     disabled: busy,
@@ -378,6 +434,18 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
         .count();
     let to_buy = items.len() - sleeping_count - purchased_count;
     let all_bought = to_buy == 0 && purchased_count > 0;
+    let category_list = match categories() {
+        Some(Ok(list)) => list,
+        _ => Vec::new(),
+    };
+    let to_buy_sections = sections(
+        items
+            .iter()
+            .filter(|l| l.sleep_until.is_none() && !purchased(l))
+            .cloned()
+            .collect(),
+        &category_list,
+    );
 
     rsx! {
         div { class: "mr-page",
@@ -401,6 +469,11 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                             aria_expanded: add_open(),
                             onclick: move |_| add_open.set(!add_open()),
                             "Add item"
+                        }
+                        Button {
+                            variant: ButtonVariant::Outline,
+                            onclick: move |_| managing_categories.set(true),
+                            "Categories"
                         }
                         Button {
                             variant: ButtonVariant::Outline,
@@ -472,8 +545,12 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                     if add_open() {
                         AddCustomItem { busy: adding(), on_add: add_own_item }
                     }
-                    ul { class: "mr-linelist",
-                        for line in items.iter().filter(|l| l.sleep_until.is_none() && !purchased(l)) {
+                    for (label, section) in to_buy_sections {
+                        if let Some(label) = label {
+                            h2 { class: "mr-linesection", "{label}" }
+                        }
+                        ul { class: "mr-linelist",
+                        for line in section.iter() {
                             LineRow {
                                 key: "{line.id}",
                                 line: line.clone(),
@@ -484,6 +561,13 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                                     {own_item_action(line)}
                                 } else {
                                     ActionMenu { label: "More actions for {line.ingredient}",
+                                        ActionMenuItem {
+                                            onclick: {
+                                                let target = line.clone();
+                                                move |_| categorising.set(Some(target.clone()))
+                                            },
+                                            "Category\u{2026}"
+                                        }
                                         ActionMenuItem {
                                             onclick: {
                                                 let id = line.id;
@@ -498,6 +582,7 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                                     }
                                 }
                             }
+                        }
                         }
                     }
                     if items.is_empty() && covered.is_empty() {
@@ -652,6 +737,31 @@ fn ShoppingListView(plan_id: ReadSignal<Option<Uuid>>) -> Element {
                         strong { "Changes: " }
                         "amounts are recalculated from this week's dinners, and ingredients no longer in the plan are removed."
                     }
+                }
+            }
+
+            if let Some(line) = categorising() {
+                CategoryPicker {
+                    name: line.ingredient.clone(),
+                    current: line.category_id,
+                    categories: category_list.clone(),
+                    on_pick: pick_category,
+                    on_manage: move |_| {
+                        categorising.set(None);
+                        managing_categories.set(true);
+                    },
+                    on_close: move |_| categorising.set(None),
+                }
+            }
+
+            if managing_categories() {
+                ManageCategoriesDialog {
+                    categories: categories(),
+                    on_changed: move |_| categories.restart(),
+                    on_close: move |_| {
+                        managing_categories.set(false);
+                        data.restart();
+                    },
                 }
             }
 

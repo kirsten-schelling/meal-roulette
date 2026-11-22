@@ -281,7 +281,7 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> Result<ShoppingList, sqlx::Error
 mod tests {
     use super::*;
     use crate::features::shopping_list_item::repository::{
-        add_anyway, add_custom, clear_bought, lines, remove_custom, set_purchased,
+        add_anyway, add_custom, clear_bought, lines, remove_custom, set_category, set_purchased,
     };
 
     struct Fixture {
@@ -447,6 +447,35 @@ mod tests {
             names(&lines(&pool, this_week.id).await.unwrap()),
             ["Bin bags"]
         );
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_category_follows_the_ingredient_or_item_onto_later_lists(pool: PgPool) {
+        let f = fixture(&pool).await;
+        let category = crate::features::shopping_category::repository::create(&pool, "Household")
+            .await
+            .unwrap();
+        let list = generate_for_plan(&pool, f.plan_id).await.unwrap();
+        let bags = add_custom(&pool, list.id, "Bin bags").await.unwrap();
+        let rice = line_named(&pool, list.id, "Rice").await;
+
+        set_category(&pool, bags.id, Some(category.id))
+            .await
+            .unwrap();
+        set_category(&pool, rice, Some(category.id)).await.unwrap();
+        remove_custom(&pool, list.id, bags.id).await.unwrap();
+        let again = add_custom(&pool, list.id, "bin BAGS").await.unwrap();
+
+        let after = lines(&pool, list.id).await.unwrap();
+        let category_of = |id: Uuid| after.iter().find(|l| l.id == id).unwrap().category_id;
+        assert_eq!(category_of(again.id), Some(category.id));
+        assert_eq!(category_of(rice), Some(category.id));
+        assert_eq!(
+            after.iter().find(|l| l.id == again.id).unwrap().ingredient,
+            "Bin bags"
+        );
+        let spaghetti = line_named(&pool, list.id, "Spaghetti").await;
+        assert_eq!(category_of(spaghetti), None);
     }
 
     #[sqlx::test(migrations = "./migrations")]

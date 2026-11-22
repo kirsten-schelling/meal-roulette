@@ -1894,6 +1894,11 @@ button.mr-chip--active::before {
 .mr-linegroup__toggle:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--mr-focus); border-radius: 4px; }
 .mr-linegroup__chev { width: 1rem; color: var(--mr-text-muted); }
 .mr-linegroup .mr-btn { min-height: 44px; }
+.mr-linesection {
+  margin: .9rem 0 .25rem; font-size: var(--mr-text-sm); font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: var(--mr-text-muted);
+}
+.mr-categorypick { display: flex; flex-direction: column; gap: .5rem; }
 
 @media (max-width: 520px) {
   .mr-main__inner { padding: 1rem .75rem 5rem; }

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE shopping_category\n        SET position = ordered.position::int\n        FROM unnest($1::uuid[]) WITH ORDINALITY AS ordered(id, position)\n        WHERE shopping_category.id = ordered.id\n        RETURNING shopping_category.id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "shopping_category",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "29b40c80236c6600486b6a44f0dd213a40e342b93ea9a853cf6432bcf5af6881"
+}

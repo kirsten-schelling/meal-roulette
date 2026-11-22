@@ -7,15 +7,15 @@ use uuid::Uuid;
 pub struct ShoppingListItem {
     pub id: Uuid,
     pub shopping_list_id: Uuid,
-    /// `None` for a free-text line the household added (see `name`).
+    /// `None` for a line the household added that is not an ingredient (see `shopping_item_id`).
     pub ingredient_id: Option<Uuid>,
     /// Snapshot of the unit at generation time. `None` for a free-text line.
     pub unit_id: Option<Uuid>,
     pub qty: Option<Decimal>,
     pub is_purchased: bool,
     pub note: Option<String>,
-    /// The text of a free-text line; `None` on an ingredient line.
-    pub name: Option<String>,
+    /// The shopping item of a line that is not an ingredient; `None` on an ingredient line.
+    pub shopping_item_id: Option<Uuid>,
     pub created_at: time::OffsetDateTime,
     pub updated_at: time::OffsetDateTime,
 }
@@ -43,6 +43,8 @@ pub struct ShoppingListLine {
     pub note: Option<String>,
     /// Titles of the plan's recipes that call for it, in date order.
     pub used_in: Vec<String>,
+    /// The shopping category of the ingredient or shopping item behind the line.
+    pub category_id: Option<Uuid>,
     /// Wake date of an active sleep. `None` = not asleep, so it goes on the list.
     #[serde(default, with = "crate::date_format::iso_date::option")]
     pub sleep_until: Option<time::Date>,

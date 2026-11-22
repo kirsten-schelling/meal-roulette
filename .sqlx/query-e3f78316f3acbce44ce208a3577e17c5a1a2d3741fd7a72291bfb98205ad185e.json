@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        DELETE FROM shopping_list_item\n        WHERE id = $1 AND shopping_list_id = $2 AND ingredient_id IS NULL\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, name, created_at, updated_at\n        ",
+  "query": "\n        SELECT id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, shopping_item_id, created_at, updated_at\n        FROM shopping_list_item\n        WHERE id = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -82,12 +82,12 @@
       },
       {
         "ordinal": 7,
-        "name": "name",
-        "type_info": "Text",
+        "name": "shopping_item_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "shopping_list_item",
-            "name": "name"
+            "name": "shopping_item_id"
           }
         }
       },
@@ -116,7 +116,6 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
         "Uuid"
       ]
     },
@@ -133,5 +132,5 @@
       false
     ]
   },
-  "hash": "59214f803d71b17c27b3f335f4141066d6842ff5e7cdfd020c83a4df0733d39b"
+  "hash": "e3f78316f3acbce44ce208a3577e17c5a1a2d3741fd7a72291bfb98205ad185e"
 }

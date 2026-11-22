@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, name, created_at, updated_at\n        FROM shopping_list_item\n        ORDER BY created_at\n        ",
+  "query": "\n        INSERT INTO shopping_list_item (shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        RETURNING id, shopping_list_id, ingredient_id, unit_id, qty, is_purchased, note, shopping_item_id, created_at, updated_at\n        ",
   "describe": {
     "columns": [
       {
@@ -82,12 +82,12 @@
       },
       {
         "ordinal": 7,
-        "name": "name",
-        "type_info": "Text",
+        "name": "shopping_item_id",
+        "type_info": "Uuid",
         "origin": {
           "Table": {
             "table": "shopping_list_item",
-            "name": "name"
+            "name": "shopping_item_id"
           }
         }
       },
@@ -115,7 +115,14 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Numeric",
+        "Bool",
+        "Text"
+      ]
     },
     "nullable": [
       false,
@@ -130,5 +137,5 @@
       false
     ]
   },
-  "hash": "b31dc065580e1e083d404cdf16db8fe565b2297ddfae3e26e7dc9e030afa4431"
+  "hash": "34577174a38c951c96cecddde57d10f5afcd16f51324c6d2913cc838d8ae8ae9"
 }

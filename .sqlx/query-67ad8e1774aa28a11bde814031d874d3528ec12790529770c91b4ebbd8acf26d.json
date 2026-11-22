@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        WITH line AS (\n            SELECT ingredient_id, shopping_item_id FROM shopping_list_item WHERE id = $1\n        ), ingredient_set AS (\n            UPDATE ingredient\n            SET shopping_category_id = $2\n            FROM line\n            WHERE ingredient.id = line.ingredient_id\n            RETURNING ingredient.id\n        ), item_set AS (\n            UPDATE shopping_item\n            SET shopping_category_id = $2\n            FROM line\n            WHERE shopping_item.id = line.shopping_item_id\n            RETURNING shopping_item.id\n        )\n        SELECT id AS \"id!\" FROM ingredient_set\n        UNION ALL\n        SELECT id FROM item_set\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "67ad8e1774aa28a11bde814031d874d3528ec12790529770c91b4ebbd8acf26d"
+}

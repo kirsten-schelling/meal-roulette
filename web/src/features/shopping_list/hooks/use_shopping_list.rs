@@ -5,8 +5,8 @@ use uuid::Uuid;
 
 pub use crate::server::api::shopping_list::{
     add_covered_item, add_custom_item, clear_bought_items, ensure_shopping_list,
-    generate_shopping_list, remove_custom_item, set_item_purchased, sleep_ingredients,
-    wake_ingredient,
+    generate_shopping_list, remove_custom_item, set_item_purchased, set_line_category,
+    sleep_ingredients, wake_ingredient,
 };
 
 /// A plan and its shopping list: the plan `plan_id` names, or the latest
