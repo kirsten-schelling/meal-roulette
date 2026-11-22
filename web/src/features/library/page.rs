@@ -1,14 +1,14 @@
 use crate::components::ui::{
     Alert, Button, ButtonVariant, CellAlign, Column, ConfirmDialog, DataTable, Heading, Icon,
-    IconButton, IconName, Spinner, Text, Tone,
+    IconButton, IconName, Size, Spinner, Text, Tone,
 };
 use crate::features::cuisine::hooks::use_cuisine::use_get_cuisines;
 use crate::features::ingredient::hooks::use_ingredient::{
     delete_ingredient, delete_ingredient_cascade, get_ingredient_references, use_get_ingredients,
 };
 use crate::features::library::components::{
-    BlockedDeleteDialog, IngredientDialog, LookupCard, ManageListsDialog, ManageTab,
-    OtherItemDialog,
+    BlockedDeleteDialog, BulkIngredientDialog, IngredientDialog, LookupCard, ManageListsDialog,
+    ManageTab, OtherItemDialog,
 };
 use crate::features::protein::hooks::use_protein::use_get_proteins;
 use crate::features::shopping_list::components::ManageCategoriesDialog;
@@ -83,6 +83,9 @@ pub fn Library(manage: String) -> Element {
     let mut managing_categories = use_signal(|| false);
     let mut item_form = use_signal(|| ItemForm::Closed);
     let mut deleting_item = use_signal(|| None as Option<ShoppingItem>);
+    // Ingredient table rows ticked for a bulk edit, by index into the current list.
+    let mut selected_rows = use_signal(Vec::<usize>::new);
+    let mut bulk_editing = use_signal(|| false);
 
     // Which manage tab is open, if any — `None` means the dialog is closed.
     let mut managing = use_signal(|| match manage.as_str() {
@@ -261,6 +264,13 @@ pub fn Library(manage: String) -> Element {
     ];
 
     let open_form = form();
+    let selected_ids: Vec<Uuid> = match &*ingredients.read() {
+        Some(Ok(list)) => selected_rows()
+            .iter()
+            .filter_map(|&i| list.get(i).map(|ingredient| ingredient.id))
+            .collect(),
+        _ => Vec::new(),
+    };
 
     rsx! {
         div { class: "mr-page",
@@ -376,6 +386,34 @@ pub fn Library(manage: String) -> Element {
                 }
             }
 
+            if bulk_editing() {
+                BulkIngredientDialog {
+                    ids: selected_ids.clone(),
+                    on_close: move |_| bulk_editing.set(false),
+                    on_saved: move |_| {
+                        bulk_editing.set(false);
+                        ingredients.restart();
+                        toast.show(
+                            Some("Saved".to_string()),
+                            "The ingredients are updated.".to_string(),
+                            Tone::Green,
+                        );
+                    },
+                }
+            }
+
+            if !selected_ids.is_empty() && !bulk_editing() {
+                div { class: "mr-bulkbar",
+                    Text { small: true, "{selected_ids.len()} selected" }
+                    Button {
+                        variant: ButtonVariant::Solid,
+                        size: Size::Sm,
+                        onclick: move |_| bulk_editing.set(true),
+                        "Edit selected"
+                    }
+                }
+            }
+
             if managing_categories() {
                 ManageCategoriesDialog {
                     categories: categories(),
@@ -434,6 +472,8 @@ pub fn Library(manage: String) -> Element {
                                 DataTable::<Ingredient> {
                                     columns: columns.clone(),
                                     rows: list,
+                                    selectable: true,
+                                    on_select: move |v: Vec<usize>| selected_rows.set(v),
                                     empty: "No ingredients yet. Add one, or let recipes create them as you go."
                                         .to_string(),
                                 }

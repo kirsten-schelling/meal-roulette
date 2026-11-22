@@ -1,7 +1,8 @@
 use crate::features::unit;
 use crate::references::{to_references, ReferenceRow};
 use domain::ingredient::{
-    Ingredient, IngredientEntry, InsertIngredient, NewIngredient, UpdateIngredient,
+    BulkIngredientUpdate, FieldChange, Ingredient, IngredientEntry, InsertIngredient,
+    NewIngredient, UpdateIngredient,
 };
 use domain::usage::{Reference, ReferenceKind};
 use sqlx::{PgConnection, PgPool};
@@ -153,6 +154,46 @@ pub async fn update(
     Ok(updated)
 }
 
+/// Apply the same changes to every ingredient in `ids`; returns how many were changed.
+pub async fn update_many(
+    pool: &PgPool,
+    ids: &[Uuid],
+    changes: BulkIngredientUpdate,
+) -> Result<u64, sqlx::Error> {
+    let (set_unit, unit_id) = match changes.unit_id {
+        FieldChange::Keep => (false, None),
+        FieldChange::Set(id) => (true, id),
+    };
+    let (set_size, purchase_size) = match changes.purchase_size {
+        FieldChange::Keep => (false, None),
+        FieldChange::Set(size) => (true, Some(size)),
+    };
+    let (set_category, category_id) = match changes.shopping_category_id {
+        FieldChange::Keep => (false, None),
+        FieldChange::Set(id) => (true, id),
+    };
+    let changed = sqlx::query_scalar!(
+        r#"
+        UPDATE ingredient
+        SET unit_id = CASE WHEN $2::bool THEN $3::uuid ELSE unit_id END,
+            purchase_size = CASE WHEN $4::bool THEN $5::int ELSE purchase_size END,
+            shopping_category_id = CASE WHEN $6::bool THEN $7::uuid ELSE shopping_category_id END
+        WHERE id = ANY($1)
+        RETURNING id
+        "#,
+        ids,
+        set_unit,
+        unit_id,
+        set_size,
+        purchase_size,
+        set_category,
+        category_id,
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(changed.len() as u64)
+}
+
 pub async fn delete(pool: &PgPool, id: Uuid) -> Result<Ingredient, sqlx::Error> {
     let ingredient = sqlx::query_as!(
         Ingredient,
@@ -255,6 +296,49 @@ mod tests {
             purchase_size: None,
             unit,
             shopping_category_id: None,
+        }
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn a_bulk_edit_changes_only_the_fields_it_sets(pool: PgPool) {
+        let mut ids = Vec::new();
+        for name in ["Flour", "Sugar"] {
+            let ingredient = create_with_unit(
+                &pool,
+                NewIngredient {
+                    household_id: None,
+                    name: name.to_string(),
+                    purchase_size: Some(500),
+                    unit: Some(UnitEntry::New("g".to_string())),
+                    shopping_category_id: None,
+                },
+            )
+            .await
+            .unwrap();
+            ids.push(ingredient.id);
+        }
+        let baking = crate::features::shopping_category::repository::create(&pool, "Baking")
+            .await
+            .unwrap();
+
+        let changed = update_many(
+            &pool,
+            &ids,
+            BulkIngredientUpdate {
+                unit_id: FieldChange::Set(None),
+                purchase_size: FieldChange::Keep,
+                shopping_category_id: FieldChange::Set(Some(baking.id)),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(changed, 2);
+        for id in ids {
+            let ingredient = get(&pool, id).await.unwrap();
+            assert_eq!(ingredient.unit_id, None);
+            assert_eq!(ingredient.purchase_size, Some(500));
+            assert_eq!(ingredient.shopping_category_id, Some(baking.id));
         }
     }
 

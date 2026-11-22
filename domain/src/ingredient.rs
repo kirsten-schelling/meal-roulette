@@ -53,6 +53,21 @@ pub struct UpdateIngredient {
     pub shopping_category_id: Option<Uuid>,
 }
 
+/// One field of a bulk edit: left as each ingredient has it, or set on all of them.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub enum FieldChange<T> {
+    Keep,
+    Set(T),
+}
+
+/// What a bulk edit changes on every chosen ingredient. The name is never bulk edited.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BulkIngredientUpdate {
+    pub unit_id: FieldChange<Option<Uuid>>,
+    pub purchase_size: FieldChange<i32>,
+    pub shopping_category_id: FieldChange<Option<Uuid>>,
+}
+
 #[derive(Debug, Serialize, Clone, PartialEq, Deserialize)]
 pub enum IngredientEntry {
     Existing(Uuid),

@@ -3,7 +3,9 @@ pub use crate::server::api::ingredient::{delete_ingredient_cascade, get_ingredie
 use dioxus::prelude::*;
 use domain::ingredient::{Ingredient, NewIngredient};
 
-pub use crate::server::api::ingredient::{delete_ingredient, update_ingredient};
+pub use crate::server::api::ingredient::{
+    delete_ingredient, update_ingredient, update_ingredients,
+};
 
 #[derive(Clone, Copy)]
 pub struct AddIngredient {

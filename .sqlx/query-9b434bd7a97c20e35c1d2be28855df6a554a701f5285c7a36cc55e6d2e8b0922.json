@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE ingredient\n        SET unit_id = CASE WHEN $2::bool THEN $3::uuid ELSE unit_id END,\n            purchase_size = CASE WHEN $4::bool THEN $5::int ELSE purchase_size END,\n            shopping_category_id = CASE WHEN $6::bool THEN $7::uuid ELSE shopping_category_id END\n        WHERE id = ANY($1)\n        RETURNING id\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ingredient",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "UuidArray",
+        "Bool",
+        "Uuid",
+        "Bool",
+        "Int4",
+        "Bool",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "9b434bd7a97c20e35c1d2be28855df6a554a701f5285c7a36cc55e6d2e8b0922"
+}

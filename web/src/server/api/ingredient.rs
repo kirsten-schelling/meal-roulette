@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use domain::ingredient::{Ingredient, NewIngredient, UpdateIngredient};
+use domain::ingredient::{BulkIngredientUpdate, Ingredient, NewIngredient, UpdateIngredient};
 use domain::usage::Reference;
 use uuid::Uuid;
 
@@ -33,6 +33,21 @@ pub async fn update_ingredient(
 
     let state = app_state()?;
     repository::update(&state.db, id, ingredient)
+        .await
+        .map_err(server_fn_error)
+}
+
+/// Apply the same changes to every ingredient in `ids`; returns how many were changed.
+#[server]
+pub async fn update_ingredients(
+    ids: Vec<Uuid>,
+    changes: BulkIngredientUpdate,
+) -> Result<u64, ServerFnError> {
+    use crate::server::{app_state, server_fn_error};
+    use api::features::ingredient::repository;
+
+    let state = app_state()?;
+    repository::update_many(&state.db, &ids, changes)
         .await
         .map_err(server_fn_error)
 }
